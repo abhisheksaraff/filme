@@ -1,5 +1,6 @@
 -- 0007_holidays_covers_storage_settings.sql
 -- Moving holidays, a public bucket for custom posters, a storage meter and new settings columns.
+-- Safe to run more than once: every step skips or replaces what is already there.
 
 -- ---------------------------------------------------------------- moving holidays
 -- Their dates change every year, so one validated AI lookup per year fills holiday_dates.
@@ -18,16 +19,19 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('covers', 'covers', true, 10485760, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
+drop policy if exists "covers: own folder, insert" on storage.objects;
 create policy "covers: own folder, insert" on storage.objects for insert to authenticated
   with check (bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text);
+drop policy if exists "covers: own folder, update" on storage.objects;
 create policy "covers: own folder, update" on storage.objects for update to authenticated
   using (bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text);
+drop policy if exists "covers: own folder, delete" on storage.objects;
 create policy "covers: own folder, delete" on storage.objects for delete to authenticated
   using (bucket_id = 'covers' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
 -- ---------------------------------------------------------------- storage meter
 -- Bytes the signed-in user has stored, so the app can show how much of the free 1 GB is used.
-create function public.my_storage_bytes() returns bigint
+create or replace function public.my_storage_bytes() returns bigint
 language sql stable security definer set search_path = public, storage as $$
   select coalesce(sum((metadata ->> 'size')::bigint), 0)
   from storage.objects
@@ -39,8 +43,8 @@ grant execute on function public.my_storage_bytes() to authenticated;
 
 -- ---------------------------------------------------------------- settings
 alter table public.user_settings
-  add column decorations_enabled boolean not null default true,
-  add column birthday text check (birthday ~ '^\d{2}-\d{2}$'),     -- MM-DD, for the birthday theme
-  add column city text,
-  add column region text check (region ~ '^[A-Z]{2}$'),             -- ISO country code for theatre listings
-  add column last_backup_at timestamptz;
+  add column if not exists decorations_enabled boolean not null default true,
+  add column if not exists birthday text check (birthday ~ '^\d{2}-\d{2}$'),     -- MM-DD, for the birthday theme
+  add column if not exists city text,
+  add column if not exists region text check (region ~ '^[A-Z]{2}$'),             -- ISO country code for theatre listings
+  add column if not exists last_backup_at timestamptz;
