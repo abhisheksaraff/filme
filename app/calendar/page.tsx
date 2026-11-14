@@ -5,7 +5,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import RoundButton from "@/components/RoundButton";
-import BottomNav from "@/components/BottomNav";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { MONTH_NAMES, type StatRow } from "@/lib/domain/stats";
@@ -169,7 +168,6 @@ export default function CalendarPage() {
       )}
 
       <RoundButton icon="sparkle" label="Ask your log" href="/search/?ask=1" tone="dark" size="lg" className="fixed bottom-24 right-5 z-20 shadow-lg" />
-      <BottomNav />
     </main>
   );
 }

@@ -4,7 +4,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import BackLink from "@/components/BackLink";
 import BarList from "@/components/BarList";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { computeStats, formatDuration, statYears, type StatRow } from "@/lib/domain/stats";
@@ -60,7 +59,6 @@ export default function StatsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-8">
-      <BackLink fallback="/profile/" />
       <h1 className="font-serif text-3xl tracking-tight">Stats</h1>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
       {!rows && !problem && <div className="skeleton h-64 rounded-2xl" />}
@@ -109,7 +107,7 @@ export default function StatsPage() {
               {stats.actors.length > 0 && <Section title="Actors"><BarList items={stats.actors} /></Section>}
               {stats.bestActors.length > 0 && <Section title="Highest-rated actors"><BarList items={stats.bestActors} decimals={1} /></Section>}
               {stats.performers.length > 0 && <Section title="Artists seen live"><BarList items={stats.performers} /></Section>}
-              <Link href="/globe/" className="rounded-xl border border-neutral-300 px-4 py-3 text-sm dark:border-neutral-700">See your venues on the globe →</Link>
+              <Link href="/map/" className="rounded-xl border border-neutral-300 px-4 py-3 text-sm dark:border-neutral-700">See your venues on the map →</Link>
               {stats.categories.length > 0 && <Section title="Types"><BarList items={stats.categories} /></Section>}
               {stats.languages.length > 0 && (
                 <Section title="Languages">

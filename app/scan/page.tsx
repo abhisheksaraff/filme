@@ -5,7 +5,6 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import BottomNav from "@/components/BottomNav";
 import PosterChooser, { type CoverChoice } from "@/components/PosterChooser";
 import RoundButton from "@/components/RoundButton";
 import UploadToImages, { type FileProcessingError } from "@/components/UploadToImages";
@@ -20,7 +19,9 @@ import {
   type EntryDraft,
 } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
-import { convertImage, STUB_PRESET } from "@/lib/images/convert";
+import CropDialog from "@/components/CropDialog";
+import Icon from "@/components/Icon";
+import { convertImage, PHOTO_PRESET, STUB_PRESET } from "@/lib/images/convert";
 import { takePrefill } from "@/lib/logPrefill";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
 import { syncCredits } from "@/lib/credits";
@@ -31,6 +32,8 @@ const SEARCH_DELAY_MS = 500;
 export default function ScanPage() {
   const ready = useRequireSession();
   const router = useRouter();
+  const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
+  const [cropPhoto, setCropPhoto] = useState<File | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [errors, setErrors] = useState<FileProcessingError[]>([]);
   const [poster, setPoster] = useState<CoverChoice>(null);
@@ -190,6 +193,7 @@ export default function ScanPage() {
           if (added.ok) await services.images.setDefault({ mediaId: saved.value.mediaId }, added.value.id);
         }
       }
+      for (const photo of photos) await services.images.add({ sessionId: saved.value.sessionId }, "photo", photo.blob, null);
       // Genres and cast are saved in the background; the log entry is already safe.
       const tmdbId = entry.value.media?.tmdbId;
       if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {
@@ -233,9 +237,9 @@ export default function ScanPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-32 pt-6">
       {busy && <LoadingOverlay label={busy} />}
 
-      <header className="flex items-center gap-3">
-        <RoundButton icon="upload" label="Add stubs" tone="dark" size="lg" onClick={() => document.getElementById("stub-upload")?.click()} />
+      <header className="flex items-center justify-between gap-3">
         <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
+        <RoundButton icon="stubUpload" label="Upload ticket stubs" tone="dark" size="lg" onClick={() => document.getElementById("stub-upload")?.click()} />
       </header>
       <UploadToImages
         id="stub-upload"
@@ -275,12 +279,34 @@ export default function ScanPage() {
         <PosterChooser title="Poster" shape="poster" paths={pictures?.posters ?? []} defaultPath={match?.posterPath ?? null} choice={poster} onChoose={setPoster} />
         <PosterChooser title="Cover" shape="backdrop" paths={pictures?.backdrops ?? []} defaultPath={match?.backdropPath ?? null} choice={backdrop} onChoose={setBackdrop} />
 
+        <section className="flex flex-col gap-2">
+          <h2 className="text-xs uppercase tracking-wide text-neutral-500">Photos</h2>
+          <input id="photo-upload" type="file" accept="image/*" hidden onChange={(e) => { setCropPhoto(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+          <ul className="flex flex-wrap items-center gap-2">
+            {photos.map((photo) => (
+              <li key={photo.url}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo.url} alt="Your photo" className="h-12 w-12 rounded-full object-cover" />
+              </li>
+            ))}
+            <li>
+              <button type="button" aria-label="Add a photo" onClick={() => document.getElementById("photo-upload")?.click()}
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+                <Icon name="plus" size={18} />
+              </button>
+            </li>
+          </ul>
+          {cropPhoto && (
+            <CropDialog file={cropPhoto} aspect={1} maxEdge={PHOTO_PRESET.maxEdge} title="Frame your photo" onCancel={() => setCropPhoto(null)}
+              onDone={(blob) => { setCropPhoto(null); setPhotos((list) => [...list, { blob, url: URL.createObjectURL(blob) }]); }} />
+          )}
+        </section>
+
         <button type="submit" disabled={busy !== null}
           className="rounded-full bg-neutral-950 px-5 py-4 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-950">
           Save
         </button>
       </form>
-      <BottomNav />
     </main>
   );
 }

@@ -3,7 +3,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import BackLink from "@/components/BackLink";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { DEFAULT_APPEARANCE, type Appearance } from "@/lib/domain/appearance";
 import { MONTH_NAMES } from "@/lib/domain/stats";
@@ -74,7 +73,6 @@ export default function AppearancePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 pb-12 pt-8">
-      <BackLink fallback="/profile/" />
       <h1 className="font-serif text-3xl tracking-tight">Appearance</h1>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 

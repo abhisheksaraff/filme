@@ -296,17 +296,16 @@ async function tasteWeights(): Promise<{ weights: Map<number, number>; names: Ma
   return { weights, names };
 }
 
-/** Orders hits by how well their genres match the user's taste, and says why the best ones match. */
+/** Orders hits by how well their genres match the user's taste; the subtitle is just the year. */
 function matchTaste(hits: CatalogHit[], taste: Awaited<ReturnType<typeof tasteWeights>>): RowItem[] {
   return hits
     .map((hit) => {
       const ids = hit.genreIds ?? [];
       const score = ids.reduce((sum, id) => sum + (taste.weights.get(id) ?? 0), 0);
-      const best = ids.filter((id) => taste.weights.has(id)).sort((a, b) => (taste.weights.get(b) ?? 0) - (taste.weights.get(a) ?? 0))[0];
-      return { hit, score, reason: best !== undefined && score > 0 ? `Because you like ${taste.names.get(best)}` : null };
+      return { hit, score };
     })
     .sort((a, b) => b.score - a.score)
-    .map(({ hit, reason }) => ({ ...hitItem(hit), subtitle: reason ?? hit.year }));
+    .map(({ hit }) => ({ ...hitItem(hit), subtitle: hit.year }));
 }
 
 async function theatreRow(when: "now" | "soon"): Promise<Result<RowResult>> {
@@ -336,7 +335,7 @@ async function abroadRow(): Promise<Result<RowResult>> {
   if (!abroad.ok) return abroad;
   const here = new Set([...(hereNow.ok ? hereNow.value : []), ...(hereSoon.ok ? hereSoon.value : [])].map((h) => h.tmdbId));
   const missing = abroad.value.filter((h) => !here.has(h.tmdbId) && !seen.has(seenKey(h.kind, h.tmdbId)));
-  const items = matchTaste(missing, taste).slice(0, 12).map((item) => ({ ...item, subtitle: `Out in ${other}, no date here yet` }));
+  const items = matchTaste(missing, taste).slice(0, 12);
   return ok({ title: "Out elsewhere, not confirmed here", items, empty: "Nothing is out elsewhere that is missing here." });
 }
 
@@ -346,9 +345,7 @@ async function arrivingRow(): Promise<Result<RowResult>> {
   const [list, now, soon] = await Promise.all([services.wanted.list(), services.catalog.theatres("now", region), services.catalog.theatres("soon", region)]);
   if (!list.ok) return list;
   const wanted = new Set(list.value.flatMap((w) => (w.category === "Movie" && w.tmdbId !== null ? [w.tmdbId] : [])));
-  const items = [...(now.ok ? now.value.map((h) => ({ h, label: "In theatres now" })) : []), ...(soon.ok ? soon.value.map((h) => ({ h, label: h.releaseDate ? `Opens ${h.releaseDate}` : "Opening soon" })) : [])]
-    .filter(({ h }) => wanted.has(h.tmdbId))
-    .map(({ h, label }) => ({ ...hitItem(h), subtitle: label }));
+  const items = [...(now.ok ? now.value : []), ...(soon.ok ? soon.value : [])].filter((h) => wanted.has(h.tmdbId)).map((h) => hitItem(h));
   return ok({ title: "Arriving from your list", items, empty: "Nothing on your list is opening soon." });
 }
 

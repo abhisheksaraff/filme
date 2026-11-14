@@ -9,8 +9,20 @@ export interface GeoPoint {
   country: string | null;
 }
 
+/** A place found by name or address. */
+export interface PlaceHit {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  city: string | null;
+  country: string | null;
+}
+
 /** Turns a place name or address into coordinates, and coordinates into a city. */
 export interface Geocoder {
+  /** Several matches for a name or address, for suggestions while typing. */
+  search(query: string): Promise<Result<PlaceHit[]>>;
   locate(query: string): Promise<Result<GeoPoint | null>>;
   /** The city and country code at a position, for "Current location". */
   reverse(latitude: number, longitude: number): Promise<Result<{ city: string; region: string } | null>>;

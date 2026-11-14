@@ -2,9 +2,11 @@
 // Editable fields for one viewing. The parent owns the draft; this only edits it.
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } from "@/lib/domain/formats";
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
+import { services } from "@/lib/services";
+import Icon from "./Icon";
 import TagInput from "./TagInput";
 import { parseSeatTag, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
 
@@ -36,12 +38,93 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
+interface VenueSuggestion {
+  key: string;
+  name: string;
+  address: string;
+  own: boolean;
+}
+
+/** Past venues first (matching name or address), then places from the map service. */
+async function findVenues(query: string): Promise<VenueSuggestion[]> {
+  const [own, places] = await Promise.all([services.browse.searchVenues(query), services.geo.search(query)]);
+  const mine: VenueSuggestion[] = own.ok ? own.value.map((v) => ({ key: `own-${v.id}`, name: v.name, address: v.address ?? "", own: true })) : [];
+  const seen = new Set(mine.map((m) => `${m.name}|${m.address}`.toLowerCase()));
+  const found: VenueSuggestion[] = places.ok
+    ? places.value.map((p, i) => ({ key: `map-${i}`, name: p.name, address: p.address, own: false })).filter((p) => !seen.has(`${p.name}|${p.address}`.toLowerCase()))
+    : [];
+  return [...mine, ...found];
+}
+
 export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, disabled }: Props) {
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => onChange({ ...draft, [key]: value });
   // Rarely used fields stay tucked away unless they already hold something.
   const [more, setMore] = useState(
     () => !!(draft.address || draft.auditorium || draft.time || draft.totalTickets || draft.notes || draft.seats.length || draft.addons.length),
   );
+  const [suggest, setSuggest] = useState<{ field: "location" | "address"; items: VenueSuggestion[] } | null>(null);
+  const [typed, setTyped] = useState<{ field: "location" | "address"; text: string } | null>(null);
+  const latest = useRef(draft);
+  useEffect(() => {
+    latest.current = draft;
+  });
+
+  // Suggestions follow the venue or address box a moment after typing stops.
+  useEffect(() => {
+    if (!typed) return;
+    let stale = false;
+    const timer = setTimeout(async () => {
+      const items = typed.text.trim().length >= 2 ? await findVenues(typed.text) : [];
+      if (!stale) setSuggest({ field: typed.field, items });
+    }, 600);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [typed]);
+
+  function typeVenue(field: "location" | "address", text: string) {
+    setTyped({ field, text });
+    set(field, text);
+  }
+
+  /** Picking a suggestion fills the name and the address together. */
+  function chooseVenue(item: VenueSuggestion) {
+    setTyped(null);
+    setSuggest(null);
+    onChange({ ...draft, location: item.name, address: item.address || draft.address });
+  }
+
+  /** "Home" with no address reuses the last home's name and address. */
+  async function typeScreen(text: string) {
+    set("auditorium", text);
+    if (text.trim().toLowerCase() !== "home" || latest.current.address.trim()) return;
+    const home = await services.browse.lastHome();
+    if (!home.ok || !home.value) return;
+    const now = latest.current;
+    if (now.address.trim() || now.auditorium.trim().toLowerCase() !== "home") return;
+    onChange({ ...now, location: now.location.trim() || home.value.name, address: home.value.address ?? "" });
+  }
+
+  const suggestionList = (fieldName: "location" | "address") =>
+    suggest?.field === fieldName && suggest.items.length > 0 ? (
+      <ul className="flex flex-col overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+        {suggest.items.map((item) => (
+          <li key={item.key}>
+            <button type="button" onClick={() => chooseVenue(item)} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950">
+                <Icon name={item.own ? "ticket" : "map"} size={15} />
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate font-medium">{item.name}</span>
+                {item.address && <span className="truncate text-xs text-neutral-500">{item.address}</span>}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    ) : null;
+
   const edit = (field: "title" | "category", next: EntryDraft) => {
     onChange(next);
     onUserEdit?.(field, next);
@@ -87,8 +170,9 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       )}
 
       <Labeled label="Venue">
-        <input className={field} value={draft.location} onChange={(e) => set("location", e.target.value)} />
+        <input className={field} value={draft.location} onChange={(e) => typeVenue("location", e.target.value)} />
       </Labeled>
+      {suggestionList("location")}
 
       <div className="grid grid-cols-2 gap-3">
         <Labeled label="Date">
@@ -112,10 +196,11 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       {more && (
         <>
           <Labeled label="Address">
-            <input className={field} value={draft.address} onChange={(e) => set("address", e.target.value)} />
+            <input className={field} value={draft.address} onChange={(e) => typeVenue("address", e.target.value)} />
           </Labeled>
+          {suggestionList("address")}
           <Labeled label="Screen or hall">
-            <input className={field} value={draft.auditorium} onChange={(e) => set("auditorium", e.target.value)} />
+            <input className={field} value={draft.auditorium} onChange={(e) => void typeScreen(e.target.value)} />
           </Labeled>
           <div className="grid grid-cols-2 gap-3">
             <Labeled label="Time">

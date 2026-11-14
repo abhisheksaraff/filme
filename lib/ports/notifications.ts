@@ -8,6 +8,8 @@ export interface AppNotification {
   /** The month, year or reminder month it is about. */
   period: string;
   createdAt: string;
+  /** When it was opened, or null while it is still unread. */
+  readAt: string | null;
 }
 
 /**
@@ -18,5 +20,6 @@ export interface NotificationRepository {
   active(): Promise<Result<AppNotification[]>>;
   /** Creates the notification once per kind and period; a dismissed one is not created again. */
   ensure(kind: string, period: string): Promise<Result<void>>;
+  markRead(id: string): Promise<Result<void>>;
   dismiss(id: string): Promise<Result<void>>;
 }

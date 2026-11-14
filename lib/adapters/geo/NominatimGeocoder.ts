@@ -39,7 +39,33 @@ async function get<T>(path: string): Promise<T | null> {
   }
 }
 
+interface SearchRow {
+  lat: string;
+  lon: string;
+  name?: string;
+  display_name: string;
+  address?: Address;
+}
+
 export const nominatimGeocoder: Geocoder = {
+  search(query) {
+    return spaced(async () => {
+      const rows = await get<SearchRow[]>(`/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(query)}`);
+      if (rows === null) return fail("Could not reach the map service.");
+      return ok(
+        rows.map((row) => ({
+          // A named place (a cinema) has a name of its own; a plain address uses its first part.
+          name: row.name || row.display_name.split(",")[0].trim(),
+          address: row.display_name,
+          latitude: Number(row.lat),
+          longitude: Number(row.lon),
+          city: cityOf(row.address),
+          country: row.address?.country_code?.toUpperCase() ?? null,
+        })),
+      );
+    });
+  },
+
   locate(query) {
     return spaced(async () => {
       const rows = await get<{ lat: string; lon: string; address?: Address }[]>(

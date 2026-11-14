@@ -7,6 +7,7 @@ import type { CatalogMatch } from "@/lib/ports/catalog";
 import type { DeletedEntry, LogRepository, OwnHit, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { getSupabase } from "./client";
+import { lastHomeVenue } from "./venues";
 
 const BUCKET = "media";
 
@@ -60,7 +61,26 @@ export async function findOrCreateMedia(
   return ok(inserted.data.id as string);
 }
 
+/**
+ * "Home" in the screen field marks a viewing at home. With an address it uses (or creates) the home
+ * at that address, which then becomes the current home; without one it reuses the last home.
+ */
+async function findOrCreateHome(db: SupabaseClient, entry: LogEntry): Promise<Result<string | null>> {
+  const address = entry.address?.trim() || null;
+  if (address) {
+    const found = await db.from("venues").select("id").eq("type", "home").ilike("address", literal(address)).limit(1).maybeSingle();
+    if (found.error) return fail("Could not look up your home.");
+    if (found.data) return ok(found.data.id as string);
+  } else {
+    const last = await lastHomeVenue(db);
+    if (last) return ok(last.id);
+  }
+  const inserted = await db.from("venues").insert({ name: entry.location?.trim() || "Home", type: "home", address }).select("id").single();
+  return inserted.error ? fail("Could not save your home.") : ok(inserted.data.id as string);
+}
+
 async function findOrCreateVenue(db: SupabaseClient, entry: LogEntry): Promise<Result<string | null>> {
+  if (entry.auditorium?.trim().toLowerCase() === "home") return findOrCreateHome(db, entry);
   if (!entry.location) return ok(null);
   const found = await db.from("venues").select("id").ilike("name", literal(entry.location)).limit(1).maybeSingle();
   if (found.error) return fail("Could not look up the venue.");

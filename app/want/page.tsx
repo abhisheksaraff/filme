@@ -5,7 +5,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import RoundButton from "@/components/RoundButton";
-import BottomNav from "@/components/BottomNav";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { CatalogHit, ShowStatus } from "@/lib/ports/catalog";
@@ -183,7 +182,6 @@ export default function WantPage() {
           );
         })}
       </ul>
-      <BottomNav />
     </main>
   );
 }

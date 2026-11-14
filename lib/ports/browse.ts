@@ -43,6 +43,8 @@ export interface VenueViewing {
   posterPath: string | null;
   watchedOn: string | null;
   rating: number | null;
+  /** Movie, TV Show, Concert or Live Event. */
+  category: string;
 }
 
 export interface VenueDetail {
@@ -57,7 +59,21 @@ export interface VenueDetail {
   viewings: VenueViewing[];
 }
 
-/** A venue with a position, for the globe. */
+/** How many viewings of one kind happened at a venue. */
+export interface KindCount {
+  category: string;
+  count: number;
+}
+
+/** A venue the user has used before, offered while typing a venue name or address. */
+export interface OwnVenue {
+  id: string;
+  name: string;
+  address: string | null;
+  type: string;
+}
+
+/** A venue with a position, for the map. */
 export interface VenuePoint {
   id: string;
   name: string;
@@ -66,6 +82,9 @@ export interface VenuePoint {
   latitude: number;
   longitude: number;
   count: number;
+  type: string;
+  /** Viewings per kind; homes put everything under one pin. */
+  kinds: KindCount[];
 }
 
 /** Everything linked from a title: its credits, the people, their other work, and venues. */
@@ -77,6 +96,10 @@ export interface BrowseRepository {
   venue(id: string): Promise<Result<VenueDetail>>;
   venuePoints(): Promise<Result<VenuePoint[]>>;
   /** Venues that have no position yet. */
+  /** Own venues whose name, address or city contains the text; the current home comes first. */
+  searchVenues(query: string): Promise<Result<OwnVenue[]>>;
+  /** The home used most recently, or null if none has been used. */
+  lastHome(): Promise<Result<OwnVenue | null>>;
   unlocatedVenues(limit: number): Promise<Result<{ id: string; name: string; address: string | null }[]>>;
   setVenueLocation(id: string, point: GeoPoint): Promise<Result<void>>;
 }

@@ -4,7 +4,6 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import BackLink from "@/components/BackLink";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { arrangeHomeRows, resolveHomeRows, type HomeRowState } from "@/lib/domain/home";
 import { services } from "@/lib/services";
@@ -67,7 +66,6 @@ export default function CustomizeHomePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
-      <BackLink />
       <h1 className="font-serif text-3xl tracking-tight">Customize Home</h1>
       <p className="text-sm text-neutral-500">Switch rows on or off and use the arrows to change their order.</p>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}

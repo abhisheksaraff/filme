@@ -3,7 +3,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import BackLink from "@/components/BackLink";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { exportJson, exportLetterboxd, exportTrakt, exportZip, importBackup } from "@/lib/backup";
 import { downloadBlob } from "@/lib/ics";
@@ -78,7 +77,6 @@ export default function DataPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-12 pt-8">
-      <BackLink fallback="/profile/" />
       <h1 className="font-serif text-3xl tracking-tight">Your data</h1>
       <p className="text-sm text-neutral-500">{last ? `Last backup: ${last.slice(0, 10)}.` : "You have not made a backup yet."}</p>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}

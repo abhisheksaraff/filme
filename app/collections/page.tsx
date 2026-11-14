@@ -5,7 +5,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import BackLink from "@/components/BackLink";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { CollectionSummary } from "@/lib/ports/collections";
@@ -50,7 +49,6 @@ export default function CollectionsPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
-      <BackLink fallback="/profile/" />
       <h1 className="font-serif text-3xl tracking-tight">Collections</h1>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 

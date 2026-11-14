@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import RoundButton from "@/components/RoundButton";
-import BottomNav from "@/components/BottomNav";
 import Icon, { type IconName } from "@/components/Icon";
 import CropDialog from "@/components/CropDialog";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -17,7 +16,7 @@ import { services } from "@/lib/services";
 
 const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
   { href: "/stats/", icon: "chart", label: "Stats", note: "Totals and charts for everything you have logged" },
-  { href: "/globe/", icon: "globe", label: "Globe", note: "Every venue you have been to" },
+  { href: "/map/", icon: "map", label: "Map", note: "Every venue you have been to" },
   { href: "/collections/", icon: "layers", label: "Collections", note: "Your own lists of titles" },
   { href: "/profile/appearance/", icon: "palette", label: "Appearance", note: "Light or dark, themes and decorations" },
   { href: "/profile/data/", icon: "archive", label: "Your data", note: "Backups, restore, Letterboxd and Trakt files" },
@@ -99,7 +98,6 @@ export default function ProfilePage() {
       <RoundButton icon="logout" label="Sign out" onClick={onSignOut} className="self-center" size="lg" />
 
       {crop && <CropDialog file={crop} aspect={1} maxEdge={512} title="Frame your picture" onCancel={() => setCrop(null)} onDone={saveAvatar} />}
-      <BottomNav />
     </main>
   );
 }

@@ -3,6 +3,7 @@
 import type { BrowseRepository, PersonWork } from "@/lib/ports/browse";
 import { fail, ok } from "@/lib/ports/result";
 import { getSupabase } from "./client";
+import { lastHomeVenue, literal } from "./venues";
 
 const one = <T>(value: unknown): T | null => ((Array.isArray(value) ? value[0] : value) as T | undefined) ?? null;
 
@@ -83,7 +84,7 @@ export const supabaseBrowseRepository: BrowseRepository = {
     if (venue.error || !venue.data) return fail("Could not find that venue.");
     const sessions = await db
       .from("watch_sessions")
-      .select("id, media_id, watched_on, rating, media:media_items(title, poster_path)")
+      .select("id, media_id, watched_on, rating, media:media_items(title, poster_path, category)")
       .eq("venue_id", id)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false });
@@ -99,7 +100,7 @@ export const supabaseBrowseRepository: BrowseRepository = {
       latitude: v.latitude as number | null,
       longitude: v.longitude as number | null,
       viewings: sessions.data.map((s) => {
-        const m = one<{ title: string; poster_path: string | null }>(s.media);
+        const m = one<{ title: string; poster_path: string | null; category: string }>(s.media);
         return {
           sessionId: s.id as string,
           mediaId: s.media_id as string,
@@ -107,6 +108,7 @@ export const supabaseBrowseRepository: BrowseRepository = {
           posterPath: m?.poster_path ?? null,
           watchedOn: s.watched_on as string | null,
           rating: s.rating === null ? null : Number(s.rating),
+          category: m?.category ?? "Movie",
         };
       }),
     });
@@ -116,32 +118,67 @@ export const supabaseBrowseRepository: BrowseRepository = {
     const db = getSupabase();
     const { data, error } = await db
       .from("venues")
-      .select("id, name, city, country, latitude, longitude, sessions:watch_sessions(id)")
+      .select("id, name, type, city, country, latitude, longitude, sessions:watch_sessions(deleted_at, media:media_items(category))")
       .not("latitude", "is", null)
       .not("longitude", "is", null);
     if (error) return fail("Could not load your venues.");
     return ok(
-      data.map((v) => ({
-        id: v.id as string,
-        name: v.name as string,
-        city: v.city as string | null,
-        country: v.country as string | null,
-        latitude: v.latitude as number,
-        longitude: v.longitude as number,
-        count: (v.sessions as unknown[]).length,
-      })),
+      data.flatMap((v) => {
+        const counts = new Map<string, number>();
+        for (const session of v.sessions as { deleted_at: string | null; media: unknown }[]) {
+          if (session.deleted_at) continue;
+          const category = one<{ category: string }>(session.media)?.category ?? "Movie";
+          counts.set(category, (counts.get(category) ?? 0) + 1);
+        }
+        const kinds = [...counts.entries()].map(([category, count]) => ({ category, count }));
+        if (kinds.length === 0) return [];
+        return [{
+          id: v.id as string,
+          name: v.name as string,
+          type: v.type as string,
+          city: v.city as string | null,
+          country: v.country as string | null,
+          latitude: v.latitude as number,
+          longitude: v.longitude as number,
+          count: kinds.reduce((sum, k) => sum + k.count, 0),
+          kinds,
+        }];
+      }),
     );
+  },
+
+  async searchVenues(query) {
+    const q = query.trim();
+    if (q.length < 2) return ok([]);
+    const db = getSupabase();
+    const pattern = `%${literal(q)}%`;
+    const { data, error } = await db
+      .from("venues")
+      .select("id, name, address, type")
+      .or(`name.ilike.${pattern},address.ilike.${pattern},city.ilike.${pattern}`)
+      .limit(20);
+    if (error) return fail("Could not search your venues.");
+    const current = await lastHomeVenue(db);
+    // The current home leads, then the rest by name.
+    const list = (data as { id: string; name: string; address: string | null; type: string }[]).sort(
+      (a, b) => Number(b.id === current?.id) - Number(a.id === current?.id) || a.name.localeCompare(b.name),
+    );
+    return ok(list.slice(0, 6));
+  },
+
+  async lastHome() {
+    return ok(await lastHomeVenue(getSupabase()));
   },
 
   async unlocatedVenues(limit) {
     const { data, error } = await getSupabase()
       .from("venues")
-      .select("id, name, address, city")
+      .select("id, name, address, city, type")
       .is("latitude", null)
-      .neq("type", "home")
       .limit(limit);
     if (error) return fail("Could not load your venues.");
-    return ok(data.map((v) => ({ id: v.id as string, name: v.name as string, address: ((v.address as string | null) ?? (v.city as string | null)) })));
+    // A home without an address cannot be placed on the map.
+    return ok(data.flatMap((v) => (v.type === "home" && !v.address ? [] : [{ id: v.id as string, name: v.name as string, address: ((v.address as string | null) ?? (v.city as string | null)) }])));
   },
 
   async setVenueLocation(id, point) {

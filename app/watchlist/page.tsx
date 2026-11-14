@@ -4,7 +4,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import BottomNav from "@/components/BottomNav";
 import RoundButton from "@/components/RoundButton";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -84,7 +83,6 @@ export default function WatchlistPage() {
         </section>
       )}
 
-      <BottomNav />
     </main>
   );
 }

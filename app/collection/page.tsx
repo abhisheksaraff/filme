@@ -5,7 +5,6 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import BackLink from "@/components/BackLink";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { interleave, previewHref } from "@/lib/home/rows";
@@ -112,7 +111,6 @@ function CollectionView() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
-      <BackLink fallback="/collections/" />
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
       {detail && (

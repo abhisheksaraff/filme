@@ -6,7 +6,7 @@ export type IconName =
   | "home" | "calendar" | "ticket" | "bookmark" | "plus" | "close" | "download" | "upload" | "star"
   | "note" | "trash" | "edit" | "filter" | "shuffle" | "sliders" | "image" | "bell" | "archive"
   | "calendarPlus" | "check" | "back" | "search" | "user" | "undo" | "open" | "sparkle" | "globe" | "chart"
-  | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers";
+  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers";
 
 interface Props {
   name: IconName;
@@ -87,6 +87,18 @@ export default function Icon({ name, size = 20, filled = false, detail = "white"
       </>
     ),
     chart: <path d="M5 20V10M12 20V4M19 20v-7" />,
+    map: <path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2zM9 4v14M15 6v14" />,
+    film: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4" /></>,
+    mic: <path d="M12 4a3 3 0 0 1 3 3v4a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3zM6 11a6 6 0 0 0 12 0M12 17v3M9 20h6" />,
+    masks: <path d="M4 5h9v6a4.500 4.500 0 0 1-9 0zM7 9h.01M10 9h.01M6.500 12.500c1 1 3 1 4 0M11 8h9v6a4.500 4.500 0 0 1-7 3.700M16 12h.01M19 12h.01" />,
+    tv: <path d="M4 7h16v11H4zM9 3l3 4 3-4" />,
+    stubUpload: <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4zM12 15V9M9.500 11.500L12 9l2.500 2.500" />,
+    clock: <><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></>,
+    sortNew: <path d="M12 19V5M7 10l5-5 5 5" />,
+    sortOld: <path d="M12 5v14M7 14l5 5 5-5" />,
+    sortHigh: <path d="M12 4l2.200 4.500 5 .7-3.600 3.500.9 5L12 15.300 7.500 17.700l.9-5L4.800 9.200l5-.7zM3 21h18" />,
+    sortLow: <path d="M12 4l2.200 4.500 5 .7-3.600 3.500.9 5L12 15.300 7.500 17.700l.9-5L4.800 9.200l5-.7zM6 21h12" />,
+    minus: <path d="M5 12h14" />,
     palette: <path d="M12 4a8 8 0 1 0 0 16c1.500 0 2-1 1.500-2-.5-1.200.2-2.500 1.700-2.500H17a3 3 0 0 0 3-3C20 7 16.500 4 12 4zM8 11h.01M12 8h.01M16 10h.01" />,
     key: <path d="M14 10a4 4 0 1 1-1.500-3.100L20 14l-2 2-1.500-1.500L15 16l-2-2 1-1.500z" />,
     folder: <path d="M4 7a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />,

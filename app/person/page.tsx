@@ -5,7 +5,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import BackLink from "@/components/BackLink";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { previewHref } from "@/lib/home/rows";
@@ -46,7 +45,6 @@ function PersonView() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-24 pt-6">
-      <BackLink />
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
       {person && (
         <>

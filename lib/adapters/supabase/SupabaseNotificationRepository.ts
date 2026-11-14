@@ -8,7 +8,7 @@ export const supabaseNotificationRepository: NotificationRepository = {
   async active() {
     const { data, error } = await getSupabase()
       .from("notifications")
-      .select("id, kind, body, created_at")
+      .select("id, kind, body, created_at, read_at")
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })
       .limit(10);
@@ -19,6 +19,7 @@ export const supabaseNotificationRepository: NotificationRepository = {
         kind: row.kind as string,
         period: String((row.body as { period?: string })?.period ?? ""),
         createdAt: row.created_at as string,
+        readAt: (row.read_at as string | null) ?? null,
       })),
     );
   },
@@ -31,6 +32,11 @@ export const supabaseNotificationRepository: NotificationRepository = {
     if (found.data.length > 0) return ok(undefined);
     const { error } = await db.from("notifications").insert({ kind, body: { period } });
     return error ? fail("Could not create the notification.") : ok(undefined);
+  },
+
+  async markRead(id) {
+    const { error } = await getSupabase().from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id);
+    return error ? fail("Could not mark that as read.") : ok(undefined);
   },
 
   async dismiss(id) {

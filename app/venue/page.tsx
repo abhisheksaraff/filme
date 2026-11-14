@@ -5,7 +5,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import BackLink from "@/components/BackLink";
+import FlatMap from "@/components/FlatMap";
+import Icon from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { VenueDetail } from "@/lib/ports/browse";
@@ -27,7 +28,7 @@ function VenueView() {
       setVenue(res.value);
       // A venue with no position yet is looked up once, then remembered.
       const v = res.value;
-      if (v.latitude === null && v.type !== "home") {
+      if (v.latitude === null && !(v.type === "home" && !v.address)) {
         const found = await services.geo.locate([v.name, v.address ?? v.city].filter(Boolean).join(", "));
         if (!cancelled && found.ok && found.value) {
           await services.browse.setVenueLocation(v.id, found.value);
@@ -43,12 +44,14 @@ function VenueView() {
   if (!ready) return null;
   if (!id) return <main className="p-6 text-sm">No venue selected.</main>;
 
-  const { latitude, longitude } = venue ?? { latitude: null, longitude: null };
-  const bbox = latitude !== null && longitude !== null ? `${longitude - 0.01},${latitude - 0.006},${longitude + 0.01},${latitude + 0.006}` : null;
+  const point = venue && venue.latitude !== null && venue.longitude !== null ? [{
+    id: venue.id, name: venue.name, type: venue.type, city: venue.city, country: venue.country,
+    latitude: venue.latitude, longitude: venue.longitude, count: venue.viewings.length,
+    kinds: [...venue.viewings.reduce((m, v) => m.set(v.category, (m.get(v.category) ?? 0) + 1), new Map<string, number>())].map(([category, count]) => ({ category, count })),
+  }] : [];
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-24 pt-6">
-      <BackLink />
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
       {venue && (
         <>
@@ -56,15 +59,10 @@ function VenueView() {
             <h1 className="font-serif text-3xl tracking-tight">{venue.name}</h1>
             <p className="text-sm text-neutral-500">{[venue.address, venue.city, venue.country].filter(Boolean).join(" · ") || venue.type}</p>
           </div>
-          {bbox && (
-            <iframe
-              title={`Map of ${venue.name}`}
-              className="h-56 w-full rounded-2xl border-0"
-              loading="lazy"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude},${longitude}`}
-            />
-          )}
-          <Link href="/globe/" className="self-start rounded-full border border-neutral-400 px-4 py-1.5 text-sm">See all your venues on the globe</Link>
+          {point.length > 0 && <FlatMap points={point} className="h-56" />}
+          <Link href="/map/" className="flex items-center gap-2 self-start rounded-full bg-neutral-950 px-4 py-2 text-sm text-white dark:bg-white dark:text-neutral-950">
+            <Icon name="map" size={16} /> All venues
+          </Link>
 
           <h2 className="font-serif text-xl">{venue.viewings.length} {venue.viewings.length === 1 ? "visit" : "visits"}</h2>
           <ul className="grid grid-cols-3 gap-3">

@@ -1,5 +1,5 @@
 // components/BottomNav.tsx
-// A floating pill with the main places. Only the current one is lit: a filled white circle.
+// A floating pill with the main places. Only the current one is lit: a grey circle with a filled white icon.
 "use client";
 
 import Link from "next/link";
@@ -27,7 +27,7 @@ export default function BottomNav() {
                 href={tab.href}
                 aria-label={tab.label}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${active ? "bg-white text-neutral-950" : "text-white"}`}
+                className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${active ? "bg-neutral-600 text-white" : "text-white"}`}
               >
                 <Icon name={tab.icon} size={22} filled={active} />
               </Link>

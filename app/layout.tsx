@@ -2,6 +2,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import Decorations from "@/components/Decorations";
+import Shell from "@/components/Shell";
 import ThemeApplier from "@/components/ThemeApplier";
 import "./globals.css";
 
@@ -27,7 +28,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://image.tmdb.org https://*.supabase.co",
+  "img-src 'self' data: blob: https://image.tmdb.org https://*.supabase.co https://*.basemaps.cartocdn.com",
   "font-src 'self' data:",
   "worker-src 'self' blob: https://cdn.jsdelivr.net",
   [
@@ -37,7 +38,6 @@ const csp = [
     "https://cdn.jsdelivr.net https://tessdata.projectnaptha.com",
     isDev ? "ws://localhost:* ws://10.0.0.169:*" : "",
   ].filter(Boolean).join(" "),
-  "frame-src https://www.openstreetmap.org",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -73,7 +73,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeApplier />
         <Decorations />
-        {children}
+        <Shell>{children}</Shell>
       </body>
     </html>
   );

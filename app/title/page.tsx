@@ -103,7 +103,7 @@ function TitleView() {
   const order = new Map([...(detail?.viewings ?? [])].reverse().map((v, i) => [v.id, i + 1]));
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 pb-24">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 pb-32">
       <div className="relative h-80 w-full overflow-hidden rounded-b-3xl bg-neutral-300 dark:bg-neutral-800">
         {backdrop && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -238,7 +238,7 @@ function TitleView() {
       {stubViewer && <ImageViewer images={stubViewer.urls.map((url) => ({ url }))} start={stubViewer.index} onClose={() => setStubViewer(null)} />}
 
       {justDeleted && (
-        <div className="fixed inset-x-4 bottom-4 z-30 mx-auto flex max-w-md items-center justify-between rounded-xl bg-neutral-900 px-4 py-3 text-sm text-white dark:bg-white dark:text-neutral-900">
+        <div className="fixed inset-x-4 bottom-24 z-30 mx-auto flex max-w-md items-center justify-between rounded-xl bg-neutral-900 px-4 py-3 text-sm text-white dark:bg-white dark:text-neutral-900">
           <span>Viewing deleted.</span>
           <span className="flex gap-4">
             <button type="button" disabled={busy} className="font-medium underline" onClick={() => change(() => services.log.restoreViewing(justDeleted), () => setJustDeleted(null))}>Undo</button>

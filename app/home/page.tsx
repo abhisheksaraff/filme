@@ -5,12 +5,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Avatar from "@/components/Avatar";
-import BottomNav from "@/components/BottomNav";
-import HomeNotices from "@/components/HomeNotices";
+import HomeShortcuts from "@/components/HomeShortcuts";
 import HomeRowSection from "@/components/HomeRowSection";
-import HomeStories from "@/components/HomeStories";
 import Icon from "@/components/Icon";
-import RoundButton from "@/components/RoundButton";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { resolveHomeRows } from "@/lib/domain/home";
 import { clearHomeCache } from "@/lib/home/rows";
@@ -55,17 +52,10 @@ export default function HomePage() {
       </Link>
 
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
-      <HomeNotices refresh={nonce} />
-      <HomeStories nonce={nonce} />
-
-      <div className="flex justify-end gap-2">
-        <RoundButton icon="shuffle" label="Shuffle" onClick={() => { clearHomeCache(); setNonce((n) => n + 1); }} />
-        <RoundButton icon="sliders" label="Customize Home" href="/home/customize/" />
-      </div>
+      <HomeShortcuts nonce={nonce} onShuffle={() => { clearHomeCache(); setNonce((n) => n + 1); }} />
       {rows?.map((id) => <HomeRowSection key={id} rowId={id} nonce={nonce} />)}
       {!rows && <div className="skeleton h-40 rounded-2xl" />}
 
-      <BottomNav />
     </main>
   );
 }

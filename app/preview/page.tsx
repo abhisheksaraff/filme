@@ -5,7 +5,6 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import BackLink from "@/components/BackLink";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { CatalogDetails, CatalogKind } from "@/lib/ports/catalog";
@@ -71,7 +70,6 @@ function PreviewView() {
       )}
 
       <div className="flex flex-col gap-5 px-6 pt-4">
-        <BackLink />
         {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
         {!details && !problem && <p className="text-sm text-neutral-500">Loading…</p>}
 

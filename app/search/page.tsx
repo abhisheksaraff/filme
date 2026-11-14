@@ -5,7 +5,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import BottomNav from "@/components/BottomNav";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { EMPTY_FILTER, type LogFilter } from "@/lib/domain/askLog";
@@ -302,7 +301,6 @@ function SearchView() {
         <p className="text-sm text-neutral-500">Nothing found for “{q}”.</p>
       )}
 
-      <BottomNav />
     </main>
   );
 }
