@@ -14,3 +14,5 @@ export * from "./appearance";
 export * from "./holidays";
 export * from "./stats";
 export * from "./stories";
+export * from "./askLog";
+export * from "./search";

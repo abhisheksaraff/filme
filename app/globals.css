@@ -19,16 +19,56 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-playfair), Georgia, serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 /* Holiday themes tint headings and the active tab; --accent is set from the holiday's colours. */
 html[data-holiday] h1,
 html[data-holiday] nav [aria-current="page"] {
   color: var(--accent);
+}
+
+/* Floating theme decorations: each piece drifts along its own path and fades at the edges. */
+.deco {
+  position: absolute;
+  opacity: 0;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+}
+.deco-fall { top: -8%; animation-name: deco-fall; }
+.deco-rise { bottom: -8%; animation-name: deco-rise; }
+.deco-float { top: 100%; animation-name: deco-float; }
+@keyframes deco-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10%, 85% { opacity: 0.55; }
+  100% { transform: translateY(115vh) rotate(180deg); opacity: 0; }
+}
+@keyframes deco-rise {
+  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+  10%, 80% { opacity: 0.55; }
+  100% { transform: translateY(-115vh) scale(1.1); opacity: 0; }
+}
+@keyframes deco-float {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10%, 80% { opacity: 0.5; }
+  50% { transform: translate(24px, -55vh); }
+  100% { transform: translate(-16px, -110vh); opacity: 0; }
+}
+
+/* Placeholder shapes shown while a page loads. */
+.skeleton { background: linear-gradient(90deg, var(--color-neutral-200) 25%, var(--color-neutral-100) 50%, var(--color-neutral-200) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+.dark .skeleton { background: linear-gradient(90deg, var(--color-neutral-800) 25%, var(--color-neutral-700) 50%, var(--color-neutral-800) 75%); background-size: 200% 100%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* The image viewer opens with a slight 3D tilt so it feels like the picture is lifted off the page. */
+.viewer-in { animation: viewer-in 0.35s ease-out; transform-origin: center; }
+@keyframes viewer-in {
+  from { opacity: 0; transform: perspective(900px) rotateX(18deg) scale(0.85); }
+  to { opacity: 1; transform: perspective(900px) rotateX(0) scale(1); }
 }

@@ -1,12 +1,16 @@
 // lib/adapters/tmdb/EdgeCatalog.ts
 // Asks TMDB questions through the `tmdb` Edge Function so the key never reaches the phone.
-import type { BrowseSpec, Catalog, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch } from "@/lib/ports/catalog";
+import type { BrowseSpec, Catalog, CatalogCredit, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch, CatalogPerson, EpisodeRef, ShowStatus } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { callFunction } from "../supabase/functions";
 import { tmdbImageUrl } from "./images";
 
 interface Named {
   name: string;
+}
+
+interface CreditRow extends SearchRow {
+  media_type?: string;
 }
 
 const year = (date?: string) => (date ? parseInt(date.slice(0, 4), 10) || null : null);
@@ -18,6 +22,8 @@ interface SearchRow {
   release_date?: string;
   first_air_date?: string;
   poster_path?: string | null;
+  genre_ids?: number[];
+  original_language?: string;
 }
 
 function toHit(row: SearchRow, kind: CatalogKind): CatalogHit {
@@ -27,6 +33,9 @@ function toHit(row: SearchRow, kind: CatalogKind): CatalogHit {
     title: (kind === "TV Show" ? row.name : row.title) ?? "Untitled",
     year: (row.release_date ?? row.first_air_date ?? "").slice(0, 4) || null,
     posterUrl: tmdbImageUrl(row.poster_path, "w185"),
+    releaseDate: row.release_date ?? row.first_air_date ?? null,
+    genreIds: row.genre_ids ?? [],
+    language: row.original_language ?? null,
   };
 }
 
@@ -60,6 +69,83 @@ export const edgeCatalog: Catalog = {
     return listHits(`/discover/${spec.kind === "TV Show" ? "tv" : "movie"}`, params, spec.kind);
   },
 
+  async person(tmdbId) {
+    const [info, credits] = await Promise.all([
+      callFunction<{ name: string; biography?: string; profile_path?: string | null }>("tmdb", { path: `/person/${tmdbId}` }),
+      callFunction<{ cast?: CreditRow[]; crew?: CreditRow[] }>("tmdb", { path: `/person/${tmdbId}/combined_credits` }),
+    ]);
+    if (!info.ok) return fail(info.error);
+    const unique = new Map<string, CreditRow>();
+    for (const row of [...(credits.ok ? credits.value.cast ?? [] : []), ...(credits.ok ? credits.value.crew ?? [] : [])]) {
+      if (row.media_type !== "movie" && row.media_type !== "tv") continue;
+      unique.set(`${row.media_type}:${row.id}`, row);
+    }
+    const works = [...unique.values()]
+      .sort((a, b) => (b.release_date ?? b.first_air_date ?? "").localeCompare(a.release_date ?? a.first_air_date ?? ""))
+      .slice(0, 60)
+      .map((row) => toHit(row, row.media_type === "tv" ? "TV Show" : "Movie"));
+    const person: CatalogPerson = {
+      name: info.value.name,
+      biography: info.value.biography || null,
+      profileUrl: tmdbImageUrl(info.value.profile_path, "w342"),
+      works,
+    };
+    return ok(person);
+  },
+
+  async episodes(tmdbId, season) {
+    if (season !== null) {
+      const res = await callFunction<{ episodes?: { episode_number: number }[] }>("tmdb", { path: `/tv/${tmdbId}/season/${season}` });
+      if (!res.ok) return fail(res.error);
+      return ok((res.value.episodes ?? []).map((e): EpisodeRef => ({ season, episode: e.episode_number })));
+    }
+    const show = await callFunction<{ seasons?: { season_number: number; episode_count: number }[] }>("tmdb", { path: `/tv/${tmdbId}` });
+    if (!show.ok) return fail(show.error);
+    // Season 0 holds specials; the whole show means the regular seasons.
+    return ok(
+      (show.value.seasons ?? [])
+        .filter((s) => s.season_number > 0)
+        .flatMap((s) => Array.from({ length: s.episode_count }, (_, i): EpisodeRef => ({ season: s.season_number, episode: i + 1 }))),
+    );
+  },
+
+  async showStatus(tmdbId) {
+    type Ep = { season_number: number; episode_number: number; name?: string; air_date?: string } | null;
+    const res = await callFunction<{
+      seasons?: { season_number: number; episode_count: number }[];
+      last_episode_to_air?: Ep;
+      next_episode_to_air?: Ep;
+    }>("tmdb", { path: `/tv/${tmdbId}` });
+    if (!res.ok) return fail(res.error);
+    const ref = (e: Ep | undefined) =>
+      e ? { season: e.season_number, episode: e.episode_number, name: e.name ?? null, airDate: e.air_date ?? null } : null;
+    const status: ShowStatus = {
+      seasons: (res.value.seasons ?? []).filter((s) => s.season_number > 0).map((s) => ({ season: s.season_number, episodes: s.episode_count })),
+      last: ref(res.value.last_episode_to_air),
+      next: ref(res.value.next_episode_to_air),
+    };
+    return ok(status);
+  },
+
+  async images(match) {
+    const res = await callFunction<{ posters?: { file_path: string }[]; backdrops?: { file_path: string }[] }>("tmdb", {
+      path: `/${match.kind === "TV Show" ? "tv" : "movie"}/${match.tmdbId}/images`,
+      params: { include_image_language: "en,null" },
+    });
+    if (!res.ok) return fail(res.error);
+    return ok({
+      posters: (res.value.posters ?? []).slice(0, 30).map((p) => p.file_path),
+      backdrops: (res.value.backdrops ?? []).slice(0, 30).map((p) => p.file_path),
+    });
+  },
+
+  async theatres(when, region) {
+    const path = when === "now" ? "/movie/now_playing" : "/movie/upcoming";
+    const pages = await Promise.all([1, 2].map((page) => listHits(path, { region, page: String(page) }, "Movie")));
+    if (pages.every((page) => !page.ok)) return pages[0].ok ? ok([]) : fail(pages[0].error);
+    return ok(pages.flatMap((page) => (page.ok ? page.value : [])));
+  },
+
   recommendations(match) {
     return listHits(`/${match.kind === "TV Show" ? "tv" : "movie"}/${match.tmdbId}/recommendations`, {}, match.kind);
   },
@@ -80,8 +166,30 @@ export const edgeCatalog: Catalog = {
     if (!res.ok) return fail(res.error);
     const d = res.value;
 
-    const crew: { name: string; job: string }[] = d.credits?.crew ?? [];
-    const cast: Named[] = (isMovie ? d.credits?.cast : d.aggregate_credits?.cast) ?? [];
+    const crew: { id: number; name: string; job: string; profile_path?: string | null }[] = d.credits?.crew ?? [];
+    const cast: { id: number; name: string; character?: string; roles?: { character?: string }[]; order?: number; profile_path?: string | null }[] =
+      (isMovie ? d.credits?.cast : d.aggregate_credits?.cast) ?? [];
+
+    const credits: CatalogCredit[] = [
+      ...cast.slice(0, 15).map((p, i): CatalogCredit => ({
+        tmdbId: p.id,
+        name: p.name,
+        role: "actor",
+        character: (isMovie ? p.character : p.roles?.[0]?.character) || null,
+        order: p.order ?? i,
+        profilePath: p.profile_path ?? null,
+      })),
+      ...(isMovie
+        ? crew.flatMap((p): CatalogCredit[] => {
+            const role = p.job === "Director" ? "director"
+              : p.job === "Producer" || p.job === "Executive Producer" ? "producer"
+              : p.job === "Screenplay" || p.job === "Writer" ? "writer" : null;
+            return role ? [{ tmdbId: p.id, name: p.name, role, character: null, order: null, profilePath: p.profile_path ?? null }] : [];
+          })
+        : ((d.created_by ?? []) as { id: number; name: string; profile_path?: string | null }[]).map(
+            (p): CatalogCredit => ({ tmdbId: p.id, name: p.name, role: "creator", character: null, order: null, profilePath: p.profile_path ?? null }),
+          )),
+    ];
 
     const details: CatalogDetails = {
       tmdbId: d.id,
@@ -97,6 +205,8 @@ export const edgeCatalog: Catalog = {
       voteAverage: d.vote_average || null,
       voteCount: d.vote_count || null,
       genres: (d.genres ?? []).map((g: Named) => g.name),
+      genreList: ((d.genres ?? []) as { id: number; name: string }[]).map((g) => ({ id: g.id, name: g.name })),
+      credits,
       directors: isMovie
         ? crew.filter((p) => p.job === "Director").map((p) => p.name)
         : (d.created_by ?? []).map((p: Named) => p.name),

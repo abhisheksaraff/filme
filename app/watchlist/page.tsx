@@ -75,7 +75,7 @@ export default function WatchlistPage() {
   const button = "rounded-xl border border-neutral-300 px-4 py-2 text-sm dark:border-neutral-700";
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-28 pt-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-32 pt-8">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-3xl tracking-tight">Log</h1>
       </div>
@@ -93,29 +93,25 @@ export default function WatchlistPage() {
 
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
-      <ul className="flex flex-col gap-3">
+      <ul className="grid grid-cols-2 gap-4">
         {recent.map((entry) => {
-          const poster = tmdbImageUrl(entry.posterPath, "w185");
+          const poster = tmdbImageUrl(entry.posterPath, "w342");
           return (
             <li key={entry.id}>
-              <Link href={`/title/?id=${entry.mediaId}`} className="flex gap-3">
-              {poster ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={poster} alt="" className="w-16 rounded-lg" />
-              ) : (
-                <div className="h-24 w-16 rounded-lg bg-neutral-200 dark:bg-neutral-800" />
-              )}
-              <div className="flex flex-col justify-center text-sm">
-                <span className="font-medium">{entry.title}</span>
-                <span className="text-neutral-500">
-                  {[entry.watchedOn, entry.primaryFormat].filter(Boolean).join(" · ")}
-                </span>
-              </div>
+              <Link href={`/session/?id=${entry.id}`} className="flex flex-col gap-1">
+                {poster ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-2xl object-cover" />
+                ) : (
+                  <div className="aspect-[2/3] w-full rounded-2xl bg-neutral-200 dark:bg-neutral-800" />
+                )}
+                <span className="font-serif text-base leading-tight">{entry.title}</span>
+                <span className="text-xs text-neutral-500">{[entry.watchedOn, entry.primaryFormat].filter(Boolean).join(" · ")}</span>
               </Link>
             </li>
           );
         })}
-        {recent.length === 0 && !problem && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}
+        {recent.length === 0 && !problem && <li className="col-span-2 text-sm text-neutral-500">Nothing logged yet.</li>}
       </ul>
 
       {deleted.length > 0 && (

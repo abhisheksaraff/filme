@@ -178,7 +178,7 @@ export const supabaseLogRepository: LogRepository = {
       return fail("Could not upload the ticket images. Nothing was saved.");
     }
 
-    return ok({ sessionId });
+    return ok({ sessionId, mediaId: media.value });
   },
 
   async recent(limit) {
@@ -214,7 +214,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const sessions = await db
       .from("watch_sessions")
-      .select("id, watched_on, watched_at, auditorium, primary_format, seats, total_tickets, rating, notes, venue:venues(name)")
+      .select("id, watched_on, watched_at, auditorium, primary_format, seats, total_tickets, rating, notes, venue:venues(id, name)")
       .eq("media_id", mediaId)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false })
@@ -242,6 +242,7 @@ export const supabaseLogRepository: LogRepository = {
       watchedOn: row.watched_on,
       watchedAt: row.watched_at,
       venue: one<{ name: string }>(row.venue)?.name ?? null,
+      venueId: one<{ id: string }>(row.venue)?.id ?? null,
       auditorium: row.auditorium,
       primaryFormat: row.primary_format,
       seats: row.seats ?? [],
@@ -323,13 +324,32 @@ export const supabaseLogRepository: LogRepository = {
     if (!parsed.success) return fail("Some fields are not valid.");
     const db = getSupabase();
 
+    // The title or type may have changed, so find (or create) the title again and point the viewing at it.
+    const media = await findOrCreateMedia(db, parsed.data);
+    if (!media.ok) return media;
     const venue = await findOrCreateVenue(db, parsed.data);
     if (!venue.ok) return venue;
     const { error } = await db
       .from("watch_sessions")
-      .update({ venue_id: venue.value, ...sessionColumns(parsed.data) })
+      .update({ media_id: media.value, venue_id: venue.value, ...sessionColumns(parsed.data) })
       .eq("id", id);
-    return error ? fail("Could not save your changes.") : ok(undefined);
+    return error ? fail("Could not save your changes.") : ok({ mediaId: media.value });
+  },
+
+  async purgeExpired() {
+    const db = getSupabase();
+    const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const old = await db.from("watch_sessions").select("id").lt("deleted_at", cutoff).limit(100);
+    if (old.error) return fail("Could not check deleted viewings.");
+    if (old.data.length === 0) return ok(0);
+    const ids = old.data.map((r) => r.id as string);
+
+    // Files are removed first: once the rows are gone nothing would remember their paths.
+    const files = await db.from("images").select("path, source").in("session_id", ids);
+    const paths = (files.data ?? []).filter((f) => f.source === "upload").map((f) => f.path as string);
+    if (paths.length > 0) await db.storage.from(BUCKET).remove(paths);
+    const del = await db.from("watch_sessions").delete().in("id", ids);
+    return del.error ? fail("Could not remove old deleted viewings.") : ok(ids.length);
   },
 
   async deleteViewing(id) {
@@ -425,7 +445,7 @@ export const supabaseLogRepository: LogRepository = {
       const { data, error } = await db
         .from("watch_sessions")
         .select(
-          "media_id, watched_on, primary_format, rating, total_tickets, media:media_items(title, category, runtime, original_language, poster_path), venue:venues(name)",
+          "id, media_id, watched_on, primary_format, rating, total_tickets, notes, scope, season_number, episode_number, media:media_items(title, category, runtime, original_language, poster_path), venue:venues(name)",
         )
         .is("deleted_at", null)
         .order("created_at")
@@ -436,6 +456,7 @@ export const supabaseLogRepository: LogRepository = {
       for (const row of data) {
         const media = one<{ title: string; category: string; runtime: number | null; original_language: string | null; poster_path: string | null }>(row.media);
         rows.push({
+          id: row.id as string,
           mediaId: row.media_id as string,
           title: media?.title ?? "Untitled",
           category: media?.category ?? "Movie",
@@ -447,9 +468,46 @@ export const supabaseLogRepository: LogRepository = {
           rating: row.rating === null ? null : Number(row.rating),
           tickets: row.total_tickets,
           language: media?.original_language ?? null,
+          notes: row.notes ?? null,
+          scope: row.scope as string,
+          season: row.season_number ?? null,
+          episode: row.episode_number ?? null,
+          genres: [],
+          directors: [],
+          actors: [],
+          performers: [],
         });
       }
       if (data.length < PAGE) break;
+    }
+
+    // Genres and people live in their own tables; attach them to each viewing by title.
+    const mediaIds = [...new Set(rows.map((r) => r.mediaId))];
+    const genres = new Map<string, string[]>();
+    const people = new Map<string, { role: string; name: string }[]>();
+    for (let i = 0; i < mediaIds.length; i += 200) {
+      const chunk = mediaIds.slice(i, i + 200);
+      const [g, p] = await Promise.all([
+        db.from("media_genres").select("media_id, genre:genres(name)").in("media_id", chunk),
+        db.from("media_people").select("media_id, role, billing_order, person:people(name)").in("media_id", chunk),
+      ]);
+      for (const row of g.data ?? []) {
+        const name = one<{ name: string }>(row.genre)?.name;
+        if (name) genres.set(row.media_id, [...(genres.get(row.media_id) ?? []), name]);
+      }
+      for (const row of p.data ?? []) {
+        const name = one<{ name: string }>(row.person)?.name;
+        // Only the top-billed cast count as "actors" so extras do not swamp the numbers.
+        if (!name || (row.role === "actor" && (row.billing_order ?? 0) > 9)) continue;
+        people.set(row.media_id, [...(people.get(row.media_id) ?? []), { role: row.role as string, name }]);
+      }
+    }
+    for (const row of rows) {
+      row.genres = genres.get(row.mediaId) ?? [];
+      const credits = people.get(row.mediaId) ?? [];
+      row.directors = credits.filter((c) => c.role === "director").map((c) => c.name);
+      row.actors = credits.filter((c) => c.role === "actor").map((c) => c.name);
+      row.performers = credits.filter((c) => c.role === "performer" || c.role === "opener").map((c) => c.name);
     }
     return ok(rows);
   },

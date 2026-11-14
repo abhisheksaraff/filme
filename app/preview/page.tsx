@@ -64,7 +64,7 @@ function PreviewView() {
   if (kind === null || !Number.isInteger(id) || id <= 0) return <main className="p-6 text-sm">No title selected.</main>;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 pb-12">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 pb-12">
       {details?.backdropUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={details.backdropUrl} alt="" className="h-48 w-full object-cover" />

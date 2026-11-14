@@ -2,7 +2,7 @@
 // Builds each Home row from the log, the want-to-watch list and TMDB. Results are kept for a
 // while so coming back to Home does not reshuffle everything or spend more TMDB calls.
 import { GENRES } from "@/lib/domain/home";
-import { HOLIDAYS } from "@/lib/domain/holidays";
+import { THEMES } from "@/lib/domain/holidays";
 import type { StatRow } from "@/lib/domain/stats";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { CatalogHit, CatalogKind } from "@/lib/ports/catalog";
@@ -257,7 +257,7 @@ export function loadStatRows(): Promise<Result<StatRow[]>> {
 
 /** Titles whose name carries the holiday's word, shown while its theme is on. */
 async function holidayRow(slug: string): Promise<Result<RowResult>> {
-  const holiday = HOLIDAYS.find((h) => h.slug === slug);
+  const holiday = THEMES.find((h) => h.slug === slug);
   if (!holiday) return fail("Unknown holiday.");
   const [movies, shows, seen] = await Promise.all([
     services.catalog.search(holiday.search, "Movie"),
@@ -270,12 +270,98 @@ async function holidayRow(slug: string): Promise<Result<RowResult>> {
   return ok({ title: `${holiday.emoji} ${holiday.name} picks`, items, empty: "Nothing new for this holiday." });
 }
 
+/** The user's country for theatre listings; Canada until a location is saved. */
+async function regionCode(): Promise<string> {
+  const res = await services.settings.location();
+  return (res.ok && res.value?.region) || "CA";
+}
+
+/** Genres the user watches most, as TMDB genre ids with a weight, for matching new releases to taste. */
+async function tasteWeights(): Promise<{ weights: Map<number, number>; names: Map<number, string> }> {
+  const rows = await loadStatRows();
+  const weights = new Map<number, number>();
+  const names = new Map<number, string>();
+  if (!rows.ok) return { weights, names };
+  const byName = new Map(GENRES.map((g) => [g.name, g.id]));
+  for (const row of rows.value) {
+    // Highly rated viewings count for more than unrated ones.
+    const weight = 1 + ((row.rating ?? 6) - 6) / 4;
+    for (const name of row.genres) {
+      const id = byName.get(name as (typeof GENRES)[number]["name"]);
+      if (id === undefined) continue;
+      weights.set(id, (weights.get(id) ?? 0) + Math.max(0.25, weight));
+      names.set(id, name);
+    }
+  }
+  return { weights, names };
+}
+
+/** Orders hits by how well their genres match the user's taste, and says why the best ones match. */
+function matchTaste(hits: CatalogHit[], taste: Awaited<ReturnType<typeof tasteWeights>>): RowItem[] {
+  return hits
+    .map((hit) => {
+      const ids = hit.genreIds ?? [];
+      const score = ids.reduce((sum, id) => sum + (taste.weights.get(id) ?? 0), 0);
+      const best = ids.filter((id) => taste.weights.has(id)).sort((a, b) => (taste.weights.get(b) ?? 0) - (taste.weights.get(a) ?? 0))[0];
+      return { hit, score, reason: best !== undefined && score > 0 ? `Because you like ${taste.names.get(best)}` : null };
+    })
+    .sort((a, b) => b.score - a.score)
+    .map(({ hit, reason }) => ({ ...hitItem(hit), subtitle: reason ?? hit.year }));
+}
+
+async function theatreRow(when: "now" | "soon"): Promise<Result<RowResult>> {
+  const region = await regionCode();
+  const [hits, seen, taste] = await Promise.all([services.catalog.theatres(when, region), seenSet(), tasteWeights()]);
+  if (!hits.ok) return hits;
+  const unique = [...new Map(hits.value.map((h) => [h.tmdbId, h])).values()];
+  const items = matchTaste(unique.filter((h) => !seen.has(seenKey(h.kind, h.tmdbId))), taste).slice(0, 18);
+  return ok({
+    title: when === "now" ? "In theatres near you" : "Opening soon",
+    items,
+    empty: "Nothing new in theatres right now.",
+  });
+}
+
+/** Popular films showing in another country (the US) that have no listing here yet. */
+async function abroadRow(): Promise<Result<RowResult>> {
+  const region = await regionCode();
+  const other = region === "US" ? "GB" : "US";
+  const [abroad, hereNow, hereSoon, seen, taste] = await Promise.all([
+    services.catalog.theatres("now", other),
+    services.catalog.theatres("now", region),
+    services.catalog.theatres("soon", region),
+    seenSet(),
+    tasteWeights(),
+  ]);
+  if (!abroad.ok) return abroad;
+  const here = new Set([...(hereNow.ok ? hereNow.value : []), ...(hereSoon.ok ? hereSoon.value : [])].map((h) => h.tmdbId));
+  const missing = abroad.value.filter((h) => !here.has(h.tmdbId) && !seen.has(seenKey(h.kind, h.tmdbId)));
+  const items = matchTaste(missing, taste).slice(0, 12).map((item) => ({ ...item, subtitle: `Out in ${other}, no date here yet` }));
+  return ok({ title: "Out elsewhere, not confirmed here", items, empty: "Nothing is out elsewhere that is missing here." });
+}
+
+/** Films on the want-to-watch list that are in theatres or opening soon. */
+async function arrivingRow(): Promise<Result<RowResult>> {
+  const region = await regionCode();
+  const [list, now, soon] = await Promise.all([services.wanted.list(), services.catalog.theatres("now", region), services.catalog.theatres("soon", region)]);
+  if (!list.ok) return list;
+  const wanted = new Set(list.value.flatMap((w) => (w.category === "Movie" && w.tmdbId !== null ? [w.tmdbId] : [])));
+  const items = [...(now.ok ? now.value.map((h) => ({ h, label: "In theatres now" })) : []), ...(soon.ok ? soon.value.map((h) => ({ h, label: h.releaseDate ? `Opens ${h.releaseDate}` : "Opening soon" })) : [])]
+    .filter(({ h }) => wanted.has(h.tmdbId))
+    .map(({ h, label }) => ({ ...hitItem(h), subtitle: label }));
+  return ok({ title: "Arriving from your list", items, empty: "Nothing on your list is opening soon." });
+}
+
 /** Loads one Home row by id. */
 export function loadRow(id: string): Promise<Result<RowResult>> {
   return cached(`row:${id}`, () => {
     if (id === "recent") return recentRow();
     if (id === "want") return wantRow();
     if (id === "favourites") return favouritesRow();
+    if (id === "theatres") return theatreRow("now");
+    if (id === "soon") return theatreRow("soon");
+    if (id === "abroad") return abroadRow();
+    if (id === "arriving") return arrivingRow();
     if (id === "arthouse") return artHouseRow();
     if (id === "wildcard") return wildcardRow();
     if (id.startsWith("holiday:")) return holidayRow(id.slice("holiday:".length));

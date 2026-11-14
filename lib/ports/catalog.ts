@@ -3,6 +3,16 @@ import type { Result } from "./result";
 
 export type CatalogKind = "Movie" | "TV Show";
 
+/** One person's credit on a title. */
+export interface CatalogCredit {
+  tmdbId: number;
+  name: string;
+  role: "actor" | "director" | "producer" | "writer" | "creator";
+  character: string | null;
+  order: number | null;
+  profilePath: string | null;
+}
+
 /** What the catalogue knows about a title, in the app's own field names. */
 export interface CatalogDetails {
   tmdbId: number;
@@ -18,6 +28,8 @@ export interface CatalogDetails {
   voteAverage: number | null;
   voteCount: number | null;
   genres: string[];
+  genreList: { id: number; name: string }[];
+  credits: CatalogCredit[];
   directors: string[];
   producers: string[];
   cast: string[];
@@ -32,6 +44,29 @@ export interface CatalogHit extends CatalogMatch {
   title: string;
   year: string | null;
   posterUrl: string | null;
+  releaseDate?: string | null;
+  genreIds?: number[];
+  language?: string | null;
+}
+
+/** A person from the catalogue with the titles they worked on, newest first. */
+export interface CatalogPerson {
+  name: string;
+  biography: string | null;
+  profileUrl: string | null;
+  works: CatalogHit[];
+}
+
+export interface EpisodeRef {
+  season: number;
+  episode: number;
+}
+
+/** How far a show has got: its seasons, and the latest and next episodes on air. */
+export interface ShowStatus {
+  seasons: { season: number; episodes: number }[];
+  last: (EpisodeRef & { name: string | null; airDate: string | null }) | null;
+  next: (EpisodeRef & { name: string | null; airDate: string | null }) | null;
 }
 
 export interface CatalogMatch {
@@ -61,5 +96,13 @@ export interface Catalog {
   browse(spec: BrowseSpec): Promise<Result<CatalogHit[]>>;
   /** Titles the catalogue suggests for people who liked this one. */
   recommendations(match: CatalogMatch): Promise<Result<CatalogHit[]>>;
+  person(tmdbId: number): Promise<Result<CatalogPerson>>;
+  /** Every episode of one season, or of the whole show when season is null. */
+  episodes(tmdbId: number, season: number | null): Promise<Result<EpisodeRef[]>>;
+  showStatus(tmdbId: number): Promise<Result<ShowStatus>>;
+  /** Poster and cover paths available for a title. */
+  images(match: CatalogMatch): Promise<Result<{ posters: string[]; backdrops: string[] }>>;
+  /** Films in cinemas now, or opening soon, in a country. */
+  theatres(when: "now" | "soon", region: string): Promise<Result<CatalogHit[]>>;
   details(match: CatalogMatch): Promise<Result<CatalogDetails>>;
 }

@@ -1,11 +1,17 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import Decorations from "@/components/Decorations";
 import ThemeApplier from "@/components/ThemeApplier";
 import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
 });
 
@@ -31,15 +37,16 @@ const csp = [
     "https://cdn.jsdelivr.net https://tessdata.projectnaptha.com",
     isDev ? "ws://localhost:* ws://10.0.0.169:*" : "",
   ].filter(Boolean).join(" "),
+  "frame-src https://www.openstreetmap.org",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
 ].join("; ");
 
 export const metadata: Metadata = {
-  title: "Filme",
+  title: "filmè",
   description: "Movie ticket stub scanner and log",
-  appleWebApp: { capable: true, title: "Filme", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "filmè", statusBarStyle: "default" },
 };
 
 // viewport-fit=cover lets the bottom bar sit above the iPhone's home indicator.
@@ -57,7 +64,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
     >
       <head>
         <meta httpEquiv="Content-Security-Policy" content={csp} />
@@ -65,6 +72,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeApplier />
+        <Decorations />
         {children}
       </body>
     </html>

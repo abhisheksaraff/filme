@@ -9,8 +9,8 @@ const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Filme",
-    short_name: "Filme",
+    name: "filmè",
+    short_name: "filmè",
     description: "A private log of films, shows and concerts, with the ticket stubs.",
     start_url: `${base}/home/`,
     scope: `${base}/`,

@@ -16,6 +16,8 @@ const ALLOWED_PATHS: RegExp[] = [
   /^\/tv\/\d+\/season\/\d+$/,
   /^\/tv\/\d+\/season\/\d+\/episode\/\d+$/,
   /^\/person\/\d+$/,
+  /^\/person\/\d+\/combined_credits$/,
+  /^\/(movie|tv)\/\d+\/images$/,
   /^\/discover\/(movie|tv)$/,
   /^\/movie\/(now_playing|upcoming|popular|top_rated)$/,
   /^\/tv\/(on_the_air|airing_today|popular|top_rated)$/,

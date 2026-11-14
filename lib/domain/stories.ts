@@ -22,6 +22,13 @@ export function periodFor(kind: StoryKind, date: Date): string {
   return kind === "month" ? month : `${month}-${pad(date.getDate())}`;
 }
 
+/** The most recent finished month or year, for the recap that appears once a period is over. */
+export function previousPeriod(kind: "month" | "year", date: Date): string {
+  return kind === "year"
+    ? String(date.getFullYear() - 1)
+    : periodFor("month", new Date(date.getFullYear(), date.getMonth() - 1, 1));
+}
+
 /** Whether a period string has the right shape for its kind. */
 export function validPeriod(kind: StoryKind, period: string): boolean {
   const shape = { day: /^\d{4}-\d{2}-\d{2}$/, month: /^\d{4}-\d{2}$/, year: /^\d{4}$/ }[kind];

@@ -111,7 +111,7 @@ function CollectionView() {
   const current = q.length >= 2 && found?.query === q ? found : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
       <BackLink fallback="/collections/" />
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 

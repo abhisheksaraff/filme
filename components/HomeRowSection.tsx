@@ -34,7 +34,11 @@ export default function HomeRowSection({ rowId, nonce }: Props) {
   return (
     <section className="flex flex-col gap-2">
       <h2 className="font-serif text-xl">{done?.ok ? done.value.title : label}</h2>
-      {!done && <p className="text-sm text-neutral-500">Loading…</p>}
+      {!done && (
+        <ul className="-mx-6 flex gap-3 overflow-hidden px-6" aria-label="Loading">
+          {Array.from({ length: 4 }, (_, i) => <li key={i} className="skeleton aspect-[2/3] w-28 shrink-0 rounded-lg" />)}
+        </ul>
+      )}
       {done && !done.ok && <p role="alert" className="text-sm text-red-600">{done.error}</p>}
       {done?.ok && done.value.items.length === 0 && <p className="text-sm text-neutral-500">{done.value.empty}</p>}
       {done?.ok && done.value.items.length > 0 && <PosterRow items={done.value.items} />}

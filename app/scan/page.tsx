@@ -21,6 +21,7 @@ import { useRequireSession } from "@/hooks/useRequireSession";
 import { convertImage, STUB_PRESET } from "@/lib/images/convert";
 import { takePrefill } from "@/lib/logPrefill";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
+import { syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
 
 // Image Cache
@@ -225,6 +226,11 @@ export default function ScanPage() {
         setProblem(saved.error);
         setBusy(null);
         return;
+      }
+      // Genres and cast are saved in the background; the log entry is already safe.
+      const tmdbId = entry.value.media?.tmdbId;
+      if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {
+        void syncCredits(saved.value.mediaId, entry.value.category, tmdbId);
       }
       sessionStorage.removeItem("scanned_ticket_images");
       sessionStorage.removeItem("scanned_ticket_errors");

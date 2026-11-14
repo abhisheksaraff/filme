@@ -7,7 +7,8 @@ import { useEffect, useRef } from "react";
 import { hasSession } from "@/lib/adapters/supabase/auth";
 import type { Appearance } from "@/lib/domain/appearance";
 import { services } from "@/lib/services";
-import { APPEARANCE_EVENT, applyAppearance, cacheAppearance, readCachedAppearance } from "@/lib/theme";
+import { MOVING_SLUGS, fallbackMovingDates } from "@/lib/domain/holidays";
+import { APPEARANCE_EVENT, applyAppearance, cacheAppearance, cacheMoving, readCachedAppearance, readCachedMoving } from "@/lib/theme";
 
 export default function ThemeApplier() {
   const pathname = usePathname();
@@ -44,6 +45,10 @@ export default function ThemeApplier() {
       current.current = res.value;
       cacheAppearance(res.value);
       applyAppearance(res.value);
+      window.dispatchEvent(new CustomEvent(APPEARANCE_EVENT, { detail: res.value }));
+      await refreshMovingDates();
+      if (!cancelled) applyAppearance(res.value);
+      window.dispatchEvent(new CustomEvent(APPEARANCE_EVENT, { detail: res.value }));
     });
     return () => {
       cancelled = true;
@@ -51,4 +56,33 @@ export default function ThemeApplier() {
   }, [pathname]);
 
   return null;
+}
+
+/**
+ * Moving holidays (Diwali, Eid and so on) change every year. Once per year one AI lookup fills them
+ * in, the answer is checked on the server, and it is saved so no later visit asks again.
+ */
+async function refreshMovingDates(): Promise<void> {
+  const year = new Date().getFullYear();
+  const saved = await services.settings.movingDates(year);
+  if (!saved.ok) return;
+  const calculated = fallbackMovingDates(year);
+  // Dates the lookup has not supplied are filled from the device's own calendars.
+  const known = { ...calculated, ...saved.value };
+  if (MOVING_SLUGS.every((slug) => saved.value[slug])) {
+    cacheMoving(saved.value);
+    return;
+  }
+  // Don't retry on every page change if the lookup fails; try again next visit.
+  const attempted = sessionStorage.getItem(`filme-moving-${year}`);
+  if (attempted) {
+    cacheMoving({ ...readCachedMoving(), ...known });
+    return;
+  }
+  sessionStorage.setItem(`filme-moving-${year}`, "1");
+  const missing = MOVING_SLUGS.filter((slug) => !saved.value[slug]);
+  const found = await services.ai.holidayDates(year, [...missing]);
+  const merged = { ...known, ...(found.ok ? found.value : {}) };
+  if (found.ok) await services.settings.saveMovingDates(year, found.value);
+  cacheMoving(merged);
 }

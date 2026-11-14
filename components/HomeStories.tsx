@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { buildStory, periodFor, storyTitle, type StoryKind } from "@/lib/domain/stories";
+import { buildStory, periodFor, previousPeriod, storyTitle, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
 
 const KINDS: StoryKind[] = ["day", "month", "year"];
@@ -18,7 +18,12 @@ export default function HomeStories({ nonce }: { nonce: number }) {
       if (cancelled || !res.ok) return;
       const now = new Date();
       setChips(
-        KINDS.map((kind) => ({ kind, period: periodFor(kind, now) }))
+        [
+          ...KINDS.map((kind) => ({ kind, period: periodFor(kind, now) })),
+          { kind: "month" as StoryKind, period: previousPeriod("month", now) },
+          { kind: "year" as StoryKind, period: previousPeriod("year", now) },
+        ]
+          // Empty recaps are not shown at all.
           .filter(({ kind, period }) => buildStory(res.value, kind, period).length > 0)
           .map(({ kind, period }) => ({ kind, period, label: storyTitle(kind, period) })),
       );
@@ -32,7 +37,7 @@ export default function HomeStories({ nonce }: { nonce: number }) {
   return (
     <ul className="-mx-6 flex gap-2 overflow-x-auto px-6">
       {chips.map((chip) => (
-        <li key={chip.kind}>
+        <li key={`${chip.kind}-${chip.period}`}>
           <Link
             href={`/story/?kind=${chip.kind}&period=${chip.period}`}
             className="block whitespace-nowrap rounded-full border border-[var(--accent,#a3a3a3)] px-4 py-1.5 text-sm"

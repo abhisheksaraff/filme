@@ -33,6 +33,10 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "recent", label: "Recently logged" },
   { id: "want", label: "Want to watch" },
   { id: "favourites", label: "New from your favourites" },
+  { id: "theatres", label: "In theatres near you" },
+  { id: "soon", label: "Opening soon" },
+  { id: "abroad", label: "Out elsewhere, not confirmed here" },
+  { id: "arriving", label: "Arriving from your list" },
   { id: "arthouse", label: "Art house" },
   { id: "wildcard", label: "Wildcard" },
   ...GENRES.map((g) => ({ id: `genre-${g.id}`, label: g.name })),
@@ -40,7 +44,7 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
 
 /** Shown until the user customises Home. */
 export const DEFAULT_HOME_ROWS: readonly string[] = [
-  "recent", "want", "favourites", "arthouse", "wildcard", "genre-28", "genre-35", "genre-27", "genre-878",
+  "recent", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "genre-28", "genre-35", "genre-27", "genre-878",
 ];
 
 const KNOWN = new Set(HOME_ROWS.map((row) => row.id));

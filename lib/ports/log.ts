@@ -22,6 +22,7 @@ export interface ViewingSummary {
   watchedOn: string | null;
   watchedAt: string | null;
   venue: string | null;
+  venueId: string | null;
   auditorium: string | null;
   primaryFormat: string | null;
   seats: SeatDetail[];
@@ -68,14 +69,16 @@ export interface LogRepository {
    * Saves one viewing with its title, venue and ticket images. If any part fails, the viewing is
    * removed again so nothing half-saved is left behind.
    */
-  saveEntry(entry: LogEntry, stubs: Blob[]): Promise<Result<{ sessionId: string }>>;
+  saveEntry(entry: LogEntry, stubs: Blob[]): Promise<Result<{ sessionId: string; mediaId: string }>>;
   recent(limit: number): Promise<Result<RecentEntry[]>>;
 
   titleDetail(mediaId: string): Promise<Result<TitleDetail>>;
   /** One viewing as the edit form needs it. */
   getViewing(id: string): Promise<Result<{ mediaId: string; entry: LogEntry }>>;
-  /** Changes a viewing's own details. The title it belongs to is not changed. */
-  updateViewing(id: string, entry: LogEntry): Promise<Result<void>>;
+  /** Changes a viewing's details, including its title or type; returns the title the viewing now belongs to. */
+  updateViewing(id: string, entry: LogEntry): Promise<Result<{ mediaId: string }>>;
+  /** Permanently removes viewings deleted more than 30 days ago, together with their stored images. */
+  purgeExpired(): Promise<Result<number>>;
   /** Hides a viewing; it can be restored for 30 days, after which the weekly cleanup removes it. */
   deleteViewing(id: string): Promise<Result<void>>;
   restoreViewing(id: string): Promise<Result<void>>;

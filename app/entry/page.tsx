@@ -1,5 +1,5 @@
 // app/entry/page.tsx
-// Edits one saved viewing. The title it belongs to stays as it is; change that by logging a new viewing.
+// Edits one saved viewing, including its title or type.
 "use client";
 
 import Link from "next/link";
@@ -10,6 +10,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { draftFromEntry, entryFromDraft, type EntryDraft } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { LogEntry } from "@/lib/domain/entry";
+import { syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
 
 function EditView() {
@@ -58,7 +59,12 @@ function EditView() {
       setBusy(false);
       return;
     }
-    router.replace(`/title/?id=${mediaId}`);
+    // A changed title may be a new one that has no genres or cast yet.
+    const tmdbId = entry.value.media?.tmdbId;
+    if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {
+      void syncCredits(saved.value.mediaId, entry.value.category, tmdbId);
+    }
+    router.replace(`/title/?id=${saved.value.mediaId}`);
   }
 
   if (!ready) return null;
@@ -73,7 +79,7 @@ function EditView() {
 
       {draft && (
         <form onSubmit={onSave} className="flex flex-col gap-5">
-          <EntryForm draft={draft} onChange={setDraft} lockTitle disabled={busy} />
+          <EntryForm draft={draft} onChange={setDraft} disabled={busy} />
           <button type="submit" disabled={busy}
             className="rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
             Save changes

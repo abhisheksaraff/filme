@@ -42,3 +42,28 @@ primaryFormat (one of: ${primaryFormats.map((f) => JSON.stringify(f)).join(", ")
 addons (array, each one of: ${addons.map((f) => JSON.stringify(f)).join(", ")}).
 Use null for anything you cannot determine.`;
 }
+
+export const HOLIDAY_SYSTEM = `
+You are a precise calendar assistant. For the year requested, give the dates when each listed holiday is
+celebrated in Canada. Use the main days of the festival: "start" is the first day and "end" the last.
+Answer only with dates you are confident about. Dates are YYYY-MM-DD.
+`;
+
+export function holidayShape(slugs: string[]): string {
+  return `
+Reply with ONLY a JSON object: {"holidays": [{"slug": string, "start": "YYYY-MM-DD", "end": "YYYY-MM-DD"}]}
+with one entry for each of these slugs: ${slugs.map((s) => JSON.stringify(s)).join(", ")}.`;
+}
+
+export const ASK_SYSTEM = `
+You turn a question about a personal film, TV and concert viewing log into search filters.
+Never answer the question yourself; only fill in filters that narrow the log to the answer.
+Resolve relative dates ("last summer", "this year") using the current date given. Leave a filter null if the
+question does not mention it. "text" is for words that should appear in a title or note.
+`;
+
+export const ASK_SHAPE = `
+Reply with ONLY a JSON object with exactly these keys, using null for anything not mentioned:
+text (string), category ("Movie", "TV Show", "Concert" or "Live Event"), dateFrom (YYYY-MM-DD), dateTo (YYYY-MM-DD),
+minRating (number 1-10), maxRating (number 1-10), format (string), venue (string), genre (string),
+person (string), rewatchesOnly (boolean), sort ("newest", "oldest" or "rating").`;

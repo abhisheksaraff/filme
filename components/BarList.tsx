@@ -6,7 +6,7 @@ export interface BarItem {
   value: number;
 }
 
-export default function BarList({ items }: { items: BarItem[] }) {
+export default function BarList({ items, decimals = 0 }: { items: BarItem[]; decimals?: number }) {
   const max = Math.max(1, ...items.map((item) => item.value));
   return (
     <ul className="flex flex-col gap-1.5">
@@ -19,7 +19,7 @@ export default function BarList({ items }: { items: BarItem[] }) {
               style={{ width: `${(item.value / max) * 100}%` }}
             />
           </div>
-          <span className="w-8 text-right tabular-nums text-neutral-500">{item.value}</span>
+          <span className="w-8 text-right tabular-nums text-neutral-500">{item.value.toFixed(decimals)}</span>
         </li>
       ))}
     </ul>
