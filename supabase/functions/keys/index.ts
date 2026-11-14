@@ -6,6 +6,8 @@ import { HttpError, readJson, serve } from "../_shared/http.ts";
 import { AI_PROVIDERS, isProvider, loadSlots, PROVIDERS, validateKey, type AiProvider } from "../_shared/providers.ts";
 
 const DAILY_LIMIT = 300;
+const MAX_KEYS = 20;
+const MAX_MODELS = 20;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function requireId(value: unknown): string {
@@ -30,25 +32,38 @@ serve(async (req) => {
   const db = adminClient();
 
   switch (body.action) {
-    case "add": {
+    case "addKeys": {
       if (!isProvider(body.provider)) throw new HttpError(400, `Provider must be one of: ${PROVIDERS.join(", ")}.`);
-      const secret = typeof body.secret === "string" ? body.secret.trim() : "";
-      // Real keys are printable ASCII with no spaces; this rejects pasted text with stray characters.
-      if (!/^[\x21-\x7E]{8,600}$/.test(secret)) throw new HttpError(400, "That does not look like an API key.");
-      const label = typeof body.label === "string" && body.label.trim() ? body.label.trim().slice(0, 60) : null;
+      const provider = body.provider;
+      if (!Array.isArray(body.secrets) || body.secrets.length === 0 || body.secrets.length > MAX_KEYS) {
+        throw new HttpError(400, `Send between 1 and ${MAX_KEYS} keys.`);
+      }
+      const secrets = body.secrets.map((s) => (typeof s === "string" ? s.trim() : ""));
 
-      // Refuse keys the provider rejects, so a typo is caught now rather than at the next scan.
-      const check = await validateKey(body.provider, secret);
-      if (!check.ok) throw new HttpError(422, check.message);
+      const { count, error: countError } = await db
+        .from("api_keys").select("id", { count: "exact", head: true }).eq("user_id", userId);
+      if (countError) throw new HttpError(500, "Could not check how many keys are saved.");
+      if ((count ?? 0) + secrets.length > MAX_KEYS) throw new HttpError(400, `Too many keys saved (limit ${MAX_KEYS}).`);
 
-      const { data, error } = await db.rpc("app_add_api_key", {
-        p_user: userId,
-        p_provider: body.provider,
-        p_label: label,
-        p_secret: secret,
-      });
-      if (error) throw new HttpError(500, error.message.includes("Too many") ? "Too many keys saved (limit 20)." : "Could not save the key.");
-      return { id: data, message: check.message };
+      // Check every key before saving any, so a typo on one line never leaves a half-saved list.
+      const problems = (
+        await Promise.all(
+          secrets.map(async (secret, i) => {
+            // Real keys are printable ASCII with no spaces; this rejects pasted text with stray characters.
+            if (!/^[\x21-\x7E]{8,600}$/.test(secret)) return `Key ${i + 1}: does not look like an API key.`;
+            const check = await validateKey(provider, secret);
+            return check.ok ? null : `Key ${i + 1}: ${check.message}`;
+          }),
+        )
+      ).filter((line): line is string => line !== null);
+      if (problems.length > 0) throw new HttpError(422, `${problems.join(" ")} Nothing was saved.`);
+
+      // One at a time so the saved order matches the order they were typed.
+      for (const secret of secrets) {
+        const { error } = await db.rpc("app_add_api_key", { p_user: userId, p_provider: provider, p_label: null, p_secret: secret });
+        if (error) throw new HttpError(500, "Could not save a key.");
+      }
+      return { added: secrets.length };
     }
 
     case "remove": {
@@ -74,33 +89,41 @@ serve(async (req) => {
       return { results };
     }
 
-    case "addModel": {
+    case "setModels": {
       const provider = requireAiProvider(body.provider);
-      const model = typeof body.model === "string" ? body.model.trim() : "";
-      if (!/^[A-Za-z0-9._:/-]{1,80}$/.test(model)) throw new HttpError(400, "That model name contains characters that are not allowed.");
-      const { error } = await db.rpc("app_add_model", { p_user: userId, p_provider: provider, p_model: model });
-      if (error) {
-        if (error.message.includes("Too many")) throw new HttpError(400, "Too many models (limit 20 per provider).");
-        if (error.code === "23505") throw new HttpError(409, "That model is already in the list.");
-        throw new HttpError(500, "Could not add the model.");
+      if (!Array.isArray(body.models) || body.models.length > MAX_MODELS) {
+        throw new HttpError(400, `Send at most ${MAX_MODELS} models.`);
       }
-      return { added: true };
-    }
+      const models = [...new Set(body.models.map((m) => (typeof m === "string" ? m.trim() : "")))];
+      if (models.some((m) => !/^[A-Za-z0-9._:/-]{1,80}$/.test(m))) {
+        throw new HttpError(400, "A model name contains characters that are not allowed.");
+      }
 
-    case "removeModel": {
-      const { error } = await db.rpc("app_remove_model", { p_user: userId, p_id: requireId(body.id) });
-      if (error) throw new HttpError(500, "Could not remove the model.");
-      return { removed: true };
-    }
+      // Make the saved list match the one sent: drop what is gone, add what is new, then fix the order.
+      const read = () => db.from("provider_models").select("id, model").eq("user_id", userId).eq("provider", provider);
+      const { data: current, error: readError } = await read();
+      if (readError) throw new HttpError(500, "Could not read the model list.");
 
-    case "reorderModels": {
-      const { error } = await db.rpc("app_reorder_models", {
-        p_user: userId,
-        p_provider: requireAiProvider(body.provider),
-        p_ids: requireIds(body.ids),
-      });
+      const wanted = new Set(models);
+      for (const row of current ?? []) {
+        if (wanted.has(row.model)) continue;
+        const { error } = await db.rpc("app_remove_model", { p_user: userId, p_id: row.id });
+        if (error) throw new HttpError(500, "Could not remove a model.");
+      }
+      const have = new Set((current ?? []).map((row) => row.model));
+      for (const model of models) {
+        if (have.has(model)) continue;
+        const { error } = await db.rpc("app_add_model", { p_user: userId, p_provider: provider, p_model: model });
+        if (error) throw new HttpError(500, "Could not add a model.");
+      }
+
+      const { data: after, error: afterError } = await read();
+      if (afterError) throw new HttpError(500, "Could not read the model list.");
+      const idByName = new Map((after ?? []).map((row) => [row.model as string, row.id as string]));
+      const ids = models.map((m) => idByName.get(m)).filter((id): id is string => id !== undefined);
+      const { error } = await db.rpc("app_reorder_models", { p_user: userId, p_provider: provider, p_ids: ids });
       if (error) throw new HttpError(500, "Could not reorder the models.");
-      return { reordered: true };
+      return { saved: models.length };
     }
 
     case "reorderProviders": {

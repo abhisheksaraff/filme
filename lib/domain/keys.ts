@@ -44,12 +44,6 @@ export interface KeyConfig {
   providerOrder: AiKeyProvider[];
 }
 
-export interface NewKey {
-  provider: KeyProvider;
-  label?: string;
-  secret: string;
-}
-
 export interface KeyTestResult {
   id: string;
   provider: KeyProvider;

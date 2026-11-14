@@ -36,7 +36,7 @@ export const supabaseKeyVault: KeyVault = {
     return ok(config);
   },
 
-  addKey: (key) => change({ action: "add", ...key }),
+  addKeys: (provider, secrets) => change({ action: "addKeys", provider, secrets }),
   removeKey: (id) => change({ action: "remove", id }),
   reorderKeys: (ids) => change({ action: "reorder", ids }),
 
@@ -45,8 +45,6 @@ export const supabaseKeyVault: KeyVault = {
     return res.ok ? ok(res.value.results) : res;
   },
 
-  addModel: (provider, model) => change({ action: "addModel", provider, model }),
-  removeModel: (id) => change({ action: "removeModel", id }),
-  reorderModels: (provider, ids) => change({ action: "reorderModels", provider, ids }),
+  setModels: (provider, models) => change({ action: "setModels", provider, models }),
   reorderProviders: (providers) => change({ action: "reorderProviders", providers }),
 };
