@@ -2,6 +2,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FileProcessingError } from "@/components/UploadToImages";
 
@@ -39,6 +40,7 @@ export default function WatchlistPage() {
 
   return (
     <main>
+      <Link href="/profile/keys/">API keys</Link>
       <button type="button" onClick={handleManualInput}>
         Manual Input
       </button>

@@ -1,0 +1,14 @@
+# config.toml
+# Only the function settings live here; the hosted project keeps its own auth and API settings.
+project_id = "filme"
+
+# verify_jwt is off because the gateway check does not understand the project's newer signing keys.
+# Every function instead calls requireUser(), which asks the Auth server to validate the token.
+[functions.keys]
+verify_jwt = false
+
+[functions.ai]
+verify_jwt = false
+
+[functions.tmdb]
+verify_jwt = false

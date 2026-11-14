@@ -5,13 +5,12 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { FileProcessingError } from "@/components/UploadToImages";
 import { OcrClient } from "@/lib/ocrClient";
-import { AIClient, type AIResponse } from "@/lib/aiClient";
-import {
-  getClosestMatch,
-  getMovieDetails,
-  getTVShowDetails,
-} from "@/lib/tmdbClient";
-import type { ExtractedData, MediaItem } from "@/types/watchSession";
+import { DEFAULT_EXTRACTED_DATA, type ExtractedData } from "@/lib/domain/extraction";
+import type { CatalogDetails } from "@/lib/ports/catalog";
+import { services } from "@/lib/services";
+
+type AiOutcome = { success: boolean; data: ExtractedData; error?: string };
+type TmdbDetails = CatalogDetails;
 
 // Image Cache
 let cachedImagesRaw: string | null = null;
@@ -94,8 +93,8 @@ export default function ScanPage() {
   );
 
   const [extractedTexts, setExtractedTexts] = useState<string[]>([]);
-  const [aiResult, setAiResult] = useState<AIResponse<ExtractedData> | null>(null);
-  const [tmdbMatch, setTmdbMatch] = useState<Partial<MediaItem> | null>(null);
+  const [aiResult, setAiResult] = useState<AiOutcome | null>(null);
+  const [tmdbMatch, setTmdbMatch] = useState<TmdbDetails | null>(null);
   const [hasSearchedTmdb, setHasSearchedTmdb] = useState<boolean>(false);
   const [isTmdbLoading, setIsTmdbLoading] = useState<boolean>(false);
   const [processingError, setProcessingError] = useState<string | null>(null);
@@ -119,7 +118,13 @@ export default function ScanPage() {
       .then((texts) => {
         if (!isMounted) return;
         setExtractedTexts(texts);
-        return AIClient.parseTicketImages(texts);
+        const combined = texts.filter(Boolean).join("\n--- PAGE BREAK ---\n");
+        if (!combined.trim()) {
+          return { success: false, data: DEFAULT_EXTRACTED_DATA, error: "Could not detect any readable text from the ticket image(s)." } as AiOutcome;
+        }
+        return services.ai.extractTicket(combined).then(
+          (r): AiOutcome => (r.ok ? { success: true, data: r.value } : { success: false, data: DEFAULT_EXTRACTED_DATA, error: r.error }),
+        );
       })
       .then(async (result) => {
         if (!isMounted || !result) return;
@@ -135,22 +140,12 @@ export default function ScanPage() {
         if (result.success && result.data?.title) {
           setIsTmdbLoading(true);
           try {
-            const match = await getClosestMatch(
-              result.data.title,
-              result.data.category
-            );
-
+            const found = await services.catalog.findClosest(result.data.title, result.data.category);
             if (isMounted) {
               setHasSearchedTmdb(true);
-
-              if (match) {
-                if (match.media_type === "movie" || result.data.category === "Movie") {
-                  const details = await getMovieDetails(match.id);
-                  if (isMounted) setTmdbMatch(details);
-                } else if (match.media_type === "tv" || result.data.category === "TV Show") {
-                  const details = await getTVShowDetails(match.id);
-                  if (isMounted) setTmdbMatch(details);
-                }
+              if (found.ok && found.value) {
+                const details = await services.catalog.details(found.value);
+                if (isMounted && details.ok) setTmdbMatch(details.value);
               }
             }
           } catch (tmdbErr) {
@@ -234,11 +229,11 @@ export default function ScanPage() {
       {tmdbMatch && (
         <div>
           <h3>Closest TMDB Match Result:</h3>
-          {tmdbMatch.posterPaths && tmdbMatch.posterPaths[0] && (
+          {tmdbMatch.posterUrl && (
             <div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={tmdbMatch.posterPaths[0]}
+                src={tmdbMatch.posterUrl}
                 alt={tmdbMatch.title || "Poster"}
               />
             </div>

@@ -26,8 +26,6 @@ const csp = [
   [
     "connect-src 'self'",
     "https://*.supabase.co wss://*.supabase.co",
-    "https://api.themoviedb.org",
-    "https://generativelanguage.googleapis.com https://api.openai.com https://api.anthropic.com",
     "https://musicbrainz.org https://nominatim.openstreetmap.org",
     "https://cdn.jsdelivr.net https://tessdata.projectnaptha.com",
     isDev ? "ws://localhost:* ws://10.0.0.169:*" : "",
