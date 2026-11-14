@@ -8,3 +8,4 @@ export * from "./sessions";
 export * from "./images";
 export * from "./lists";
 export * from "./settings";
+export * from "./entry";

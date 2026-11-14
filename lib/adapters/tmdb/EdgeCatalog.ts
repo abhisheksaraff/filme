@@ -49,6 +49,8 @@ export const edgeCatalog: Catalog = {
       imdbId: d.imdb_id ?? null,
       category: match.kind,
       title: isMovie ? d.title : d.name,
+      originalTitle: (isMovie ? d.original_title : d.original_name) || null,
+      releaseDate: (isMovie ? d.release_date : d.first_air_date) || null,
       overview: d.overview || null,
       runtime: d.runtime || null,
       releaseYear: year(isMovie ? d.release_date : d.first_air_date),
@@ -61,7 +63,10 @@ export const edgeCatalog: Catalog = {
         : (d.created_by ?? []).map((p: Named) => p.name),
       producers: isMovie ? crew.filter((p) => p.job === "Producer" || p.job === "Executive Producer").map((p) => p.name) : [],
       cast: cast.slice(0, 10).map((p) => p.name),
+      posterPath: d.poster_path ?? null,
+      backdropPath: d.backdrop_path ?? null,
       posterUrl: tmdbImageUrl(d.poster_path),
+      backdropUrl: tmdbImageUrl(d.backdrop_path, "w780"),
     };
     return ok(details);
   },

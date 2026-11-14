@@ -9,7 +9,9 @@ export interface CatalogDetails {
   imdbId: string | null;
   category: CatalogKind;
   title: string;
+  originalTitle: string | null;
   overview: string | null;
+  releaseDate: string | null;
   runtime: number | null;
   releaseYear: number | null;
   originalLanguage: string | null;
@@ -19,7 +21,10 @@ export interface CatalogDetails {
   directors: string[];
   producers: string[];
   cast: string[];
+  posterPath: string | null;
+  backdropPath: string | null;
   posterUrl: string | null;
+  backdropUrl: string | null;
 }
 
 export interface CatalogMatch {
