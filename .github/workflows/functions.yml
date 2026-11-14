@@ -26,4 +26,5 @@ jobs:
         with:
           version: latest
       # --use-api bundles on Supabase's side, so no Docker is needed on the runner.
-      - run: supabase functions deploy --project-ref "${{ vars.SUPABASE_PROJECT_REF }}" --use-api
+      # --yes answers the confirmation prompt, which a CI runner has no way to show.
+      - run: supabase functions deploy --remote="${{ vars.SUPABASE_PROJECT_REF }}" --use-api --yes
