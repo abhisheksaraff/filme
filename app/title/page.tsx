@@ -3,10 +3,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import BackLink from "@/components/BackLink";
 import { seatLabel } from "@/components/entryDraft";
+import { mediaCategorySchema } from "@/lib/domain/media";
+import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { TitleDetail } from "@/lib/ports/log";
@@ -16,6 +18,7 @@ const button = "rounded-xl border border-neutral-300 px-3 py-1.5 text-sm disable
 
 function TitleView() {
   const ready = useRequireSession();
+  const router = useRouter();
   const id = useSearchParams().get("id");
 
   const [detail, setDetail] = useState<TitleDetail | null>(null);
@@ -54,6 +57,14 @@ function TitleView() {
     setBusy(false);
   }
 
+  function logAnother() {
+    if (!detail) return;
+    const category = mediaCategorySchema.safeParse(detail.category);
+    if (!category.success) return;
+    startEntryFrom({ category: category.data, title: detail.title, tmdbId: detail.tmdbId });
+    router.push("/scan/");
+  }
+
   if (!ready) return null;
   if (!id) return <main className="p-6 text-sm">No title selected.</main>;
 
@@ -88,6 +99,8 @@ function TitleView() {
               </div>
             </div>
             {detail.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{detail.overview}</p>}
+
+            <button type="button" className={button} onClick={logAnother}>Log another viewing</button>
 
             <h2 className="font-serif text-xl">
               Watched {detail.viewings.length} {detail.viewings.length === 1 ? "time" : "times"}

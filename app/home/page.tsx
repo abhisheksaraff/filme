@@ -6,7 +6,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import HomeRowSection from "@/components/HomeRowSection";
+import HomeStories from "@/components/HomeStories";
 import { useRequireSession } from "@/hooks/useRequireSession";
+import { DEFAULT_APPEARANCE } from "@/lib/domain/appearance";
+import { activeHoliday } from "@/lib/domain/holidays";
 import { resolveHomeRows } from "@/lib/domain/home";
 import { clearHomeCache } from "@/lib/home/rows";
 import { services } from "@/lib/services";
@@ -20,10 +23,12 @@ export default function HomePage() {
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
-    services.settings.homeRows().then((res) => {
+    Promise.all([services.settings.homeRows(), services.settings.appearance()]).then(([layout, look]) => {
       if (cancelled) return;
-      if (!res.ok) setProblem(res.error);
-      setRows(resolveHomeRows(res.ok ? res.value : []));
+      if (!layout.ok) setProblem(layout.error);
+      const holiday = activeHoliday(new Date(), look.ok ? look.value : DEFAULT_APPEARANCE);
+      const ids = resolveHomeRows(layout.ok ? layout.value : []);
+      setRows(holiday ? [`holiday:${holiday.slug}`, ...ids] : ids);
     });
     return () => {
       cancelled = true;
@@ -51,6 +56,7 @@ export default function HomePage() {
       </div>
 
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <HomeStories nonce={nonce} />
       {rows?.map((id) => <HomeRowSection key={id} rowId={id} nonce={nonce} />)}
 
       <BottomNav />

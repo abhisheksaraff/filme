@@ -19,6 +19,7 @@ import {
 } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { convertImage, STUB_PRESET } from "@/lib/images/convert";
+import { takePrefill } from "@/lib/logPrefill";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
 import { services } from "@/lib/services";
 
@@ -188,6 +189,23 @@ export default function ScanPage() {
     };
     // autoMatch only uses setters and services, so it is safe to leave out.
   }, [ready, images]);
+
+  // "Log another viewing" from a title page arrives here with the title already chosen.
+  useEffect(() => {
+    if (!ready) return;
+    const prefill = takePrefill();
+    if (!prefill) return;
+
+    (async () => {
+      setDraft((current) => ({ ...current, category: prefill.category, title: prefill.title }));
+      if (prefill.tmdbId === null || (prefill.category !== "Movie" && prefill.category !== "TV Show")) return;
+      setBusy("Finding on TMDB…");
+      const details = await services.catalog.details({ tmdbId: prefill.tmdbId, kind: prefill.category });
+      if (details.ok) setMatch(details.value);
+      else setProblem(details.error);
+      setBusy(null);
+    })();
+  }, [ready]);
 
   async function onSave(e: FormEvent) {
     e.preventDefault();

@@ -1,6 +1,7 @@
 // app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import ThemeApplier from "@/components/ThemeApplier";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -38,7 +39,14 @@ const csp = [
 export const metadata: Metadata = {
   title: "Filme",
   description: "Movie ticket stub scanner and log",
+  appleWebApp: { capable: true, title: "Filme", statusBarStyle: "default" },
 };
+
+// viewport-fit=cover lets the bottom bar sit above the iPhone's home indicator.
+export const viewport: Viewport = { viewportFit: "cover", width: "device-width", initialScale: 1 };
+
+// Runs before the page paints so a dark phone does not flash white. It only reads the saved look.
+const themeScript = `try{var a=JSON.parse(localStorage.getItem("filme-appearance")||"{}");var d=a.themeMode==="dark"||(a.themeMode!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d)}catch(e){}`;
 
 export default function RootLayout({
   children,
@@ -48,12 +56,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
         <meta httpEquiv="Content-Security-Policy" content={csp} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ThemeApplier />
+        {children}
+      </body>
     </html>
   );
 }

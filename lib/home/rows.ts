@@ -2,6 +2,8 @@
 // Builds each Home row from the log, the want-to-watch list and TMDB. Results are kept for a
 // while so coming back to Home does not reshuffle everything or spend more TMDB calls.
 import { GENRES } from "@/lib/domain/home";
+import { HOLIDAYS } from "@/lib/domain/holidays";
+import type { StatRow } from "@/lib/domain/stats";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { CatalogHit, CatalogKind } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
@@ -67,6 +69,16 @@ export function previewHref(kind: CatalogKind, tmdbId: number): string {
 const pick = <T,>(list: readonly T[]): T => list[Math.floor(Math.random() * list.length)];
 const randomPage = (max: number) => 1 + Math.floor(Math.random() * max);
 
+/** Alternates two lists so neither crowds the other out. */
+export function interleave<T>(a: T[], b: T[]): T[] {
+  const out: T[] = [];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (i < a.length) out.push(a[i]);
+    if (i < b.length) out.push(b[i]);
+  }
+  return out;
+}
+
 function shuffle<T>(list: readonly T[]): T[] {
   const copy = [...list];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -76,7 +88,7 @@ function shuffle<T>(list: readonly T[]): T[] {
   return copy;
 }
 
-function languageName(code: string): string {
+export function languageName(code: string): string {
   try {
     return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code;
   } catch {
@@ -238,6 +250,26 @@ function wildcardRow(): Promise<Result<RowResult>> {
   });
 }
 
+/** Every viewing in compact form, shared by Home's story chips, the stories and the stats page. */
+export function loadStatRows(): Promise<Result<StatRow[]>> {
+  return cached("stats", () => services.log.statRows());
+}
+
+/** Titles whose name carries the holiday's word, shown while its theme is on. */
+async function holidayRow(slug: string): Promise<Result<RowResult>> {
+  const holiday = HOLIDAYS.find((h) => h.slug === slug);
+  if (!holiday) return fail("Unknown holiday.");
+  const [movies, shows, seen] = await Promise.all([
+    services.catalog.search(holiday.search, "Movie"),
+    services.catalog.search(holiday.search, "TV Show"),
+    seenSet(),
+  ]);
+  if (!movies.ok && !shows.ok) return fail(movies.ok ? "Could not search TMDB." : movies.error);
+  const hits = interleave(movies.ok ? movies.value : [], shows.ok ? shows.value : []);
+  const items = hits.map(hitItem).filter((item) => !seen.has(item.key));
+  return ok({ title: `${holiday.emoji} ${holiday.name} picks`, items, empty: "Nothing new for this holiday." });
+}
+
 /** Loads one Home row by id. */
 export function loadRow(id: string): Promise<Result<RowResult>> {
   return cached(`row:${id}`, () => {
@@ -246,6 +278,7 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id === "favourites") return favouritesRow();
     if (id === "arthouse") return artHouseRow();
     if (id === "wildcard") return wildcardRow();
+    if (id.startsWith("holiday:")) return holidayRow(id.slice("holiday:".length));
     if (id.startsWith("genre-")) return genreRow(Number(id.slice("genre-".length)));
     return Promise.resolve(fail("Unknown row."));
   });

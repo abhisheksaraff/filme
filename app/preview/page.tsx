@@ -3,9 +3,10 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import BackLink from "@/components/BackLink";
+import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { CatalogDetails, CatalogKind } from "@/lib/ports/catalog";
 import type { TitleStatus } from "@/lib/ports/wanted";
@@ -13,6 +14,7 @@ import { services } from "@/lib/services";
 
 function PreviewView() {
   const ready = useRequireSession();
+  const router = useRouter();
   const params = useSearchParams();
   const kind: CatalogKind | null = params.get("kind") === "movie" ? "Movie" : params.get("kind") === "tv" ? "TV Show" : null;
   const id = Number(params.get("id"));
@@ -50,6 +52,12 @@ function PreviewView() {
       else setProblem(res.error);
     }
     setBusy(false);
+  }
+
+  function logViewing() {
+    if (!details) return;
+    startEntryFrom({ category: details.category, title: details.title, tmdbId: details.tmdbId });
+    router.push("/scan/");
   }
 
   if (!ready) return null;
@@ -94,6 +102,13 @@ function PreviewView() {
                   className="rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
                 >
                   {status.wanted ? "Remove from want to watch" : "Want to watch"}
+                </button>
+                <button
+                  type="button"
+                  onClick={logViewing}
+                  className="rounded-xl border border-neutral-300 px-5 py-3 text-base dark:border-neutral-700"
+                >
+                  Log a viewing
                 </button>
                 {status.logged && status.mediaId && (
                   <Link href={`/title/?id=${status.mediaId}`} className="text-sm underline">

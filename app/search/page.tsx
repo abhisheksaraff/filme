@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import BottomNav from "@/components/BottomNav";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import { previewHref, seenKey } from "@/lib/home/rows";
+import { interleave, previewHref, seenKey } from "@/lib/home/rows";
 import type { CatalogHit } from "@/lib/ports/catalog";
 import type { OwnHit } from "@/lib/ports/log";
 import type { WantedItem } from "@/lib/ports/wanted";
@@ -20,16 +20,6 @@ interface Found {
   own: OwnHit[];
   tmdb: CatalogHit[];
   problem: string | null;
-}
-
-/** Alternates movies and shows so neither crowds the other out. */
-function interleave<T>(a: T[], b: T[]): T[] {
-  const out: T[] = [];
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    if (i < a.length) out.push(a[i]);
-    if (i < b.length) out.push(b[i]);
-  }
-  return out;
 }
 
 function ResultRow({ href, poster, title, subtitle, badge }: {

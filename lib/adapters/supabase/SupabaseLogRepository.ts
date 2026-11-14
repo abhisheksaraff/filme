@@ -2,6 +2,7 @@
 // Writes a viewing across media_items, venues, watch_sessions, images and Storage.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logEntrySchema, type LogEntry } from "@/lib/domain/entry";
+import type { StatRow } from "@/lib/domain/stats";
 import type { CatalogMatch } from "@/lib/ports/catalog";
 import type { DeletedEntry, LogRepository, OwnHit, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
 import { fail, ok, type Result } from "@/lib/ports/result";
@@ -252,6 +253,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const detail: TitleDetail = {
       mediaId,
+      tmdbId: media.data.tmdb_id ?? null,
       title: media.data.title,
       category: media.data.category,
       overview: media.data.overview,
@@ -412,5 +414,43 @@ export const supabaseLogRepository: LogRepository = {
       .limit(1000);
     if (error) return fail("Could not load what you have seen.");
     return ok(matchesFrom(data, 1000).map((m) => `${m.kind}:${m.tmdbId}`));
+  },
+
+  async statRows() {
+    const db = getSupabase();
+    const rows: StatRow[] = [];
+    const PAGE = 1000;
+    // Supabase returns at most 1000 rows per request, so read the log in pages.
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await db
+        .from("watch_sessions")
+        .select(
+          "media_id, watched_on, primary_format, rating, total_tickets, media:media_items(title, category, runtime, original_language, poster_path), venue:venues(name)",
+        )
+        .is("deleted_at", null)
+        .order("created_at")
+        .order("id")
+        .range(from, from + PAGE - 1);
+      if (error) return fail("Could not load your statistics.");
+
+      for (const row of data) {
+        const media = one<{ title: string; category: string; runtime: number | null; original_language: string | null; poster_path: string | null }>(row.media);
+        rows.push({
+          mediaId: row.media_id as string,
+          title: media?.title ?? "Untitled",
+          category: media?.category ?? "Movie",
+          posterPath: media?.poster_path ?? null,
+          watchedOn: row.watched_on,
+          runtime: media?.runtime ?? null,
+          venue: one<{ name: string }>(row.venue)?.name ?? null,
+          format: row.primary_format,
+          rating: row.rating === null ? null : Number(row.rating),
+          tickets: row.total_tickets,
+          language: media?.original_language ?? null,
+        });
+      }
+      if (data.length < PAGE) break;
+    }
+    return ok(rows);
   },
 };

@@ -10,3 +10,7 @@ export * from "./lists";
 export * from "./settings";
 export * from "./entry";
 export * from "./home";
+export * from "./appearance";
+export * from "./holidays";
+export * from "./stats";
+export * from "./stories";

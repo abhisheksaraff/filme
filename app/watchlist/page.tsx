@@ -78,7 +78,6 @@ export default function WatchlistPage() {
     <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-28 pt-8">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-3xl tracking-tight">Log</h1>
-        <Link href="/profile/keys/" className="text-sm text-neutral-500">API keys</Link>
       </div>
 
       <div className="flex gap-2">

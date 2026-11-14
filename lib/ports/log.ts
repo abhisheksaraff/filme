@@ -1,6 +1,7 @@
 // lib/ports/log.ts
 import type { LogEntry } from "@/lib/domain/entry";
 import type { SeatDetail } from "@/lib/domain/sessions";
+import type { StatRow } from "@/lib/domain/stats";
 import type { CatalogMatch } from "./catalog";
 import type { Result } from "./result";
 
@@ -33,6 +34,7 @@ export interface ViewingSummary {
 /** A title and every time the user has seen it. */
 export interface TitleDetail {
   mediaId: string;
+  tmdbId: number | null;
   title: string;
   category: string;
   overview: string | null;
@@ -85,4 +87,6 @@ export interface LogRepository {
   favourites(limit: number): Promise<Result<CatalogMatch[]>>;
   /** Every catalogue title already seen, as "Movie:123" keys, so browsing can skip them. */
   seen(): Promise<Result<string[]>>;
+  /** One compact row per viewing, for statistics and stories. */
+  statRows(): Promise<Result<StatRow[]>>;
 }

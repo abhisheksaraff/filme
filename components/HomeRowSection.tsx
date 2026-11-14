@@ -28,7 +28,7 @@ export default function HomeRowSection({ rowId, nonce }: Props) {
     };
   }, [rowId, key]);
 
-  const label = HOME_ROWS.find((row) => row.id === rowId)?.label ?? "";
+  const label = HOME_ROWS.find((row) => row.id === rowId)?.label ?? (rowId.startsWith("holiday:") ? "Holiday picks" : "");
   const done = loaded?.key === key ? loaded.res : null;
 
   return (
