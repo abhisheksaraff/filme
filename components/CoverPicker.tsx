@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import CropDialog from "@/components/CropDialog";
 import ImageViewer from "@/components/ImageViewer";
+import RoundButton from "@/components/RoundButton";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { StoredImage } from "@/lib/ports/images";
 import { services } from "@/lib/services";
@@ -65,14 +66,11 @@ export default function CoverPicker({ mediaId, tmdbId, category, kind, onChanged
     setReload((n) => n + 1);
   }
 
-  const chip = "rounded-full border border-neutral-400 px-4 py-1.5 text-sm";
   const aspect = kind === "poster" ? 2 / 3 : 16 / 9;
 
   return (
     <div className="flex flex-col gap-3">
-      <button type="button" className={`${chip} self-start`} onClick={() => setOpen((o) => !o)}>
-        {open ? `Hide ${label} options` : `Change ${label}`}
-      </button>
+      <RoundButton icon={kind === "poster" ? "image" : "layers"} label={open ? `Hide ${label} options` : `Change ${label}`} pressed={open} onClick={() => setOpen((o) => !o)} className="self-start" />
       {open && (
         <>
           {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
@@ -86,7 +84,7 @@ export default function CoverPicker({ mediaId, tmdbId, category, kind, onChanged
               e.target.value = "";
             }}
           />
-          <button type="button" className={`${chip} self-start`} onClick={() => input.current?.click()}>Upload your own</button>
+          <RoundButton icon="upload" label={`Upload your own ${label}`} tone="dark" onClick={() => input.current?.click()} className="self-start" />
 
           {mine.length > 0 && (
             <>
@@ -128,6 +126,7 @@ export default function CoverPicker({ mediaId, tmdbId, category, kind, onChanged
           images={mine}
           start={viewing}
           onClose={() => setViewing(null)}
+          onAdd={() => input.current?.click()}
           onSetDefault={async (image) => {
             if (!image.id) return;
             const res = await services.images.setDefault({ mediaId }, image.id);

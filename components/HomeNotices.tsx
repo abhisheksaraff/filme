@@ -4,14 +4,16 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import Icon, { type IconName } from "@/components/Icon";
+import RoundButton from "@/components/RoundButton";
 import { storyTitle, type StoryKind } from "@/lib/domain/stories";
 import type { AppNotification } from "@/lib/ports/notifications";
 import { services } from "@/lib/services";
 
-function describe(n: AppNotification): { text: string; href: string } {
-  if (n.kind === "backup") return { text: "It has been a while since your last backup.", href: "/profile/data/" };
+function describe(n: AppNotification): { text: string; href: string; icon: IconName } {
+  if (n.kind === "backup") return { text: "Time for a backup", href: "/profile/data/", icon: "archive" };
   const kind: StoryKind = n.kind === "report-year" ? "year" : "month";
-  return { text: `${storyTitle(kind, n.period)} is ready to look back on.`, href: `/story/?kind=${kind}&period=${n.period}` };
+  return { text: `${storyTitle(kind, n.period)} is ready`, href: `/story/?kind=${kind}&period=${n.period}`, icon: "sparkle" };
 }
 
 export default function HomeNotices({ refresh }: { refresh: number }) {
@@ -41,11 +43,14 @@ export default function HomeNotices({ refresh }: { refresh: number }) {
   return (
     <ul className="flex flex-col gap-2">
       {items.map((n) => {
-        const { text, href } = describe(n);
+        const { text, href, icon } = describe(n);
         return (
-          <li key={n.id} className="flex items-center justify-between gap-3 rounded-2xl bg-neutral-100 px-4 py-3 text-sm dark:bg-neutral-900">
-            <Link href={href} className="flex-1">{text}</Link>
-            <button type="button" aria-label="Dismiss" onClick={() => dismiss(n.id)} className="px-1 text-neutral-500">✕</button>
+          <li key={n.id} className="flex items-center gap-3 rounded-full bg-neutral-100 py-2 pl-2 pr-2 text-sm dark:bg-neutral-900">
+            <Link href={href} className="flex flex-1 items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"><Icon name={icon} size={18} /></span>
+              <span className="font-medium">{text}</span>
+            </Link>
+            <RoundButton icon="close" label="Dismiss" size="sm" onClick={() => dismiss(n.id)} />
           </li>
         );
       })}

@@ -2,6 +2,7 @@
 // One viewing in full: its ticket stubs, photos with notes, seats and details.
 "use client";
 
+import RoundButton from "@/components/RoundButton";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
@@ -97,13 +98,13 @@ function SessionView() {
             </div>
           )}
           {v.notes && <p className="text-sm">{v.notes}</p>}
-          <Link href={`/entry/?id=${id}`} className="self-start rounded-xl border border-neutral-300 px-3 py-1.5 text-sm dark:border-neutral-700">Edit viewing</Link>
+          <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${id}`} className="self-start" />
 
           <section className="flex flex-col gap-2">
             <h2 className="font-serif text-xl">Ticket stubs</h2>
             {tickets.length === 0 && <p className="text-sm text-neutral-500">No stubs saved.</p>}
             <input ref={stubInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setCrop({ file: f, kind: "ticket" }); e.target.value = ""; }} />
-            <button type="button" onClick={() => stubInput.current?.click()} className="self-start rounded-full border border-neutral-400 px-4 py-1.5 text-sm">Add a stub</button>
+            <RoundButton icon="plus" label="Add a stub" tone="dark" onClick={() => stubInput.current?.click()} className="self-start" />
             <ul className="-mx-5 flex gap-2 overflow-x-auto px-5">
               {tickets.map((image, i) => (
                 <li key={image.id} className="shrink-0">
@@ -119,7 +120,7 @@ function SessionView() {
           <section className="flex flex-col gap-2">
             <h2 className="font-serif text-xl">Photos</h2>
             <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setCrop({ file: f, kind: "photo" }); e.target.value = ""; }} />
-            <button type="button" onClick={() => input.current?.click()} className="self-start rounded-full border border-neutral-400 px-4 py-1.5 text-sm">Add a photo</button>
+            <RoundButton icon="plus" label="Add a photo" tone="dark" onClick={() => input.current?.click()} className="self-start" />
             <ul className="grid grid-cols-3 gap-2">
               {photos.map((image, i) => (
                 <li key={image.id}>
@@ -140,6 +141,7 @@ function SessionView() {
           images={shown}
           start={gallery.start}
           onClose={() => setGallery(null)}
+          onAdd={() => (gallery.kind === "ticket" ? stubInput : input).current?.click()}
           onSetDefault={async (image) => { if (image.id && id) { await services.images.setDefault({ sessionId: id }, image.id); refresh(); } }}
           onNote={async (image, note) => { if (image.id) { await services.images.setNote(image.id, note); refresh(); } }}
           onDelete={async (image) => { if (image.id) { await services.images.remove(image.id); refresh(); } }}

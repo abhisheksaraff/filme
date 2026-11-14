@@ -6,20 +6,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
+import RoundButton from "@/components/RoundButton";
 import BottomNav from "@/components/BottomNav";
+import Icon, { type IconName } from "@/components/Icon";
 import CropDialog from "@/components/CropDialog";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { getSupabase } from "@/lib/adapters/supabase/client";
 import { signOut } from "@/lib/adapters/supabase/auth";
 import { services } from "@/lib/services";
 
-const LINKS = [
-  { href: "/stats/", label: "Stats", note: "Totals and charts for everything you have logged" },
-  { href: "/globe/", label: "Globe", note: "Every venue you have been to" },
-  { href: "/collections/", label: "Collections", note: "Your own lists of titles" },
-  { href: "/profile/appearance/", label: "Appearance", note: "Light or dark, themes and decorations" },
-  { href: "/profile/data/", label: "Your data", note: "Backups, restore, Letterboxd and Trakt files" },
-  { href: "/profile/keys/", label: "API keys", note: "AI and TMDB keys, models and order" },
+const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
+  { href: "/stats/", icon: "chart", label: "Stats", note: "Totals and charts for everything you have logged" },
+  { href: "/globe/", icon: "globe", label: "Globe", note: "Every venue you have been to" },
+  { href: "/collections/", icon: "layers", label: "Collections", note: "Your own lists of titles" },
+  { href: "/profile/appearance/", icon: "palette", label: "Appearance", note: "Light or dark, themes and decorations" },
+  { href: "/profile/data/", icon: "archive", label: "Your data", note: "Backups, restore, Letterboxd and Trakt files" },
+  { href: "/profile/keys/", icon: "key", label: "API keys", note: "AI and TMDB keys, models and order" },
 ];
 
 /** Supabase's free plan holds 1 GB of files; the meter is measured against that. */
@@ -70,7 +72,7 @@ export default function ProfilePage() {
       <div className="flex items-center gap-4">
         <Avatar key={avatarKey} size={72} />
         <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { setCrop(e.target.files?.[0] ?? null); e.target.value = ""; }} />
-        <button type="button" onClick={() => input.current?.click()} className="rounded-full border border-neutral-400 px-4 py-1.5 text-sm">Change picture</button>
+        <RoundButton icon="edit" label="Change picture" onClick={() => input.current?.click()} />
       </div>
 
       <section className="flex flex-col gap-1 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900">
@@ -84,14 +86,17 @@ export default function ProfilePage() {
       <ul className="flex flex-col gap-3">
         {LINKS.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="flex flex-col rounded-xl border border-neutral-300 p-4 dark:border-neutral-700">
-              <span className="font-medium">{link.label}</span>
-              <span className="text-sm text-neutral-500">{link.note}</span>
+            <Link href={link.href} className="flex items-center gap-4 rounded-full bg-neutral-100 py-2 pl-2 pr-5 dark:bg-neutral-900">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"><Icon name={link.icon} size={20} /></span>
+              <span className="flex flex-col">
+                <span className="font-medium">{link.label}</span>
+                <span className="text-xs text-neutral-500">{link.note}</span>
+              </span>
             </Link>
           </li>
         ))}
       </ul>
-      <button type="button" onClick={onSignOut} className="rounded-xl border border-neutral-300 px-4 py-3 text-sm dark:border-neutral-700">Sign out</button>
+      <RoundButton icon="logout" label="Sign out" onClick={onSignOut} className="self-center" size="lg" />
 
       {crop && <CropDialog file={crop} aspect={1} maxEdge={512} title="Frame your picture" onCancel={() => setCrop(null)} onDone={saveAvatar} />}
       <BottomNav />

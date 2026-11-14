@@ -2,24 +2,17 @@
 // Entry point for logging a viewing, with the most recent ones listed below.
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import BottomNav from "@/components/BottomNav";
-import type { FileProcessingError } from "@/components/UploadToImages";
+import RoundButton from "@/components/RoundButton";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { DeletedEntry, RecentEntry } from "@/lib/ports/log";
 import { services } from "@/lib/services";
 
-const UploadToImages = dynamic(() => import("@/components/UploadToImages"), {
-  ssr: false,
-});
-
 export default function WatchlistPage() {
   const ready = useRequireSession();
-  const router = useRouter();
   const [recent, setRecent] = useState<RecentEntry[]>([]);
   const [deleted, setDeleted] = useState<DeletedEntry[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
@@ -45,51 +38,13 @@ export default function WatchlistPage() {
     else setProblem(res.error);
   }
 
-  const handleUpload = (images: string[], errors: FileProcessingError[]) => {
-    // Save images and errors (if present) so /scan can handle them
-    if (images.length > 0) {
-      sessionStorage.setItem("scanned_ticket_images", JSON.stringify(images));
-    } else {
-      sessionStorage.removeItem("scanned_ticket_images");
-    }
-
-    if (errors.length > 0) {
-      sessionStorage.setItem("scanned_ticket_errors", JSON.stringify(errors));
-    } else {
-      sessionStorage.removeItem("scanned_ticket_errors");
-    }
-
-    if (images.length > 0 || errors.length > 0) {
-      router.push("/scan/");
-    }
-  };
-
-  const handleManualInput = () => {
-    sessionStorage.removeItem("scanned_ticket_images");
-    sessionStorage.removeItem("scanned_ticket_errors");
-    router.push("/scan/");
-  };
-
   if (!ready) return null;
-
-  const button = "rounded-xl border border-neutral-300 px-4 py-2 text-sm dark:border-neutral-700";
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-32 pt-8">
       <div className="flex items-center justify-between">
-        <h1 className="font-serif text-3xl tracking-tight">Log</h1>
+        <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
       </div>
-
-      <div className="flex gap-2">
-        <button type="button" className={button} onClick={() => document.getElementById("file-upload")?.click()}>
-          Upload
-        </button>
-        <button type="button" className={button} onClick={handleManualInput}>
-          Manual Input
-        </button>
-      </div>
-
-      <UploadToImages id="file-upload" onUpload={handleUpload} />
 
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
@@ -122,7 +77,7 @@ export default function WatchlistPage() {
             {deleted.map((entry) => (
               <li key={entry.id} className="flex items-center justify-between gap-2 text-sm">
                 <span>{entry.title} · deleted {entry.deletedAt.slice(0, 10)}</span>
-                <button type="button" className={button} onClick={() => restore(entry.id)}>Restore</button>
+                <RoundButton icon="undo" label="Restore" size="sm" onClick={() => restore(entry.id)} />
               </li>
             ))}
           </ul>

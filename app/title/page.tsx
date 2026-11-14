@@ -2,6 +2,7 @@
 // One title: a hero picture, credits, posters and every time it has been watched.
 "use client";
 
+import RoundButton from "@/components/RoundButton";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -19,7 +20,6 @@ import type { TitleCredits } from "@/lib/ports/browse";
 import type { TitleDetail } from "@/lib/ports/log";
 import { services } from "@/lib/services";
 
-const button = "rounded-xl border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-neutral-700";
 const card = "flex flex-col gap-2 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900";
 const ROLE_LABEL: Record<string, string> = { actor: "Cast", director: "Director", producer: "Producer", writer: "Writer", creator: "Creator", performer: "Performers", opener: "Openers" };
 const ORDINAL = (n: number) => (n === 1 ? "First viewing" : `Rewatch #${n - 1}`);
@@ -110,8 +110,7 @@ function TitleView() {
           <img src={backdrop} alt="" className="h-full w-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
-        <button type="button" aria-label="Back" onClick={() => (window.history.length > 1 ? router.back() : router.push("/home/"))}
-          className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))] flex h-10 w-10 items-center justify-center rounded-full bg-black/80 text-white">‹</button>
+        <RoundButton icon="back" label="Back" tone="dark" onClick={() => (window.history.length > 1 ? router.back() : router.push("/home/"))} className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))] !bg-black/80 !text-white" />
         <h1 className="absolute inset-x-5 bottom-5 font-serif text-4xl leading-tight tracking-tight text-white">{detail?.title ?? ""}</h1>
         {!detail && !problem && <div className="skeleton absolute inset-0" />}
       </div>
@@ -141,7 +140,7 @@ function TitleView() {
             {detail.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{detail.overview}</p>}
 
             <div className="flex flex-wrap gap-2">
-              <button type="button" className={button} onClick={logAnother}>Log another viewing</button>
+              <RoundButton icon="plus" label="Log another viewing" tone="dark" onClick={logAnother} />
             </div>
 
             {isShow && detail.tmdbId !== null && (
@@ -154,7 +153,7 @@ function TitleView() {
                   </select>
                   <input type="date" value={seasonDate} onChange={(e) => setSeasonDate(e.target.value)} aria-label="Date watched" className="rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-base dark:border-neutral-700" />
                 </div>
-                <button type="button" className={`${button} self-start`} disabled={busy} onClick={logSeason}>Log every episode</button>
+                <RoundButton icon="layers" label="Log every episode" tone="dark" disabled={busy} onClick={logSeason} className="self-start" />
               </section>
             )}
 
@@ -224,9 +223,9 @@ function TitleView() {
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Link href={`/session/?id=${v.id}`} className={button}>Open</Link>
-                    <Link href={`/entry/?id=${v.id}`} className={button}>Edit</Link>
-                    <button type="button" className={button} disabled={busy} onClick={() => change(() => services.log.deleteViewing(v.id), () => setJustDeleted(v.id))}>Delete</button>
+                    <RoundButton icon="open" label="Open viewing" href={`/session/?id=${v.id}`} />
+                    <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${v.id}`} />
+                    <RoundButton icon="trash" label="Delete viewing" tone="danger" disabled={busy} onClick={() => change(() => services.log.deleteViewing(v.id), () => setJustDeleted(v.id))} />
                   </div>
                 </li>
               ))}

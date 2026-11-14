@@ -61,10 +61,14 @@ export const supabaseImageRepository: ImageRepository = {
     const bucket = isCover ? PUBLIC : PRIVATE;
     const path = `${uid}/${kind}/${crypto.randomUUID()}.${ext}`;
 
+    const [col, id] = column(owner);
+    // A title keeps only its latest custom poster and cover, so older uploads are removed first.
+    const old = isCover && "mediaId" in owner
+      ? await db.from("images").select("id, path").eq(col, id).eq("kind", kind).eq("source", "upload")
+      : null;
+
     const up = await db.storage.from(bucket).upload(path, blob, { contentType: blob.type });
     if (up.error) return fail("Could not upload the image.");
-
-    const [col, id] = column(owner);
     const inserted = await db
       .from("images")
       .insert({ kind, source: "upload", path, note, [col]: id })
@@ -73,6 +77,10 @@ export const supabaseImageRepository: ImageRepository = {
     if (inserted.error) {
       await db.storage.from(bucket).remove([path]);
       return fail("Could not save the image.");
+    }
+    if (old?.data?.length) {
+      await db.from("images").delete().in("id", old.data.map((r) => r.id as string));
+      await db.storage.from(PUBLIC).remove(old.data.map((r) => r.path as string));
     }
     const urls = await urlsFor([{ path, source: "upload", kind }]);
     return ok({ id: inserted.data.id as string, url: urls.get(path) ?? "", note, isDefault: false, kind });

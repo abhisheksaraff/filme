@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import RoundButton from "@/components/RoundButton";
 import BottomNav from "@/components/BottomNav";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -136,7 +137,7 @@ export default function WantPage() {
               </li>
             ))}
           </ul>
-          <button type="button" onClick={remindOpening} className="self-start rounded-full border border-neutral-400 px-4 py-1.5">Add to calendar</button>
+          <RoundButton icon="calendarPlus" label="Add to calendar" tone="dark" onClick={remindOpening} className="self-start" />
         </section>
       )}
 
@@ -157,7 +158,7 @@ export default function WantPage() {
               </li>
             ))}
           </ul>
-          {upcoming.length > 0 && <button type="button" onClick={remindEpisodes} className="self-start rounded-full border border-neutral-400 px-4 py-1.5">Add to calendar</button>}
+          {upcoming.length > 0 && <RoundButton icon="calendarPlus" label="Add to calendar" tone="dark" onClick={remindEpisodes} className="self-start" />}
         </section>
       )}
 
@@ -177,7 +178,7 @@ export default function WantPage() {
                 )}
                 <span className="mt-1 block font-serif text-base leading-tight">{item.title}</span>
               </Link>
-              <button type="button" onClick={() => remove(item.mediaId)} className="self-start text-xs text-neutral-500">Remove</button>
+              <RoundButton icon="close" label="Remove from list" size="sm" onClick={() => remove(item.mediaId)} className="self-start" />
             </li>
           );
         })}

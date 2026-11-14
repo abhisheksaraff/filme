@@ -17,7 +17,7 @@ interface Props {
   disabled?: boolean;
 }
 
-const bubble = "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm";
+const bubble = "inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm";
 
 export default function TagInput({ label, tags, onAdd, onRemove, options, placeholder, hint, disabled }: Props) {
   const [query, setQuery] = useState("");
@@ -38,12 +38,12 @@ export default function TagInput({ label, tags, onAdd, onRemove, options, placeh
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-sm font-medium">{label}</span>
+      <span className="px-1 text-xs text-neutral-500">{label}</span>
 
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {tags.map((tag, index) => (
-            <span key={`${tag}-${index}`} className={`${bubble} border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900`}>
+            <span key={`${tag}-${index}`} className={`${bubble} bg-neutral-900 text-white dark:bg-white dark:text-neutral-900`}>
               {tag}
               <button type="button" disabled={disabled} aria-label={`Remove ${tag}`} onClick={() => onRemove(index)}>✕</button>
             </span>
@@ -66,7 +66,7 @@ export default function TagInput({ label, tags, onAdd, onRemove, options, placeh
             commit();
           }
         }}
-        className="w-full rounded-xl border border-neutral-300 bg-transparent px-4 py-3 text-base dark:border-neutral-700"
+        className="w-full rounded-2xl bg-neutral-100 px-4 py-3 text-base outline-none dark:bg-neutral-800"
       />
       {hint && <span className="text-xs text-neutral-500">{hint}</span>}
 
@@ -78,7 +78,7 @@ export default function TagInput({ label, tags, onAdd, onRemove, options, placeh
               type="button"
               disabled={disabled}
               onClick={() => onAdd([option])}
-              className={`${bubble} border-neutral-300 dark:border-neutral-700`}
+              className={`${bubble} bg-neutral-100 dark:bg-neutral-800`}
             >
               {option}
             </button>

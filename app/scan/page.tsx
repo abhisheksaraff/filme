@@ -3,10 +3,12 @@
 
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
-import type { FileProcessingError } from "@/components/UploadToImages";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import BottomNav from "@/components/BottomNav";
+import PosterChooser, { type CoverChoice } from "@/components/PosterChooser";
+import RoundButton from "@/components/RoundButton";
+import UploadToImages, { type FileProcessingError } from "@/components/UploadToImages";
 import { OcrClient } from "@/lib/ocrClient";
 import EntryForm from "@/components/EntryForm";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -24,80 +26,16 @@ import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
 import { syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
 
-// Image Cache
-let cachedImagesRaw: string | null = null;
-let cachedImages: string[] = [];
-
-function getImagesSnapshot(): string[] {
-  if (typeof window === "undefined") return cachedImages;
-
-  const storedImages = sessionStorage.getItem("scanned_ticket_images");
-
-  if (storedImages !== cachedImagesRaw) {
-    cachedImagesRaw = storedImages;
-    if (!storedImages) {
-      cachedImages = [];
-    } else {
-      try {
-        const parsed = JSON.parse(storedImages);
-        cachedImages = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        cachedImages = [];
-      }
-    }
-  }
-
-  return cachedImages;
-}
-
-// Error Cache
-let cachedErrorsRaw: string | null = null;
-let cachedErrors: FileProcessingError[] = [];
-
-function getErrorsSnapshot(): FileProcessingError[] {
-  if (typeof window === "undefined") return cachedErrors;
-
-  const storedErrors = sessionStorage.getItem("scanned_ticket_errors");
-
-  if (storedErrors !== cachedErrorsRaw) {
-    cachedErrorsRaw = storedErrors;
-    if (!storedErrors) {
-      cachedErrors = [];
-    } else {
-      try {
-        const parsed = JSON.parse(storedErrors);
-        cachedErrors = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        cachedErrors = [];
-      }
-    }
-  }
-
-  return cachedErrors;
-}
-
-const SERVER_SNAPSHOT_IMAGES: string[] = [];
-function getServerImagesSnapshot(): string[] {
-  return SERVER_SNAPSHOT_IMAGES;
-}
-
-const SERVER_SNAPSHOT_ERRORS: FileProcessingError[] = [];
-function getServerErrorsSnapshot(): FileProcessingError[] {
-  return SERVER_SNAPSHOT_ERRORS;
-}
-
-function subscribe(callback: () => void) {
-  window.addEventListener("storage", callback);
-  return () => window.removeEventListener("storage", callback);
-}
-
 const SEARCH_DELAY_MS = 500;
 
 export default function ScanPage() {
   const ready = useRequireSession();
   const router = useRouter();
-  const images = useSyncExternalStore(subscribe, getImagesSnapshot, getServerImagesSnapshot);
-  const errors = useSyncExternalStore(subscribe, getErrorsSnapshot, getServerErrorsSnapshot);
+  const [images, setImages] = useState<string[]>([]);
+  const [errors, setErrors] = useState<FileProcessingError[]>([]);
+  const [poster, setPoster] = useState<CoverChoice>(null);
+  const [backdrop, setBackdrop] = useState<CoverChoice>(null);
+  const [tmdbPictures, setTmdbPictures] = useState<{ tmdbId: number; posters: string[]; backdrops: string[] } | null>(null);
 
   const [draft, setDraft] = useState<EntryDraft>(EMPTY_DRAFT);
   const [match, setMatch] = useState<CatalogDetails | null>(null);
@@ -148,6 +86,23 @@ export default function ScanPage() {
     setMatch(details.value);
     setDraft((current) => ({ ...current, title: details.value.title, category: hit.kind }));
   }
+
+  // Whenever a TMDB title is matched, offer its posters and covers.
+  const matchId = match?.tmdbId ?? null;
+  const matchKind = match && (match.category === "Movie" || match.category === "TV Show") ? match.category : null;
+  useEffect(() => {
+    if (matchId === null || !matchKind) return;
+    let cancelled = false;
+    services.catalog.images({ kind: matchKind, tmdbId: matchId }).then((res) => {
+      if (cancelled) return;
+      setTmdbPictures(res.ok ? { tmdbId: matchId, ...res.value } : null);
+      setPoster((c) => (c?.kind === "tmdb" ? null : c));
+      setBackdrop((c) => (c?.kind === "tmdb" ? null : c));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId, matchKind]);
 
   useEffect(() => {
     if (!ready || images.length === 0) return;
@@ -227,13 +182,19 @@ export default function ScanPage() {
         setBusy(null);
         return;
       }
+      // Chosen posters and covers are applied to the title; a custom upload replaces any earlier one.
+      for (const [choice, kind] of [[poster, "poster"], [backdrop, "backdrop"]] as const) {
+        if (choice?.kind === "tmdb") await services.images.useTmdbCover(saved.value.mediaId, kind, choice.path);
+        else if (choice?.kind === "upload") {
+          const added = await services.images.add({ mediaId: saved.value.mediaId }, kind, choice.blob, null);
+          if (added.ok) await services.images.setDefault({ mediaId: saved.value.mediaId }, added.value.id);
+        }
+      }
       // Genres and cast are saved in the background; the log entry is already safe.
       const tmdbId = entry.value.media?.tmdbId;
       if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {
         void syncCredits(saved.value.mediaId, entry.value.category, tmdbId);
       }
-      sessionStorage.removeItem("scanned_ticket_images");
-      sessionStorage.removeItem("scanned_ticket_errors");
       router.replace("/watchlist/");
     } catch (err) {
       setProblem(err instanceof Error ? err.message : "Could not save.");
@@ -243,21 +204,20 @@ export default function ScanPage() {
 
   if (!ready) return null;
 
-  const isUpload = images.length > 0 || errors.length > 0;
   const canSearch = draft.category === "Movie" || draft.category === "TV Show";
+  const pictures = tmdbPictures && tmdbPictures.tmdbId === matchId ? tmdbPictures : null;
 
   const suggestions =
     hits.length > 0 ? (
-      <ul className="flex flex-col overflow-hidden rounded-xl border border-neutral-300 dark:border-neutral-700">
+      <ul className="flex flex-col overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
         {hits.map((hit) => (
           <li key={`${hit.kind}-${hit.tmdbId}`}>
-            <button type="button" onClick={() => pick(hit)}
-              className="flex w-full items-center gap-3 p-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-900">
+            <button type="button" onClick={() => pick(hit)} className="flex w-full items-center gap-3 p-2 text-left">
               {hit.posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={hit.posterUrl} alt="" className="h-14 w-10 rounded object-cover" />
+                <img src={hit.posterUrl} alt="" className="h-14 w-10 rounded-lg object-cover" />
               ) : (
-                <div className="h-14 w-10 rounded bg-neutral-200 dark:bg-neutral-800" />
+                <div className="h-14 w-10 rounded-lg bg-neutral-200 dark:bg-neutral-700" />
               )}
               <span className="flex flex-col text-sm">
                 <span className="font-medium">{hit.title}</span>
@@ -270,65 +230,57 @@ export default function ScanPage() {
     ) : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-32 pt-6">
       {busy && <LoadingOverlay label={busy} />}
 
-      <Link href="/watchlist/" className="text-sm text-neutral-500">← Back</Link>
-      <h1 className="font-serif text-3xl tracking-tight">{isUpload ? "Review ticket" : "New entry"}</h1>
+      <header className="flex items-center gap-3">
+        <RoundButton icon="upload" label="Add stubs" tone="dark" size="lg" onClick={() => document.getElementById("stub-upload")?.click()} />
+        <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
+      </header>
+      <UploadToImages
+        id="stub-upload"
+        onUpload={(imgs, errs) => {
+          setImages(imgs);
+          setErrors(errs);
+        }}
+      />
 
       {errors.map((err, index) => (
-        <p key={index} className="text-sm text-red-600">
-          Error processing {err.fileName} ({err.fileType}): {err.reason}
-        </p>
+        <p key={index} className="text-sm text-red-600">{err.fileName}: {err.reason}</p>
       ))}
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
       {images.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto">
+        <ul className="-mx-6 flex gap-2 overflow-x-auto px-6">
           {images.map((src, index) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={index} src={src} alt={`Ticket ${index + 1}`} className="h-40 rounded-lg" />
+            <li key={index} className="shrink-0"><img src={src} alt={`Ticket ${index + 1}`} className="h-32 rounded-xl" /></li>
           ))}
-        </div>
-      )}
-
-      {match && (
-        <div className="overflow-hidden rounded-xl border border-neutral-300 dark:border-neutral-700">
-          {match.backdropUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={match.backdropUrl} alt="" className="h-36 w-full object-cover" />
-          )}
-          <div className="flex items-start gap-3 p-3">
-            {match.posterUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={match.posterUrl} alt={match.title} className="w-20 rounded-lg" />
-            )}
-            <div className="flex flex-1 flex-col gap-1 text-sm">
-              <span className="font-medium">{match.title}</span>
-              <span className="text-neutral-500">{match.releaseDate?.slice(0, 4)}</span>
-              {match.directors.length > 0 && <span>Directed by {match.directors.join(", ")}</span>}
-            </div>
-            <button type="button" aria-label="Clear TMDB match" onClick={() => setMatch(null)}>✕</button>
-          </div>
-        </div>
-      )}
-      {!match && canSearch && draft.title.trim() && hits.length === 0 && (
-        <p className="text-sm text-neutral-500">No TMDB title picked, so this will be saved as a custom title.</p>
+        </ul>
       )}
 
       <form onSubmit={onSave} className="flex flex-col gap-5">
-        <EntryForm
-          draft={draft}
-          onChange={setDraft}
-          onUserEdit={onUserEdit}
-          titleExtra={suggestions}
-          disabled={busy !== null}
-        />
+        <EntryForm draft={draft} onChange={setDraft} onUserEdit={onUserEdit} titleExtra={suggestions} disabled={busy !== null} />
+
+        {!match && canSearch && draft.title.trim() && hits.length === 0 && (
+          <p className="px-1 text-xs text-neutral-500">Pick a title from the list to use TMDB posters. Otherwise it is saved as a custom title.</p>
+        )}
+        {match && (
+          <div className="flex items-center justify-between rounded-full bg-neutral-100 py-2 pl-4 pr-2 text-sm dark:bg-neutral-800">
+            <span className="font-medium">{match.title}{match.releaseDate ? ` · ${match.releaseDate.slice(0, 4)}` : ""}</span>
+            <RoundButton icon="close" label="Clear TMDB match" size="sm" onClick={() => { setMatch(null); setTmdbPictures(null); }} />
+          </div>
+        )}
+
+        <PosterChooser title="Poster" shape="poster" paths={pictures?.posters ?? []} defaultPath={match?.posterPath ?? null} choice={poster} onChoose={setPoster} />
+        <PosterChooser title="Cover" shape="backdrop" paths={pictures?.backdrops ?? []} defaultPath={match?.backdropPath ?? null} choice={backdrop} onChoose={setBackdrop} />
+
         <button type="submit" disabled={busy !== null}
-          className="rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
-          Save viewing
+          className="rounded-full bg-neutral-950 px-5 py-4 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-950">
+          Save
         </button>
       </form>
+      <BottomNav />
     </main>
   );
 }

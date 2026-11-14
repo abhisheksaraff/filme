@@ -146,7 +146,7 @@ export function activeHoliday(now: Date, choice: ThemeChoice, context: ThemeCont
   return null;
 }
 
-const LIGHTNESS = { 50: 97, 100: 94, 200: 88, 300: 80, 400: 62, 500: 46, 600: 36, 700: 28, 800: 18, 900: 11, 950: 6 };
+const LIGHTNESS = { 50: 98, 100: 97, 200: 94, 300: 86, 400: 62, 500: 46, 600: 36, 700: 28, 800: 18, 900: 11, 950: 6 };
 
 /**
  * CSS variables that tint the interface. Tailwind's grey scale is remapped so every existing

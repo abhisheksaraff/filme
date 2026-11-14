@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import RoundButton from "@/components/RoundButton";
 import BottomNav from "@/components/BottomNav";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -87,13 +88,13 @@ export default function CalendarPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32 pt-6">
       <header className="flex items-center justify-between px-1">
         <div className="flex items-center gap-1">
-          <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className="px-2 text-xl">‹</button>
+          <RoundButton icon="left" label="Previous month" size="sm" onClick={() => shift(-1)} />
           <h1 className="font-serif text-2xl tracking-tight">{MONTH_NAMES[month]} {year}</h1>
-          <button type="button" aria-label="Next month" onClick={() => shift(1)} className="px-2 text-xl">›</button>
+          <RoundButton icon="right" label="Next month" size="sm" onClick={() => shift(1)} />
         </div>
         <div className="flex gap-2">
-          <button type="button" aria-label="Filter" onClick={() => setFilterOpen((o) => !o)} className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">⚙︎</button>
-          <button type="button" aria-label="Download this month" onClick={download} className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">⤓</button>
+          <RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} />
+          <RoundButton icon="download" label="Download this month" onClick={download} />
         </div>
       </header>
 
@@ -167,13 +168,7 @@ export default function CalendarPage() {
         </ul>
       )}
 
-      <Link
-        href="/search/?ask=1"
-        aria-label="Ask your log"
-        className="fixed bottom-24 right-5 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-950 text-lg text-white shadow-lg dark:bg-white dark:text-neutral-950"
-      >
-        ✦
-      </Link>
+      <RoundButton icon="sparkle" label="Ask your log" href="/search/?ask=1" tone="dark" size="lg" className="fixed bottom-24 right-5 z-20 shadow-lg" />
       <BottomNav />
     </main>
   );

@@ -1,8 +1,9 @@
 // components/ImageViewer.tsx
-// Full-screen picture viewer: swipe between images, pinch to zoom, save, set as default, add a note.
+// Full-screen picture viewer used everywhere: swipe, pinch to zoom, download, add, set default, note.
 "use client";
 
 import { useRef, useState } from "react";
+import RoundButton from "@/components/RoundButton";
 import { downloadBlob } from "@/lib/ics";
 
 export interface ViewerImage {
@@ -16,24 +17,24 @@ interface Props {
   images: ViewerImage[];
   start: number;
   onClose: () => void;
+  /** Shows a + button; the page decides how a new picture is chosen. */
+  onAdd?: () => void;
   onSetDefault?: (image: ViewerImage) => void;
   onNote?: (image: ViewerImage, note: string | null) => void;
   onDelete?: (image: ViewerImage) => void;
 }
 
 const MAX_ZOOM = 5;
-
 const distance = (a: React.Touch, b: React.Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 
-export default function ImageViewer({ images, start, onClose, onSetDefault, onNote, onDelete }: Props) {
-  const [index, setIndex] = useState(Math.min(start, images.length - 1));
+export default function ImageViewer({ images, start, onClose, onAdd, onSetDefault, onNote, onDelete }: Props) {
+  const [index, setIndex] = useState(Math.min(start, Math.max(0, images.length - 1)));
   const [zoom, setZoom] = useState(1);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const touch = useRef<{ x: number; pinch: number | null; base: number }>({ x: 0, pinch: null, base: 1 });
 
   const image = images[index];
-  if (!image) return null;
 
   function go(by: number) {
     setZoom(1);
@@ -42,6 +43,7 @@ export default function ImageViewer({ images, start, onClose, onSetDefault, onNo
   }
 
   async function save() {
+    if (!image) return;
     try {
       const blob = await (await fetch(image.url)).blob();
       downloadBlob(`filme-${image.id ?? index + 1}.${blob.type.split("/")[1] ?? "jpg"}`, blob);
@@ -51,14 +53,19 @@ export default function ImageViewer({ images, start, onClose, onSetDefault, onNo
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white" role="dialog" aria-modal="true" aria-label="Image viewer">
-      <div className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] text-sm">
-        <span className="text-white/60">{index + 1} / {images.length}</span>
-        <button type="button" aria-label="Close" onClick={onClose} className="px-2 text-2xl">✕</button>
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white backdrop-blur-xl" role="dialog" aria-modal="true" aria-label="Image viewer">
+      <div className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+        <RoundButton icon="close" label="Close" onClick={onClose} className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />
+        {images.length > 1 && (
+          <div className="flex gap-1.5" aria-label={`Picture ${index + 1} of ${images.length}`}>
+            {images.map((_, i) => <span key={i} className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/40"}`} />)}
+          </div>
+        )}
+        {onAdd ? <RoundButton icon="plus" label="Add a picture" onClick={onAdd} className="bg-white/15 text-white dark:bg-white/15 dark:text-white" /> : <span className="h-10 w-10" />}
       </div>
 
       <div
-        className="flex flex-1 touch-none items-center justify-center overflow-hidden"
+        className="flex flex-1 touch-none items-center justify-center overflow-hidden px-3"
         onTouchStart={(e) => {
           if (e.touches.length === 2) touch.current = { ...touch.current, pinch: distance(e.touches[0], e.touches[1]), base: zoom };
           else touch.current = { x: e.touches[0].clientX, pinch: null, base: zoom };
@@ -78,42 +85,38 @@ export default function ImageViewer({ images, start, onClose, onSetDefault, onNo
         }}
         onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : 2.5))}
       >
-        {/* The key replays the 3D opening each time the picture changes. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img key={image.url} src={image.url} alt={image.note ?? "Picture"} style={{ transform: `scale(${zoom})` }} className="viewer-in max-h-full max-w-full object-contain transition-transform" />
+        {image ? (
+          // The key replays the 3D opening each time the picture changes.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={image.url} src={image.url} alt={image.note ?? "Picture"} style={{ transform: `scale(${zoom})` }} className="viewer-in max-h-full max-w-full rounded-2xl object-contain shadow-2xl transition-transform" />
+        ) : (
+          <p className="text-white/60">No pictures yet. Tap + to add one.</p>
+        )}
       </div>
 
-      <div className="flex flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-sm">
-        {image.note && !editing && <p className="text-center text-white/80">{image.note}</p>}
+      <div className="flex flex-col items-center gap-3 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-sm">
+        {image?.note && !editing && <p className="text-center text-white/80">{image.note}</p>}
         {editing && (
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              onNote?.(image, draft.trim() || null);
-              setEditing(false);
-            }}
-          >
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={300} placeholder="Add a note" className="flex-1 rounded-xl bg-white/10 px-3 py-2 text-base" />
-            <button type="submit" className="rounded-xl bg-white px-4 text-neutral-900">Save</button>
+          <form className="flex w-full gap-2" onSubmit={(e) => { e.preventDefault(); if (image) onNote?.(image, draft.trim() || null); setEditing(false); }}>
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={300} placeholder="Add a note" className="flex-1 rounded-full bg-white/15 px-4 py-2 text-base outline-none" />
+            <RoundButton icon="check" label="Save note" onClick={() => { if (image) onNote?.(image, draft.trim() || null); setEditing(false); }} tone="dark" className="!bg-white !text-neutral-950" />
           </form>
         )}
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <button type="button" onClick={() => go(-1)} disabled={index === 0} className="px-3 py-1 disabled:opacity-30">‹ Prev</button>
-          <button type="button" onClick={save} className="rounded-full border border-white/40 px-4 py-1.5">Download</button>
-          {onSetDefault && image.id && (
-            <button type="button" disabled={image.isDefault} onClick={() => onSetDefault(image)} className="rounded-full border border-white/40 px-4 py-1.5 disabled:opacity-40">
-              {image.isDefault ? "Default" : "Make default"}
-            </button>
-          )}
-          {onNote && image.id && (
-            <button type="button" onClick={() => { setDraft(image.note ?? ""); setEditing(true); }} className="rounded-full border border-white/40 px-4 py-1.5">Note</button>
-          )}
-          {onDelete && image.id && (
-            <button type="button" onClick={() => { onDelete(image); if (images.length === 1) onClose(); else go(index === images.length - 1 ? -1 : 0); }} className="rounded-full border border-red-300/60 px-4 py-1.5 text-red-300">Delete</button>
-          )}
-          <button type="button" onClick={() => go(1)} disabled={index === images.length - 1} className="px-3 py-1 disabled:opacity-30">Next ›</button>
-        </div>
+        {image && (
+          <div className="flex items-center gap-3">
+            {images.length > 1 && <RoundButton icon="left" label="Previous" disabled={index === 0} onClick={() => go(-1)} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />}
+            <RoundButton icon="download" label="Download" onClick={save} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />
+            {onSetDefault && image.id && (
+              <RoundButton icon="star" label={image.isDefault ? "Default" : "Set as default"} disabled={image.isDefault} pressed={image.isDefault} onClick={() => onSetDefault(image)} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />
+            )}
+            {onNote && image.id && <RoundButton icon="note" label="Note" onClick={() => { setDraft(image.note ?? ""); setEditing(true); }} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />}
+            {onDelete && image.id && (
+              <RoundButton icon="trash" label="Delete" size="lg" className="bg-white/15 !text-red-300 dark:bg-white/15"
+                onClick={() => { onDelete(image); if (images.length === 1) onClose(); else go(index === images.length - 1 ? -1 : 0); }} />
+            )}
+            {images.length > 1 && <RoundButton icon="right" label="Next" disabled={index === images.length - 1} onClick={() => go(1)} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />}
+          </div>
+        )}
       </div>
     </div>
   );

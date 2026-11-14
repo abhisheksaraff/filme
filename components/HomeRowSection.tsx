@@ -28,8 +28,11 @@ export default function HomeRowSection({ rowId, nonce }: Props) {
     };
   }, [rowId, key]);
 
-  const label = HOME_ROWS.find((row) => row.id === rowId)?.label ?? (rowId.startsWith("holiday:") ? "Holiday picks" : "");
   const done = loaded?.key === key ? loaded.res : null;
+  // A row with nothing to show (or that failed) is left out entirely rather than shown empty.
+  if (done && (!done.ok || done.value.items.length === 0)) return null;
+
+  const label = HOME_ROWS.find((row) => row.id === rowId)?.label ?? (rowId.startsWith("holiday:") ? "Holiday picks" : "");
 
   return (
     <section className="flex flex-col gap-2">
@@ -39,9 +42,7 @@ export default function HomeRowSection({ rowId, nonce }: Props) {
           {Array.from({ length: 4 }, (_, i) => <li key={i} className="skeleton aspect-[2/3] w-28 shrink-0 rounded-lg" />)}
         </ul>
       )}
-      {done && !done.ok && <p role="alert" className="text-sm text-red-600">{done.error}</p>}
-      {done?.ok && done.value.items.length === 0 && <p className="text-sm text-neutral-500">{done.value.empty}</p>}
-      {done?.ok && done.value.items.length > 0 && <PosterRow items={done.value.items} />}
+      {done?.ok && <PosterRow items={done.value.items} />}
     </section>
   );
 }

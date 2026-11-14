@@ -72,3 +72,10 @@ html[data-holiday] nav [aria-current="page"] {
   from { opacity: 0; transform: perspective(900px) rotateX(18deg) scale(0.85); }
   to { opacity: 1; transform: perspective(900px) rotateX(0) scale(1); }
 }
+
+/* A lighter grey for cards, chips and pills in light mode. */
+html:not(.dark) {
+  --color-neutral-100: #f8f8f8;
+  --color-neutral-200: #efefef;
+  --color-neutral-300: #e0e0e0;
+}
