@@ -17,6 +17,8 @@ interface Props {
   onUserEdit?: (field: "title" | "category", next: EntryDraft) => void;
   /** Shown under the title box, such as a list of matching TMDB titles. */
   titleExtra?: React.ReactNode;
+  /** Hides the type and title, for editing a viewing of a title that is already saved. */
+  lockTitle?: boolean;
   disabled?: boolean;
 }
 
@@ -34,7 +36,7 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, disabled }: Props) {
+export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, disabled }: Props) {
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => onChange({ ...draft, [key]: value });
   const edit = (field: "title" | "category", next: EntryDraft) => {
     onChange(next);
@@ -43,18 +45,22 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, dis
 
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-4">
-      <Labeled label="Type">
-        <select className={field} value={draft.category} onChange={(e) => edit("category", { ...draft, category: e.target.value as MediaCategory })}>
-          {MEDIA_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </Labeled>
-
-      <div className="flex flex-col gap-2">
-        <Labeled label="Title">
-          <input className={field} value={draft.title} onChange={(e) => edit("title", { ...draft, title: e.target.value })} />
+      {!lockTitle && (
+        <>
+        <Labeled label="Type">
+          <select className={field} value={draft.category} onChange={(e) => edit("category", { ...draft, category: e.target.value as MediaCategory })}>
+            {MEDIA_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </Labeled>
-        {titleExtra}
-      </div>
+
+        <div className="flex flex-col gap-2">
+          <Labeled label="Title">
+            <input className={field} value={draft.title} onChange={(e) => edit("title", { ...draft, title: e.target.value })} />
+          </Labeled>
+          {titleExtra}
+        </div>
+        </>
+      )}
 
       {draft.category === "TV Show" && (
         <div className="grid grid-cols-2 gap-3">

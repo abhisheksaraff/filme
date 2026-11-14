@@ -2,7 +2,7 @@
 // Writes a viewing across media_items, venues, watch_sessions, images and Storage.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logEntrySchema, type LogEntry } from "@/lib/domain/entry";
-import type { LogRepository, RecentEntry } from "@/lib/ports/log";
+import type { DeletedEntry, LogRepository, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 
@@ -75,6 +75,30 @@ function datePrecision(date: string | null): "day" | "month" | "year" | "unknown
   return date.length === 10 ? "day" : date.length === 7 ? "month" : "year";
 }
 
+/** The watch_sessions columns that come from the form, shared by saving and editing. */
+function sessionColumns(entry: LogEntry) {
+  return {
+    scope: scopeOf(entry),
+    season_number: entry.category === "TV Show" ? entry.season : null,
+    episode_number: entry.category === "TV Show" ? entry.episode : null,
+    watched_on: entry.date,
+    date_precision: datePrecision(entry.date),
+    watched_at: entry.time,
+    rating: entry.rating,
+    notes: entry.notes,
+    primary_format: entry.primaryFormat,
+    addons: entry.addons,
+    auditorium: entry.auditorium,
+    seats: entry.seats,
+    total_tickets: entry.totalTickets,
+  };
+}
+
+/** Joined rows can arrive as an object or a one-item list depending on the relationship. */
+function one<T>(value: T | T[] | null | undefined): T | null {
+  return (Array.isArray(value) ? value[0] : value) ?? null;
+}
+
 function scopeOf(entry: LogEntry): "show" | "season" | "episode" {
   if (entry.category !== "TV Show") return "show";
   if (entry.episode !== null) return "episode";
@@ -100,23 +124,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const session = await db
       .from("watch_sessions")
-      .insert({
-        media_id: media.value,
-        venue_id: venue.value,
-        scope: scopeOf(entry),
-        season_number: entry.category === "TV Show" ? entry.season : null,
-        episode_number: entry.category === "TV Show" ? entry.episode : null,
-        watched_on: entry.date,
-        date_precision: datePrecision(entry.date),
-        watched_at: entry.time,
-        rating: entry.rating,
-        notes: entry.notes,
-        primary_format: entry.primaryFormat,
-        addons: entry.addons,
-        auditorium: entry.auditorium,
-        seats: entry.seats,
-        total_tickets: entry.totalTickets,
-      })
+      .insert({ media_id: media.value, venue_id: venue.value, ...sessionColumns(entry) })
       .select("id")
       .single();
     if (session.error) return fail("Could not save the viewing.");
@@ -148,7 +156,7 @@ export const supabaseLogRepository: LogRepository = {
   async recent(limit) {
     const { data, error } = await getSupabase()
       .from("watch_sessions")
-      .select("id, watched_on, primary_format, created_at, media:media_items(title, category, poster_path)")
+      .select("id, media_id, watched_on, primary_format, created_at, media:media_items(title, category, poster_path)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -160,6 +168,7 @@ export const supabaseLogRepository: LogRepository = {
         | null;
       return {
         id: row.id,
+        mediaId: row.media_id as string,
         title: media?.title ?? "Untitled",
         category: media?.category ?? "Movie",
         posterPath: media?.poster_path ?? null,
@@ -167,6 +176,156 @@ export const supabaseLogRepository: LogRepository = {
         primaryFormat: row.primary_format,
       };
     });
+    return ok(rows);
+  },
+
+  async titleDetail(mediaId) {
+    const db = getSupabase();
+    const media = await db.from("media_items").select("*").eq("id", mediaId).maybeSingle();
+    if (media.error || !media.data) return fail("Could not find that title.");
+
+    const sessions = await db
+      .from("watch_sessions")
+      .select("id, watched_on, watched_at, auditorium, primary_format, seats, total_tickets, rating, notes, venue:venues(name)")
+      .eq("media_id", mediaId)
+      .is("deleted_at", null)
+      .order("watched_on", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    if (sessions.error) return fail("Could not load your viewings.");
+
+    const ids = sessions.data.map((row) => row.id as string);
+    const stubsBySession = new Map<string, string[]>();
+    if (ids.length > 0) {
+      const rows = await db
+        .from("images").select("session_id, path").eq("kind", "ticket").in("session_id", ids)
+        .order("is_default", { ascending: false });
+      const paths = (rows.data ?? []).map((row) => row.path as string);
+      const signed = paths.length > 0 ? await db.storage.from(BUCKET).createSignedUrls(paths, 3600) : null;
+      const urlByPath = new Map((signed?.data ?? []).map((item) => [item.path, item.signedUrl]));
+      for (const row of rows.data ?? []) {
+        const url = urlByPath.get(row.path as string);
+        if (!url) continue;
+        stubsBySession.set(row.session_id, [...(stubsBySession.get(row.session_id) ?? []), url]);
+      }
+    }
+
+    const viewings: ViewingSummary[] = sessions.data.map((row) => ({
+      id: row.id,
+      watchedOn: row.watched_on,
+      watchedAt: row.watched_at,
+      venue: one<{ name: string }>(row.venue)?.name ?? null,
+      auditorium: row.auditorium,
+      primaryFormat: row.primary_format,
+      seats: row.seats ?? [],
+      totalTickets: row.total_tickets,
+      rating: row.rating === null ? null : Number(row.rating),
+      notes: row.notes,
+      stubUrls: stubsBySession.get(row.id) ?? [],
+    }));
+
+    const detail: TitleDetail = {
+      mediaId,
+      title: media.data.title,
+      category: media.data.category,
+      overview: media.data.overview,
+      releaseDate: media.data.release_date,
+      runtime: media.data.runtime,
+      posterPath: media.data.poster_path,
+      backdropPath: media.data.backdrop_path,
+      viewings,
+    };
+    return ok(detail);
+  },
+
+  async getViewing(id) {
+    const { data, error } = await getSupabase()
+      .from("watch_sessions")
+      .select("media_id, scope, season_number, episode_number, watched_on, watched_at, rating, notes, primary_format, addons, auditorium, seats, total_tickets, media:media_items(*), venue:venues(name, address)")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error || !data) return fail("Could not find that viewing.");
+
+    const media = one<Record<string, unknown>>(data.media);
+    const venue = one<{ name: string; address: string | null }>(data.venue);
+    if (!media) return fail("Could not find that viewing's title.");
+
+    const parsed = logEntrySchema.safeParse({
+      category: media.category,
+      title: media.title,
+      season: data.season_number,
+      episode: data.episode_number,
+      episodeTitle: null,
+      location: venue?.name ?? null,
+      address: venue?.address ?? null,
+      auditorium: data.auditorium,
+      date: data.watched_on,
+      time: data.watched_at,
+      seats: data.seats ?? [],
+      totalTickets: data.total_tickets,
+      primaryFormat: data.primary_format ?? "Standard",
+      addons: data.addons ?? [],
+      rating: data.rating === null ? null : Number(data.rating),
+      notes: data.notes,
+      media:
+        media.tmdb_id === null
+          ? null
+          : {
+              tmdbId: media.tmdb_id,
+              imdbId: media.imdb_id,
+              title: media.title,
+              originalTitle: media.original_title,
+              originalLanguage: media.original_language,
+              releaseDate: media.release_date,
+              runtime: media.runtime,
+              overview: media.overview,
+              voteAverage: media.vote_average,
+              voteCount: media.vote_count,
+              posterPath: media.poster_path,
+              backdropPath: media.backdrop_path,
+            },
+    });
+    if (!parsed.success) return fail("This viewing has data the form cannot read.");
+    return ok({ mediaId: data.media_id as string, entry: parsed.data });
+  },
+
+  async updateViewing(id, input) {
+    const parsed = logEntrySchema.safeParse(input);
+    if (!parsed.success) return fail("Some fields are not valid.");
+    const db = getSupabase();
+
+    const venue = await findOrCreateVenue(db, parsed.data);
+    if (!venue.ok) return venue;
+    const { error } = await db
+      .from("watch_sessions")
+      .update({ venue_id: venue.value, ...sessionColumns(parsed.data) })
+      .eq("id", id);
+    return error ? fail("Could not save your changes.") : ok(undefined);
+  },
+
+  async deleteViewing(id) {
+    const { error } = await getSupabase().from("watch_sessions").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+    return error ? fail("Could not delete the viewing.") : ok(undefined);
+  },
+
+  async restoreViewing(id) {
+    const { error } = await getSupabase().from("watch_sessions").update({ deleted_at: null }).eq("id", id);
+    return error ? fail("Could not restore the viewing.") : ok(undefined);
+  },
+
+  async deleted(limit) {
+    const { data, error } = await getSupabase()
+      .from("watch_sessions")
+      .select("id, deleted_at, media:media_items(title)")
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false })
+      .limit(limit);
+    if (error) return fail("Could not load deleted viewings.");
+    const rows: DeletedEntry[] = data.map((row) => ({
+      id: row.id,
+      title: one<{ title: string }>(row.media)?.title ?? "Untitled",
+      deletedAt: row.deleted_at as string,
+    }));
     return ok(rows);
   },
 };

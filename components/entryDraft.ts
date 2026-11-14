@@ -129,7 +129,7 @@ export function entryFromDraft(draft: EntryDraft, media: EntryMedia | null): Res
 }
 
 /** The short text shown on a seat bubble, such as "F-12" or "102-F-12". */
-export function seatLabel(seat: DraftSeat): string {
+export function seatLabel(seat: { section?: string | null; row?: string | null; seat?: string | null }): string {
   return [seat.section, seat.row, seat.seat].filter(Boolean).join("-");
 }
 
@@ -148,4 +148,26 @@ export function parseSeatTag(raw: string): DraftSeat | null {
   if (parts.length === 3) return { section: parts[0], row: parts[1], seat: parts[2] };
   if (parts.length === 2) return { section: "", row: parts[0], seat: parts[1] };
   return { section: "", row: "", seat: text };
+}
+
+/** Fills the edit form from a saved viewing. */
+export function draftFromEntry(entry: LogEntry): EntryDraft {
+  return {
+    category: entry.category,
+    title: entry.title,
+    season: numberText(entry.season),
+    episode: numberText(entry.episode),
+    episodeTitle: text(entry.episodeTitle),
+    location: text(entry.location),
+    address: text(entry.address),
+    auditorium: text(entry.auditorium),
+    date: /^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "") ? (entry.date as string) : "",
+    time: text(entry.time),
+    totalTickets: numberText(entry.totalTickets),
+    primaryFormat: entry.primaryFormat,
+    addons: entry.addons,
+    seats: entry.seats.map((s) => ({ section: text(s.section), row: text(s.row), seat: text(s.seat) })),
+    rating: numberText(entry.rating),
+    notes: text(entry.notes),
+  };
 }

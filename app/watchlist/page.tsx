@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import type { FileProcessingError } from "@/components/UploadToImages";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import type { RecentEntry } from "@/lib/ports/log";
+import type { DeletedEntry, RecentEntry } from "@/lib/ports/log";
 import { services } from "@/lib/services";
 
 const UploadToImages = dynamic(() => import("@/components/UploadToImages"), {
@@ -20,20 +20,29 @@ export default function WatchlistPage() {
   const ready = useRequireSession();
   const router = useRouter();
   const [recent, setRecent] = useState<RecentEntry[]>([]);
+  const [deleted, setDeleted] = useState<DeletedEntry[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
-    services.log.recent(20).then((res) => {
+    Promise.all([services.log.recent(20), services.log.deleted(10)]).then(([recentRes, deletedRes]) => {
       if (cancelled) return;
-      if (res.ok) setRecent(res.value);
-      else setProblem(res.error);
+      if (recentRes.ok) setRecent(recentRes.value);
+      else setProblem(recentRes.error);
+      if (deletedRes.ok) setDeleted(deletedRes.value);
     });
     return () => {
       cancelled = true;
     };
-  }, [ready]);
+  }, [ready, reload]);
+
+  async function restore(id: string) {
+    const res = await services.log.restoreViewing(id);
+    if (res.ok) setReload((n) => n + 1);
+    else setProblem(res.error);
+  }
 
   const handleUpload = (images: string[], errors: FileProcessingError[]) => {
     // Save images and errors (if present) so /scan can handle them
@@ -88,7 +97,8 @@ export default function WatchlistPage() {
         {recent.map((entry) => {
           const poster = tmdbImageUrl(entry.posterPath, "w185");
           return (
-            <li key={entry.id} className="flex gap-3">
+            <li key={entry.id}>
+              <Link href={`/title/?id=${entry.mediaId}`} className="flex gap-3">
               {poster ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={poster} alt="" className="w-16 rounded-lg" />
@@ -101,11 +111,27 @@ export default function WatchlistPage() {
                   {[entry.watchedOn, entry.primaryFormat].filter(Boolean).join(" · ")}
                 </span>
               </div>
+              </Link>
             </li>
           );
         })}
         {recent.length === 0 && !problem && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}
       </ul>
+
+      {deleted.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-serif text-xl">Recently deleted</h2>
+          <p className="text-xs text-neutral-500">Kept for 30 days, then removed for good.</p>
+          <ul className="flex flex-col gap-2">
+            {deleted.map((entry) => (
+              <li key={entry.id} className="flex items-center justify-between gap-2 text-sm">
+                <span>{entry.title} · deleted {entry.deletedAt.slice(0, 10)}</span>
+                <button type="button" className={button} onClick={() => restore(entry.id)}>Restore</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   );
 }
