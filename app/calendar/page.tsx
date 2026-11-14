@@ -84,7 +84,7 @@ export default function CalendarPage() {
   const pickedRows = picked ? byDay.get(picked) ?? [] : [];
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-32 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-4 pt-6">
       <header className="flex items-center justify-between px-1">
         <div className="flex items-center gap-1">
           <RoundButton icon="left" label="Previous month" size="sm" onClick={() => shift(-1)} />

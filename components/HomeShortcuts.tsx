@@ -1,6 +1,6 @@
 // components/HomeShortcuts.tsx
 // One row of icon circles under the search pill: unread notifications, the map, read
-// notifications, then recaps. Shuffle and customize stay pinned at the right.
+// notifications, then recaps. Refresh and customize stay pinned at the right.
 "use client";
 
 import Link from "next/link";
@@ -104,8 +104,8 @@ export default function HomeShortcuts({ nonce, onShuffle }: { nonce: number; onS
       <ul className="-ml-1 flex min-w-0 flex-1 gap-2 overflow-x-auto pl-1">
         {[...unread, map, ...read, ...stories].map((item) => <Circle key={item.key} item={item} />)}
       </ul>
-      <div className="flex shrink-0 flex-col gap-2">
-        <RoundButton icon="shuffle" label="Shuffle" onClick={onShuffle} />
+      <div className="mt-2 flex shrink-0 gap-2">
+        <RoundButton icon="refresh" label="Refresh" onClick={onShuffle} />
         <RoundButton icon="sliders" label="Customize Home" href="/home/customize/" />
       </div>
     </div>

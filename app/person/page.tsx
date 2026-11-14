@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import Icon from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { previewHref } from "@/lib/home/rows";
@@ -14,29 +15,48 @@ import { services } from "@/lib/services";
 
 function PersonView() {
   const ready = useRequireSession();
-  const id = useSearchParams().get("id");
+  const params = useSearchParams();
+  const id = params.get("id");
+  // A person only the catalogue knows (not saved yet) is opened by their TMDB id.
+  const tmdbParam = Number(params.get("tmdb")) || null;
   const [person, setPerson] = useState<PersonDetail | null>(null);
   const [other, setOther] = useState<CatalogPerson | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!ready || !id) return;
+    if (!ready || (!id && !tmdbParam)) return;
     let cancelled = false;
-    services.browse.person(id).then((res) => {
-      if (cancelled) return;
-      if (!res.ok) return setProblem(res.error);
-      setPerson(res.value);
-      if (res.value.tmdbId !== null) {
-        services.catalog.person(res.value.tmdbId).then((c) => !cancelled && c.ok && setOther(c.value));
+    (async () => {
+      let personId = id;
+      if (!personId && tmdbParam) {
+        const found = await services.browse.personIdByTmdb(tmdbParam);
+        if (cancelled) return;
+        if (!found.ok) return setProblem(found.error);
+        personId = found.value;
       }
-    });
+      if (personId) {
+        const res = await services.browse.person(personId);
+        if (cancelled) return;
+        if (!res.ok) return setProblem(res.error);
+        setPerson(res.value);
+        if (res.value.tmdbId !== null) {
+          services.catalog.person(res.value.tmdbId).then((c) => !cancelled && c.ok && setOther(c.value));
+        }
+      } else if (tmdbParam) {
+        const c = await services.catalog.person(tmdbParam);
+        if (cancelled) return;
+        if (!c.ok) return setProblem(c.error);
+        setOther(c.value);
+        setPerson({ id: "", tmdbId: tmdbParam, name: c.value.name, profilePath: null, works: [] });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [ready, id]);
+  }, [ready, id, tmdbParam]);
 
   if (!ready) return null;
-  if (!id) return <main className="p-6 text-sm">No person selected.</main>;
+  if (!id && !tmdbParam) return <main className="p-6 text-sm">No person selected.</main>;
 
   const seen = person?.works.filter((w) => w.seen) ?? [];
   const logged = new Set(person?.works.map((w) => w.title));
@@ -44,7 +64,7 @@ function PersonView() {
   const picture = tmdbImageUrl(person?.profilePath, "w342") ?? other?.profileUrl ?? null;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-24 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
       {person && (
         <>
@@ -53,14 +73,14 @@ function PersonView() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={picture} alt="" className="h-24 w-24 rounded-full object-cover" />
             ) : (
-              <span className="flex h-24 w-24 items-center justify-center rounded-full bg-neutral-200 text-2xl dark:bg-neutral-800">{person.name[0]}</span>
+              <span className="flex h-24 w-24 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"><Icon name="user" size={40} /></span>
             )}
             <h1 className="font-serif text-3xl tracking-tight">{person.name}</h1>
           </div>
           {other?.biography && <p className="line-clamp-6 text-sm text-neutral-600 dark:text-neutral-400">{other.biography}</p>}
 
-          <h2 className="font-serif text-xl">In your log ({seen.length})</h2>
-          {seen.length === 0 && <p className="text-sm text-neutral-500">Nothing you have watched lists them yet.</p>}
+          {person.id !== "" && <h2 className="font-serif text-xl">In your log ({seen.length})</h2>}
+          {person.id !== "" && seen.length === 0 && <p className="text-sm text-neutral-500">Nothing you have watched lists them yet.</p>}
           <ul className="grid grid-cols-2 gap-4">
             {seen.map((w) => (
               <li key={w.mediaId}>

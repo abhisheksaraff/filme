@@ -64,7 +64,7 @@ export default function ProfilePage() {
   const share = used === null ? 0 : Math.min(100, (used / FREE_BYTES) * 100);
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-32 pt-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Profile</h1>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 

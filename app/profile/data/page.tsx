@@ -76,7 +76,7 @@ export default function DataPage() {
   const stamp = new Date().toISOString().slice(0, 10);
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-12 pt-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Your data</h1>
       <p className="text-sm text-neutral-500">{last ? `Last backup: ${last.slice(0, 10)}.` : "You have not made a backup yet."}</p>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}

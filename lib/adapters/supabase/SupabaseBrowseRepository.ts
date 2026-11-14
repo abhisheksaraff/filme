@@ -73,6 +73,19 @@ export const supabaseBrowseRepository: BrowseRepository = {
     });
   },
 
+  async searchPeople(query) {
+    const q = query.trim();
+    if (q.length < 2) return ok([]);
+    const { data, error } = await getSupabase()
+      .from("people")
+      .select("id, tmdb_id, name, profile_path")
+      .ilike("name", `%${literal(q)}%`)
+      .order("name")
+      .limit(6);
+    if (error) return fail("Could not search your people.");
+    return ok(data.map((p) => ({ personId: p.id as string, tmdbId: p.tmdb_id as number | null, name: p.name as string, profilePath: p.profile_path as string | null })));
+  },
+
   async personIdByTmdb(tmdbId) {
     const { data, error } = await getSupabase().from("people").select("id").eq("tmdb_id", tmdbId).maybeSingle();
     return error ? fail("Could not look up that person.") : ok((data?.id as string | undefined) ?? null);

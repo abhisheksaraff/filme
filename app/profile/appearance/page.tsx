@@ -72,7 +72,7 @@ export default function AppearancePage() {
     update({ ...appearance, birthday: `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}` });
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 pb-12 pt-8">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Appearance</h1>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 

@@ -5,6 +5,7 @@ import type { ExtractedData } from "@/lib/domain/extraction";
 import type { FormatAddon, PrimaryFormat } from "@/lib/domain/formats";
 import type { MediaCategory } from "@/lib/domain/media";
 import type { CatalogDetails } from "@/lib/ports/catalog";
+import type { StarringPick } from "@/lib/adapters/supabase/credits";
 import { fail, ok, type Result } from "@/lib/ports/result";
 
 export interface DraftSeat {
@@ -30,6 +31,8 @@ export interface EntryDraft {
   seats: DraftSeat[];
   rating: string;
   notes: string;
+  /** Cast chosen by hand; saved with the title, not with this one viewing. */
+  starring: StarringPick[];
 }
 
 export const EMPTY_DRAFT: EntryDraft = {
@@ -49,6 +52,7 @@ export const EMPTY_DRAFT: EntryDraft = {
   seats: [],
   rating: "",
   notes: "",
+  starring: [],
 };
 
 const text = (value: string | null | undefined) => value ?? "";
@@ -169,5 +173,6 @@ export function draftFromEntry(entry: LogEntry): EntryDraft {
     seats: entry.seats.map((s) => ({ section: text(s.section), row: text(s.row), seat: text(s.seat) })),
     rating: numberText(entry.rating),
     notes: text(entry.notes),
+    starring: [],
   };
 }

@@ -1,6 +1,6 @@
 // lib/credits.ts
 // Keeps saved genres and credits up to date: fills them in for new titles and refreshes old ones.
-import { addPerformer, saveCredits } from "@/lib/adapters/supabase/credits";
+import { addPerformer, addStarring, saveCredits } from "@/lib/adapters/supabase/credits";
 import { getSupabase } from "@/lib/adapters/supabase/client";
 import { services } from "@/lib/services";
 
@@ -30,4 +30,4 @@ export async function backfillCredits(): Promise<void> {
   for (const row of due) await syncCredits(row.id as string, row.category as "Movie" | "TV Show", row.tmdb_id as number);
 }
 
-export { addPerformer };
+export { addPerformer, addStarring };

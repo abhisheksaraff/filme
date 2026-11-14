@@ -156,7 +156,7 @@ function SearchView() {
   const searching = q.length >= 2 && !current;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-32 pt-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">{mode === "ask" ? "Ask your log" : "Search"}</h1>
       <div className="flex gap-2">
         {(["search", "ask"] as const).map((m) => (

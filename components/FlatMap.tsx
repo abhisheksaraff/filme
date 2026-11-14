@@ -9,6 +9,8 @@ import RoundButton from "@/components/RoundButton";
 import type { VenuePoint } from "@/lib/ports/browse";
 
 const TILE = 256;
+/** CARTO's raster tiles show a watermark without a (free) key; get one at carto.com/basemaps/apikey and set NEXT_PUBLIC_CARTO_KEY. */
+const CARTO_KEY = process.env.NEXT_PUBLIC_CARTO_KEY ?? "";
 const MIN_ZOOM = 1.5;
 const MAX_ZOOM = 18;
 /** Pins closer than this many pixels merge into one numbered circle. */
@@ -188,7 +190,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]" }: Prop
   }, [points, size, view]);
 
   const tiles = useMemo(() => {
-    if (!size) return [];
+    if (!size || !CARTO_KEY) return [];
     const zi = Math.min(19, Math.max(0, Math.floor(view.zoom)));
     const tile = TILE * 2 ** (view.zoom - zi);
     const world = TILE * 2 ** view.zoom;
@@ -200,10 +202,9 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]" }: Prop
       if (ty < 0 || ty >= n) continue;
       for (let tx = Math.floor(left / tile); tx <= Math.floor((left + size.w) / tile); tx++) {
         const wrapped = ((tx % n) + n) % n;
-        const sub = "abcd"[(wrapped + ty) % 4];
         out.push({
           key: `${zi}/${tx}/${ty}`,
-          src: `https://${sub}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/${zi}/${wrapped}/${ty}${retina ? "@2x" : ""}.png`,
+          src: `https://basemaps.cartocdn.com/rastertiles/${dark ? "dark_all" : "light_all"}/${zi}/${wrapped}/${ty}${retina ? "@2x" : ""}.png?key=${CARTO_KEY}`,
           x: tx * tile - left,
           y: ty * tile - top,
           size: tile,
@@ -235,6 +236,12 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]" }: Prop
         // eslint-disable-next-line @next/next/no-img-element
         <img key={t.key} src={t.src} alt="" draggable={false} className="pointer-events-none absolute max-w-none" style={{ left: t.x, top: t.y, width: t.size + 0.5, height: t.size + 0.5 }} />
       ))}
+
+      {!CARTO_KEY && (
+        <p className="absolute inset-x-6 top-4 rounded-2xl bg-white/90 px-3 py-2 text-center text-xs text-neutral-700 dark:bg-black/70 dark:text-neutral-200">
+          Map key missing: set NEXT_PUBLIC_CARTO_KEY to show the map background.
+        </p>
+      )}
 
       {pins.map((pin) => (
         <button

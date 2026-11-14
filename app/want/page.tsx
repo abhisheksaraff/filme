@@ -109,7 +109,7 @@ export default function WantPage() {
   const card = "flex flex-col gap-2 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900";
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-32 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
       <h1 className="font-serif text-3xl tracking-tight">Want to watch</h1>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 

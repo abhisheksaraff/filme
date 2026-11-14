@@ -40,7 +40,7 @@ export default function WatchlistPage() {
   if (!ready) return null;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-32 pt-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
       </div>

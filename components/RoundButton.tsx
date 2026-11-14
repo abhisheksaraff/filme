@@ -14,6 +14,8 @@ interface Props {
   size?: "sm" | "md" | "lg";
   disabled?: boolean;
   pressed?: boolean;
+  /** Draws the icon solid, such as a saved bookmark. */
+  filled?: boolean;
   className?: string;
 }
 
@@ -24,10 +26,10 @@ const TONES = {
 };
 const SIZES = { sm: ["h-8 w-8", 16], md: ["h-10 w-10", 20], lg: ["h-12 w-12", 22] } as const;
 
-export default function RoundButton({ icon, label, onClick, href, tone = "light", size = "md", disabled, pressed, className = "" }: Props) {
+export default function RoundButton({ icon, label, onClick, href, tone = "light", size = "md", disabled, pressed, filled, className = "" }: Props) {
   const [box, px] = SIZES[size];
   const classes = `inline-flex ${box} shrink-0 items-center justify-center rounded-full transition-opacity disabled:opacity-40 ${TONES[tone]} ${pressed ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${className}`;
-  const content = <Icon name={icon} size={px} />;
+  const content = <Icon name={icon} size={px} filled={filled} />;
   return href ? (
     <Link href={href} aria-label={label} title={label} className={classes}>{content}</Link>
   ) : (

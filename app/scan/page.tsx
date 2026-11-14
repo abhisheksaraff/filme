@@ -24,7 +24,7 @@ import Icon from "@/components/Icon";
 import { convertImage, PHOTO_PRESET, STUB_PRESET } from "@/lib/images/convert";
 import { takePrefill } from "@/lib/logPrefill";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
-import { syncCredits } from "@/lib/credits";
+import { addStarring, syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
 
 const SEARCH_DELAY_MS = 500;
@@ -193,6 +193,7 @@ export default function ScanPage() {
           if (added.ok) await services.images.setDefault({ mediaId: saved.value.mediaId }, added.value.id);
         }
       }
+      if (draft.starring.length > 0) await addStarring(saved.value.mediaId, draft.starring);
       for (const photo of photos) await services.images.add({ sessionId: saved.value.sessionId }, "photo", photo.blob, null);
       // Genres and cast are saved in the background; the log entry is already safe.
       const tmdbId = entry.value.media?.tmdbId;
@@ -234,12 +235,12 @@ export default function ScanPage() {
     ) : null;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-32 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-6">
       {busy && <LoadingOverlay label={busy} />}
 
       <header className="flex items-center justify-between gap-3">
         <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
-        <RoundButton icon="stubUpload" label="Upload ticket stubs" tone="dark" size="lg" onClick={() => document.getElementById("stub-upload")?.click()} />
+        <RoundButton icon="stubUpload" label="Upload ticket stubs" tone="dark" size="lg" className="translate-y-1" onClick={() => document.getElementById("stub-upload")?.click()} />
       </header>
       <UploadToImages
         id="stub-upload"

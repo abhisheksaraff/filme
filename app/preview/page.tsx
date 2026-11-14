@@ -2,14 +2,19 @@
 // A catalogue title you have not logged (or have): details, plus add or remove from want to watch.
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import PersonCircle from "@/components/PersonCircle";
+import RoundButton from "@/components/RoundButton";
+import TitleHero from "@/components/TitleHero";
+import Icon from "@/components/Icon";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { CatalogDetails, CatalogKind } from "@/lib/ports/catalog";
 import type { TitleStatus } from "@/lib/ports/wanted";
 import { services } from "@/lib/services";
+
+const ROLES: [string, string][] = [["actor", "Cast"], ["director", "Director"], ["creator", "Creator"], ["producer", "Producer"], ["writer", "Writer"]];
 
 function PreviewView() {
   const ready = useRequireSession();
@@ -63,72 +68,63 @@ function PreviewView() {
   if (kind === null || !Number.isInteger(id) || id <= 0) return <main className="p-6 text-sm">No title selected.</main>;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 pb-12">
-      {details?.backdropUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={details.backdropUrl} alt="" className="h-48 w-full object-cover" />
-      )}
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
+      <TitleHero
+        backdropUrl={details?.backdropUrl ?? details?.posterUrl ?? null}
+        posterUrl={details?.posterUrl ?? null}
+        title={details?.title ?? ""}
+        subtitle={details ? [details.releaseYear, details.runtime ? `${details.runtime} min` : null, details.category].filter(Boolean).join(" · ") : ""}
+        loading={!details && !problem}
+      />
 
-      <div className="flex flex-col gap-5 px-6 pt-4">
+      <div className="flex flex-col gap-5 px-5 pb-8">
         {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
-        {!details && !problem && <p className="text-sm text-neutral-500">Loading…</p>}
 
         {details && (
           <>
-            <div className="flex gap-4">
-              {details.posterUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={details.posterUrl} alt="" className="w-28 rounded-lg" />
-              )}
-              <div className="flex flex-col gap-1">
-                <h1 className="font-serif text-3xl tracking-tight">{details.title}</h1>
-                <span className="text-sm text-neutral-500">
-                  {[details.releaseYear, details.runtime ? `${details.runtime} min` : null, details.category]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
-                {details.genres.length > 0 && <span className="text-sm text-neutral-500">{details.genres.join(", ")}</span>}
-              </div>
-            </div>
+            {details.genres.length > 0 && <span className="text-sm text-neutral-500">{details.genres.join(", ")}</span>}
 
             {status && (
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
+              <div className="flex gap-3">
+                <RoundButton
+                  icon="bookmark"
+                  filled={status.wanted}
+                  label={status.wanted ? "Remove from want to watch" : "Add to want to watch"}
+                  tone="dark"
+                  size="lg"
                   disabled={busy}
                   onClick={toggleWanted}
-                  className="rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
-                >
-                  {status.wanted ? "Remove from want to watch" : "Want to watch"}
-                </button>
-                <button
-                  type="button"
-                  onClick={logViewing}
-                  className="rounded-xl border border-neutral-300 px-5 py-3 text-base dark:border-neutral-700"
-                >
-                  Log a viewing
-                </button>
+                />
+                <span className="relative">
+                  <RoundButton icon="plus" label="Log a viewing" tone="dark" size="lg" onClick={logViewing} />
+                  {status.logged && (
+                    <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-500 text-white ring-2 ring-white dark:ring-neutral-950">
+                      <Icon name="check" size={12} />
+                    </span>
+                  )}
+                </span>
                 {status.logged && status.mediaId && (
-                  <Link href={`/title/?id=${status.mediaId}`} className="text-sm underline">
-                    You have watched this. See your viewings.
-                  </Link>
+                  <RoundButton icon="ticket" label="See your viewings" size="lg" href={`/title/?id=${status.mediaId}`} />
                 )}
               </div>
             )}
 
             {details.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{details.overview}</p>}
-            {details.directors.length > 0 && (
-              <p className="text-sm">
-                <span className="text-neutral-500">{details.category === "TV Show" ? "Created by " : "Directed by "}</span>
-                {details.directors.join(", ")}
-              </p>
-            )}
-            {details.cast.length > 0 && (
-              <p className="text-sm">
-                <span className="text-neutral-500">Cast </span>
-                {details.cast.join(", ")}
-              </p>
-            )}
+
+            {ROLES.map(([role, label]) => {
+              const people = details.credits.filter((c) => c.role === role);
+              if (people.length === 0) return null;
+              return (
+                <section key={role} className="flex flex-col gap-2">
+                  <h2 className="font-serif text-lg">{label}</h2>
+                  <ul className="-mx-5 flex gap-3 overflow-x-auto px-5">
+                    {people.map((p) => (
+                      <PersonCircle key={`${p.tmdbId}-${role}`} href={`/person/?tmdb=${p.tmdbId}`} name={p.name} profilePath={p.profilePath} note={p.character} />
+                    ))}
+                  </ul>
+                </section>
+              );
+            })}
           </>
         )}
       </div>

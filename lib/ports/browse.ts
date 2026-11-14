@@ -12,6 +12,15 @@ export interface CreditPerson {
   profilePath: string | null;
 }
 
+/** A person offered while typing a name: from the user's own history or from the catalogue. */
+export interface PersonPick {
+  /** Our id for them, or null for someone only the catalogue knows so far. */
+  personId: string | null;
+  tmdbId: number | null;
+  name: string;
+  profilePath: string | null;
+}
+
 export interface TitleCredits {
   genres: string[];
   people: CreditPerson[];
@@ -91,6 +100,8 @@ export interface VenuePoint {
 export interface BrowseRepository {
   titleCredits(mediaId: string): Promise<Result<TitleCredits>>;
   person(id: string): Promise<Result<PersonDetail>>;
+  /** People already in the log (entered by hand or from the catalogue) whose name contains the text. */
+  searchPeople(query: string): Promise<Result<PersonPick[]>>;
   /** Our own id for a person TMDB knows, or null if they are not saved yet. */
   personIdByTmdb(tmdbId: number): Promise<Result<string | null>>;
   venue(id: string): Promise<Result<VenueDetail>>;

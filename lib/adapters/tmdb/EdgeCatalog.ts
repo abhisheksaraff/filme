@@ -93,6 +93,16 @@ export const edgeCatalog: Catalog = {
     return ok(person);
   },
 
+  async searchPeople(query) {
+    if (query.trim().length < 2) return ok([]);
+    const res = await callFunction<{ results: { id: number; name: string; profile_path?: string | null }[] }>("tmdb", {
+      path: "/search/person",
+      params: { query, include_adult: "false" },
+    });
+    if (!res.ok) return fail(res.error);
+    return ok(res.value.results.slice(0, 5).map((p) => ({ tmdbId: p.id, name: p.name, profilePath: p.profile_path ?? null })));
+  },
+
   async episodes(tmdbId, season) {
     if (season !== null) {
       const res = await callFunction<{ episodes?: { episode_number: number }[] }>("tmdb", { path: `/tv/${tmdbId}/season/${season}` });

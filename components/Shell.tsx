@@ -9,7 +9,7 @@ import RoundButton from "@/components/RoundButton";
 /** No bottom bar: signed-out pages and the full-screen recap. */
 const NO_NAV = ["/", "/login/", "/story/"];
 /** No back button: Home is the end of the trail, and the title page has its own on the poster. */
-const NO_BACK = ["/", "/login/", "/home/", "/story/", "/title/"];
+const NO_BACK = ["/", "/login/", "/home/", "/story/", "/title/", "/preview/"];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -33,6 +33,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         </>
       )}
       {children}
+      {/* Keeps the last line of every page clear of the floating bar. */}
+      {showNav && <div aria-hidden className="h-28 shrink-0" />}
       {showNav && <BottomNav />}
     </>
   );

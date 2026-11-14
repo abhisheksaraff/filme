@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 export type IconName =
   | "home" | "calendar" | "ticket" | "bookmark" | "plus" | "close" | "download" | "upload" | "star"
-  | "note" | "trash" | "edit" | "filter" | "shuffle" | "sliders" | "image" | "bell" | "archive"
+  | "note" | "trash" | "edit" | "filter" | "shuffle" | "refresh" | "sliders" | "image" | "bell" | "archive"
   | "calendarPlus" | "check" | "back" | "search" | "user" | "undo" | "open" | "sparkle" | "globe" | "chart"
   | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers";
 
@@ -44,6 +44,7 @@ export default function Icon({ name, size = 20, filled = false, detail = "white"
     trash: <path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13M10 11v6M14 11v6" />,
     edit: <path d="M5 19l1-4L16 5l3 3L9 18zM14 7l3 3" />,
     filter: <path d="M4 6h16M7 12h10M10 18h4" />,
+    refresh: <path d="M20 11a8 8 0 0 0-14.500-4M4 4v4h4M4 13a8 8 0 0 0 14.500 4M20 20v-4h-4" />,
     shuffle: <path d="M4 7h3c4 0 5 10 9 10h4M4 17h3c1.500 0 2.500-1 3.500-2.500M14 9c.8-1.200 1.800-2 3-2h3M17 4l3 3-3 3M17 14l3 3-3 3" />,
     sliders: <path d="M5 6h8M17 6h2M5 12h2M11 12h8M5 18h10M19 18h0M13 4v4M9 10v4M17 16v4" />,
     image: (

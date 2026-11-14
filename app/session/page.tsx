@@ -70,7 +70,7 @@ function SessionView() {
   const refresh = () => setReload((n) => n + 1);
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-24 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
       {viewing && v && (
         <>

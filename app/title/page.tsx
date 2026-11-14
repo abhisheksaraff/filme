@@ -6,8 +6,11 @@ import RoundButton from "@/components/RoundButton";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import TitleHero from "@/components/TitleHero";
 import CoverPicker from "@/components/CoverPicker";
+import Icon from "@/components/Icon";
 import ImageViewer from "@/components/ImageViewer";
+import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
 import { seatLabel } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -103,19 +106,16 @@ function TitleView() {
   const order = new Map([...(detail?.viewings ?? [])].reverse().map((v, i) => [v.id, i + 1]));
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 pb-32">
-      <div className="relative h-80 w-full overflow-hidden rounded-b-3xl bg-neutral-300 dark:bg-neutral-800">
-        {backdrop && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={backdrop} alt="" className="h-full w-full object-cover" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30" />
-        <RoundButton icon="back" label="Back" tone="dark" onClick={() => (window.history.length > 1 ? router.back() : router.push("/home/"))} className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))] !bg-black/80 !text-white" />
-        <h1 className="absolute inset-x-5 bottom-5 font-serif text-4xl leading-tight tracking-tight text-white">{detail?.title ?? ""}</h1>
-        {!detail && !problem && <div className="skeleton absolute inset-0" />}
-      </div>
+    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
+      <TitleHero
+        backdropUrl={backdrop}
+        posterUrl={poster}
+        title={detail?.title ?? ""}
+        subtitle={detail ? [detail.releaseDate?.slice(0, 4), detail.runtime ? `${detail.runtime} min` : null, detail.category].filter(Boolean).join(" · ") : ""}
+        loading={!detail && !problem}
+      />
 
-      <div className="flex flex-col gap-5 px-5">
+      <div className="flex flex-col gap-5 px-5 pb-8">
         {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
         {detail && (
@@ -139,8 +139,15 @@ function TitleView() {
 
             {detail.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{detail.overview}</p>}
 
-            <div className="flex flex-wrap gap-2">
-              <RoundButton icon="plus" label="Log another viewing" tone="dark" onClick={logAnother} />
+            <div className="flex gap-3">
+              <span className="relative">
+                <RoundButton icon="plus" label="Log another viewing" tone="dark" size="lg" onClick={logAnother} />
+                {detail.viewings.length > 0 && (
+                  <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-500 text-white ring-2 ring-white dark:ring-neutral-950">
+                    <Icon name="check" size={12} />
+                  </span>
+                )}
+              </span>
             </div>
 
             {isShow && detail.tmdbId !== null && (
@@ -162,18 +169,7 @@ function TitleView() {
                 <h2 className="font-serif text-lg">{ROLE_LABEL[role] ?? role}</h2>
                 <ul className="-mx-5 flex gap-3 overflow-x-auto px-5">
                   {people.map((p) => (
-                    <li key={`${p.personId}-${role}`} className="w-20 shrink-0">
-                      <Link href={`/person/?id=${p.personId}`} className="flex flex-col items-center gap-1 text-center text-xs">
-                        {p.profilePath ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={tmdbImageUrl(p.profilePath, "w185") ?? ""} alt="" loading="lazy" className="h-20 w-20 rounded-full object-cover" />
-                        ) : (
-                          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-neutral-200 text-lg dark:bg-neutral-800">{p.name[0]}</span>
-                        )}
-                        <span className="font-medium leading-tight">{p.name}</span>
-                        {p.character && <span className="leading-tight text-neutral-500">{p.character}</span>}
-                      </Link>
-                    </li>
+                    <PersonCircle key={`${p.personId}-${role}`} href={`/person/?id=${p.personId}`} name={p.name} profilePath={p.profilePath} note={p.character} />
                   ))}
                 </ul>
               </section>
@@ -183,10 +179,6 @@ function TitleView() {
 
             <section className="flex flex-col gap-2">
               <h2 className="font-serif text-lg">Pictures</h2>
-              {poster && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={poster} alt="" className="w-28 rounded-lg" />
-              )}
               <CoverPicker mediaId={detail.mediaId} tmdbId={detail.tmdbId} category={detail.category} kind="poster" onChanged={() => setReload((n) => n + 1)} />
               <CoverPicker mediaId={detail.mediaId} tmdbId={detail.tmdbId} category={detail.category} kind="backdrop" onChanged={() => setReload((n) => n + 1)} />
             </section>

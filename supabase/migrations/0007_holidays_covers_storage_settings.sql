@@ -1,4 +1,4 @@
--- 0007_step6.sql
+-- 0007_holidays_covers_storage_settings.sql
 -- Moving holidays, a public bucket for custom posters, a storage meter and new settings columns.
 
 -- ---------------------------------------------------------------- moving holidays

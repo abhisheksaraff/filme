@@ -7,6 +7,7 @@ import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } 
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
 import { services } from "@/lib/services";
 import Icon from "./Icon";
+import StarringInput from "./StarringInput";
 import TagInput from "./TagInput";
 import { parseSeatTag, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
 
@@ -150,6 +151,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           </Labeled>
           {titleExtra}
         </div>
+        <StarringInput people={draft.starring} onChange={(next) => set("starring", next)} disabled={disabled} />
         </>
       )}
 

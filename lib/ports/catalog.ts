@@ -57,6 +57,13 @@ export interface CatalogPerson {
   works: CatalogHit[];
 }
 
+/** A person found by name in the catalogue. */
+export interface CatalogPersonHit {
+  tmdbId: number;
+  name: string;
+  profilePath: string | null;
+}
+
 export interface EpisodeRef {
   season: number;
   episode: number;
@@ -97,6 +104,8 @@ export interface Catalog {
   /** Titles the catalogue suggests for people who liked this one. */
   recommendations(match: CatalogMatch): Promise<Result<CatalogHit[]>>;
   person(tmdbId: number): Promise<Result<CatalogPerson>>;
+  /** A few people whose name fits what has been typed. */
+  searchPeople(query: string): Promise<Result<CatalogPersonHit[]>>;
   /** Every episode of one season, or of the whole show when season is null. */
   episodes(tmdbId: number, season: number | null): Promise<Result<EpisodeRef[]>>;
   showStatus(tmdbId: number): Promise<Result<ShowStatus>>;
