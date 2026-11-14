@@ -1,6 +1,6 @@
 // lib/adapters/tmdb/EdgeCatalog.ts
 // Asks TMDB questions through the `tmdb` Edge Function so the key never reaches the phone.
-import type { Catalog, CatalogDetails, CatalogHit, CatalogMatch } from "@/lib/ports/catalog";
+import type { BrowseSpec, Catalog, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { callFunction } from "../supabase/functions";
 import { tmdbImageUrl } from "./images";
@@ -20,29 +20,49 @@ interface SearchRow {
   poster_path?: string | null;
 }
 
+function toHit(row: SearchRow, kind: CatalogKind): CatalogHit {
+  return {
+    tmdbId: row.id,
+    kind,
+    title: (kind === "TV Show" ? row.name : row.title) ?? "Untitled",
+    year: (row.release_date ?? row.first_air_date ?? "").slice(0, 4) || null,
+    posterUrl: tmdbImageUrl(row.poster_path, "w185"),
+  };
+}
+
+async function listHits(path: string, params: Record<string, string>, kind: CatalogKind): Promise<Result<CatalogHit[]>> {
+  const res = await callFunction<{ results: SearchRow[] }>("tmdb", { path, params });
+  if (!res.ok) return fail(res.error);
+  return ok(res.value.results.map((row) => toHit(row, kind)));
+}
+
 async function search(title: string, category: string): Promise<Result<CatalogHit[]>> {
   // TMDB only knows films and shows; concerts and live events are saved as custom titles.
   if (title.trim().length < 2 || (category !== "Movie" && category !== "TV Show")) return ok([]);
   const isTv = category === "TV Show";
-  const res = await callFunction<{ results: SearchRow[] }>("tmdb", {
-    path: `/search/${isTv ? "tv" : "movie"}`,
-    params: { query: title, include_adult: "false" },
-  });
-  if (!res.ok) return fail(res.error);
-
-  return ok(
-    res.value.results.slice(0, 6).map((row) => ({
-      tmdbId: row.id,
-      kind: isTv ? ("TV Show" as const) : ("Movie" as const),
-      title: (isTv ? row.name : row.title) ?? "Untitled",
-      year: (row.release_date ?? row.first_air_date ?? "").slice(0, 4) || null,
-      posterUrl: tmdbImageUrl(row.poster_path, "w185"),
-    })),
-  );
+  const hits = await listHits(`/search/${isTv ? "tv" : "movie"}`, { query: title, include_adult: "false" }, category);
+  return hits.ok ? ok(hits.value.slice(0, 6)) : hits;
 }
 
 export const edgeCatalog: Catalog = {
   search,
+
+  browse(spec: BrowseSpec) {
+    const params: Record<string, string> = {
+      include_adult: "false",
+      sort_by: spec.sortBy,
+      page: String(spec.page ?? 1),
+    };
+    if (spec.genreId !== undefined) params.with_genres = String(spec.genreId);
+    if (spec.language) params.with_original_language = spec.language;
+    if (spec.minVotes !== undefined) params["vote_count.gte"] = String(spec.minVotes);
+    if (spec.minRating !== undefined) params["vote_average.gte"] = String(spec.minRating);
+    return listHits(`/discover/${spec.kind === "TV Show" ? "tv" : "movie"}`, params, spec.kind);
+  },
+
+  recommendations(match) {
+    return listHits(`/${match.kind === "TV Show" ? "tv" : "movie"}/${match.tmdbId}/recommendations`, {}, match.kind);
+  },
 
   async findClosest(title, category) {
     const hits = await search(title, category ?? "Movie");

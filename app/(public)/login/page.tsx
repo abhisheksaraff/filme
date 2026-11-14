@@ -19,7 +19,7 @@ export default function LoginPage() {
     try {
       const result = await signIn(String(form.get("email")), String(form.get("password")));
       if (result.error) setError(result.error);
-      else router.replace("/watchlist/");
+      else router.replace("/home/");
     } catch {
       setError("Could not reach the server. Check your connection and try again.");
     } finally {

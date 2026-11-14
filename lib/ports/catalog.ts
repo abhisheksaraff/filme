@@ -39,11 +39,27 @@ export interface CatalogMatch {
   kind: CatalogKind;
 }
 
+/** A browse request: what to list from the catalogue when the user has typed nothing. */
+export interface BrowseSpec {
+  kind: CatalogKind;
+  genreId?: number;
+  /** Original language, as a two-letter code. */
+  language?: string;
+  sortBy: "popularity.desc" | "vote_average.desc";
+  minVotes?: number;
+  minRating?: number;
+  page?: number;
+}
+
 /** Looks films and shows up in an external catalogue (TMDB). */
 export interface Catalog {
   /** A few likely titles for what the user has typed so far. Only movies and shows exist on TMDB. */
   search(title: string, category: string): Promise<Result<CatalogHit[]>>;
   /** Best match for a title, or null when nothing fits. */
   findClosest(title: string, category: string | null): Promise<Result<CatalogMatch | null>>;
+  /** Titles that fit a genre, language and quality filter. */
+  browse(spec: BrowseSpec): Promise<Result<CatalogHit[]>>;
+  /** Titles the catalogue suggests for people who liked this one. */
+  recommendations(match: CatalogMatch): Promise<Result<CatalogHit[]>>;
   details(match: CatalogMatch): Promise<Result<CatalogDetails>>;
 }

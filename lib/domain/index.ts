@@ -9,3 +9,4 @@ export * from "./images";
 export * from "./lists";
 export * from "./settings";
 export * from "./entry";
+export * from "./home";

@@ -2,7 +2,8 @@
 // Writes a viewing across media_items, venues, watch_sessions, images and Storage.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logEntrySchema, type LogEntry } from "@/lib/domain/entry";
-import type { DeletedEntry, LogRepository, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
+import type { CatalogMatch } from "@/lib/ports/catalog";
+import type { DeletedEntry, LogRepository, OwnHit, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 
@@ -20,7 +21,11 @@ const literal = (text: string) => text.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 const EXTENSION: Record<string, string> = { "image/webp": "webp", "image/jpeg": "jpg", "image/png": "png" };
 
-async function findOrCreateMedia(db: SupabaseClient, entry: LogEntry): Promise<Result<string>> {
+/** Finds a title by its catalogue id, or saves it. Shared with the want-to-watch list. */
+export async function findOrCreateMedia(
+  db: SupabaseClient,
+  entry: Pick<LogEntry, "category" | "title" | "media">,
+): Promise<Result<string>> {
   const media = entry.media;
   if (media) {
     const found = await db
@@ -97,6 +102,28 @@ function sessionColumns(entry: LogEntry) {
 /** Joined rows can arrive as an object or a one-item list depending on the relationship. */
 function one<T>(value: T | T[] | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
+}
+
+interface MediaRef {
+  category: string;
+  tmdb_id: number | null;
+}
+
+/** Distinct catalogue titles from joined rows, in order, keeping only ones TMDB knows. */
+function matchesFrom(rows: { media: unknown }[], limit: number): CatalogMatch[] {
+  const seen = new Set<string>();
+  const out: CatalogMatch[] = [];
+  for (const row of rows) {
+    const media = one(row.media as MediaRef | MediaRef[] | null);
+    if (!media || media.tmdb_id === null) continue;
+    if (media.category !== "Movie" && media.category !== "TV Show") continue;
+    const key = `${media.category}:${media.tmdb_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ tmdbId: media.tmdb_id, kind: media.category });
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 function scopeOf(entry: LogEntry): "show" | "season" | "episode" {
@@ -327,5 +354,63 @@ export const supabaseLogRepository: LogRepository = {
       deletedAt: row.deleted_at as string,
     }));
     return ok(rows);
+  },
+
+  async search(query, limit) {
+    const q = query.trim();
+    if (q.length < 2) return ok([]);
+    const { data, error } = await getSupabase()
+      .from("media_items")
+      .select("id, title, category, release_date, poster_path, watch_sessions!inner(id)")
+      .ilike("title", `%${literal(q)}%`)
+      .is("watch_sessions.deleted_at", null)
+      .limit(limit);
+    if (error) return fail("Could not search your log.");
+
+    const hits: OwnHit[] = data.map((row) => ({
+      mediaId: row.id,
+      title: row.title,
+      category: row.category,
+      year: row.release_date ? String(row.release_date).slice(0, 4) : null,
+      posterPath: row.poster_path,
+      viewings: Array.isArray(row.watch_sessions) ? row.watch_sessions.length : 1,
+    }));
+    return ok(hits);
+  },
+
+  async favourites(limit) {
+    const db = getSupabase();
+    const rated = await db
+      .from("watch_sessions")
+      .select("media:media_items(category, tmdb_id)")
+      .is("deleted_at", null)
+      .not("rating", "is", null)
+      .order("rating", { ascending: false })
+      .order("watched_on", { ascending: false, nullsFirst: false })
+      .limit(60);
+    if (rated.error) return fail("Could not load your favourites.");
+
+    const picks = matchesFrom(rated.data, limit);
+    if (picks.length >= limit) return ok(picks);
+
+    // Not enough rated titles yet: fill up with the most recent ones.
+    const recent = await db
+      .from("watch_sessions")
+      .select("media:media_items(category, tmdb_id)")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(60);
+    if (recent.error) return fail("Could not load your favourites.");
+    return ok(matchesFrom([...rated.data, ...recent.data], limit));
+  },
+
+  async seen() {
+    const { data, error } = await getSupabase()
+      .from("watch_sessions")
+      .select("media:media_items(category, tmdb_id)")
+      .is("deleted_at", null)
+      .limit(1000);
+    if (error) return fail("Could not load what you have seen.");
+    return ok(matchesFrom(data, 1000).map((m) => `${m.kind}:${m.tmdbId}`));
   },
 };

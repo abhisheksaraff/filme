@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import BottomNav from "@/components/BottomNav";
 import type { FileProcessingError } from "@/components/UploadToImages";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -74,7 +75,7 @@ export default function WatchlistPage() {
   const button = "rounded-xl border border-neutral-300 px-4 py-2 text-sm dark:border-neutral-700";
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
+    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-28 pt-8">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-3xl tracking-tight">Log</h1>
         <Link href="/profile/keys/" className="text-sm text-neutral-500">API keys</Link>
@@ -132,6 +133,8 @@ export default function WatchlistPage() {
           </ul>
         </section>
       )}
+
+      <BottomNav />
     </main>
   );
 }

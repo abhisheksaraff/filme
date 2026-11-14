@@ -1,6 +1,7 @@
 // lib/ports/log.ts
 import type { LogEntry } from "@/lib/domain/entry";
 import type { SeatDetail } from "@/lib/domain/sessions";
+import type { CatalogMatch } from "./catalog";
 import type { Result } from "./result";
 
 /** A saved viewing as the watchlist shows it. */
@@ -42,6 +43,16 @@ export interface TitleDetail {
   viewings: ViewingSummary[];
 }
 
+/** A title in the user's log that matches a search. */
+export interface OwnHit {
+  mediaId: string;
+  title: string;
+  category: string;
+  year: string | null;
+  posterPath: string | null;
+  viewings: number;
+}
+
 /** A viewing in the undo window. */
 export interface DeletedEntry {
   id: string;
@@ -67,4 +78,11 @@ export interface LogRepository {
   deleteViewing(id: string): Promise<Result<void>>;
   restoreViewing(id: string): Promise<Result<void>>;
   deleted(limit: number): Promise<Result<DeletedEntry[]>>;
+
+  /** Logged titles whose name contains the text. */
+  search(query: string, limit: number): Promise<Result<OwnHit[]>>;
+  /** The best-rated titles the user has seen (recent ones when nothing is rated), for recommendations. */
+  favourites(limit: number): Promise<Result<CatalogMatch[]>>;
+  /** Every catalogue title already seen, as "Movie:123" keys, so browsing can skip them. */
+  seen(): Promise<Result<string[]>>;
 }

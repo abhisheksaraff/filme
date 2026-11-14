@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import BackLink from "@/components/BackLink";
 import { seatLabel } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -67,7 +68,7 @@ function TitleView() {
       )}
 
       <div className="flex flex-col gap-5 px-6">
-        <Link href="/watchlist/" className="text-sm text-neutral-500">← Back</Link>
+        <BackLink />
         {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
         {detail && (
