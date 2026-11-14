@@ -1,46 +1,52 @@
 // lib/adapters/supabase/SupabaseKeyVault.ts
-// Key metadata is read straight from the table (RLS-protected); every change goes through the `keys` function.
-import type { KeySummary, KeyTestResult } from "@/lib/domain/keys";
+// Settings are read straight from RLS-protected tables; every change goes through the `keys` function.
+import { AI_KEY_PROVIDERS, type AiKeyProvider, type KeyConfig, type KeyTestResult } from "@/lib/domain/keys";
 import type { KeyVault } from "@/lib/ports/keys";
-import { fail, ok } from "@/lib/ports/result";
+import { fail, ok, type Result } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 import { callFunction } from "./functions";
 
+async function change(body: Record<string, unknown>): Promise<Result<void>> {
+  const res = await callFunction("keys", body);
+  return res.ok ? ok(undefined) : res;
+}
+
 export const supabaseKeyVault: KeyVault = {
-  async list() {
-    const { data, error } = await getSupabase()
-      .from("api_keys")
-      .select("id, provider, label, models, sort_order, hint")
-      .order("sort_order");
-    if (error) return fail("Could not load your keys.");
-    const keys: KeySummary[] = data.map((row) => ({
-      id: row.id,
-      provider: row.provider,
-      label: row.label,
-      models: row.models ?? [],
-      sortOrder: row.sort_order,
-      hint: row.hint,
-    }));
-    return ok(keys);
+  async load() {
+    const db = getSupabase();
+    const [keys, models, order] = await Promise.all([
+      db.from("api_keys").select("id, provider, label, sort_order, hint").order("sort_order"),
+      db.from("provider_models").select("id, provider, model, sort_order").order("sort_order"),
+      db.from("provider_order").select("provider").order("sort_order"),
+    ]);
+    if (keys.error || models.error || order.error) return fail("Could not load your keys.");
+
+    const ranked = order.data.map((r) => r.provider as AiKeyProvider);
+    const config: KeyConfig = {
+      keys: keys.data.map((r) => ({
+        id: r.id,
+        provider: r.provider,
+        label: r.label,
+        sortOrder: r.sort_order,
+        hint: r.hint,
+      })),
+      models: models.data.map((r) => ({ id: r.id, provider: r.provider, model: r.model, sortOrder: r.sort_order })),
+      providerOrder: [...ranked, ...AI_KEY_PROVIDERS.filter((p) => !ranked.includes(p))],
+    };
+    return ok(config);
   },
 
-  async add(key) {
-    const res = await callFunction("keys", { action: "add", ...key });
-    return res.ok ? ok(undefined) : res;
-  },
+  addKey: (key) => change({ action: "add", ...key }),
+  removeKey: (id) => change({ action: "remove", id }),
+  reorderKeys: (ids) => change({ action: "reorder", ids }),
 
-  async remove(id) {
-    const res = await callFunction("keys", { action: "remove", id });
-    return res.ok ? ok(undefined) : res;
-  },
-
-  async reorder(ids) {
-    const res = await callFunction("keys", { action: "reorder", ids });
-    return res.ok ? ok(undefined) : res;
-  },
-
-  async test(id) {
+  async testKeys(id) {
     const res = await callFunction<{ results: KeyTestResult[] }>("keys", { action: "test", id });
     return res.ok ? ok(res.value.results) : res;
   },
+
+  addModel: (provider, model) => change({ action: "addModel", provider, model }),
+  removeModel: (id) => change({ action: "removeModel", id }),
+  reorderModels: (provider, ids) => change({ action: "reorderModels", provider, ids }),
+  reorderProviders: (providers) => change({ action: "reorderProviders", providers }),
 };

@@ -24,10 +24,10 @@ begin
     raise exception 'No policy on: %', bad;
   end if;
 
-  -- Keys and usage counters are written only by the Edge Functions, never by the app.
+  -- Keys, models, provider order and usage counters are written only by the Edge Functions, never by the app.
   select string_agg(p.tablename || ' (' || p.cmd || ')', ', ') into bad
   from pg_policies p
-  where p.schemaname = 'public' and p.tablename in ('api_keys', 'usage_counters') and p.cmd <> 'SELECT';
+  where p.schemaname = 'public' and p.tablename in ('api_keys', 'usage_counters', 'provider_models', 'provider_order') and p.cmd <> 'SELECT';
   if bad is not null then
     raise exception 'App can write to: %', bad;
   end if;

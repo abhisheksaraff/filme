@@ -10,8 +10,15 @@ export interface ModelRequest {
   jsonShape: string;
 }
 
-/** Why a model call failed, in terms the user can act on. */
-export class ModelError extends Error {}
+/**
+ * Why a model call failed. "key" means the key itself is bad (skip it), "model" means the model
+ * name is not available (skip it for every key), anything else just moves on to the next try.
+ */
+export class ModelError extends Error {
+  constructor(message: string, public kind: "key" | "model" | "other" = "other") {
+    super(message);
+  }
+}
 
 const TIMEOUT_MS = 60_000;
 
@@ -27,8 +34,8 @@ async function post(url: string, headers: Record<string, string>, body: unknown)
   } catch {
     throw new ModelError("could not reach the provider");
   }
-  if (res.status === 401 || res.status === 403) throw new ModelError("the key was rejected");
-  if (res.status === 404) throw new ModelError("model not found");
+  if (res.status === 401 || res.status === 403) throw new ModelError("the key was rejected", "key");
+  if (res.status === 404) throw new ModelError("model not found", "model");
   if (res.status === 429) throw new ModelError("rate limited");
   if (!res.ok) throw new ModelError(`provider error ${res.status}`);
   return await res.json();

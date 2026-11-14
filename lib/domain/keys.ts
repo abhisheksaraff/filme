@@ -4,6 +4,10 @@
 export const KEY_PROVIDERS = ["gemini", "openai", "claude", "tmdb"] as const;
 export type KeyProvider = (typeof KEY_PROVIDERS)[number];
 
+/** Providers that read tickets; they have a model list and a place in the fallback order. */
+export const AI_KEY_PROVIDERS = ["gemini", "openai", "claude"] as const;
+export type AiKeyProvider = (typeof AI_KEY_PROVIDERS)[number];
+
 export const PROVIDER_LABELS: Record<KeyProvider, string> = {
   gemini: "Google Gemini",
   openai: "OpenAI",
@@ -11,7 +15,7 @@ export const PROVIDER_LABELS: Record<KeyProvider, string> = {
   tmdb: "TMDB",
 };
 
-export function isAiProvider(provider: KeyProvider): boolean {
+export function isAiProvider(provider: KeyProvider): provider is AiKeyProvider {
   return provider !== "tmdb";
 }
 
@@ -20,15 +24,29 @@ export interface KeySummary {
   id: string;
   provider: KeyProvider;
   label: string | null;
-  models: string[];
   sortOrder: number;
   hint: string | null;
+}
+
+/** One model name in a provider's list. */
+export interface ModelSummary {
+  id: string;
+  provider: AiKeyProvider;
+  model: string;
+  sortOrder: number;
+}
+
+/** Everything the Keys screen shows. */
+export interface KeyConfig {
+  keys: KeySummary[];
+  models: ModelSummary[];
+  /** AI providers in the order they are tried, including ones the user has not ranked yet. */
+  providerOrder: AiKeyProvider[];
 }
 
 export interface NewKey {
   provider: KeyProvider;
   label?: string;
-  models: string[];
   secret: string;
 }
 

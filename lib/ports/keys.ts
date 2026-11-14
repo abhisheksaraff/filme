@@ -1,14 +1,21 @@
 // lib/ports/keys.ts
-import type { KeySummary, KeyTestResult, NewKey } from "@/lib/domain/keys";
+import type { AiKeyProvider, KeyConfig, KeyTestResult, NewKey } from "@/lib/domain/keys";
 import type { Result } from "./result";
 
-/** Stores and manages API keys. A saved key can never be read back, only used or tested. */
+/** Stores and manages API keys, model lists and provider order. A saved key can never be read back. */
 export interface KeyVault {
-  list(): Promise<Result<KeySummary[]>>;
-  add(key: NewKey): Promise<Result<void>>;
-  remove(id: string): Promise<Result<void>>;
-  /** Saves a new fallback order: the first id is tried first. */
-  reorder(ids: string[]): Promise<Result<void>>;
+  load(): Promise<Result<KeyConfig>>;
+
+  addKey(key: NewKey): Promise<Result<void>>;
+  removeKey(id: string): Promise<Result<void>>;
+  /** Saves the order of one provider's keys: the first id is tried first. */
+  reorderKeys(ids: string[]): Promise<Result<void>>;
   /** Checks one key, or every key when no id is given, against its provider. */
-  test(id?: string): Promise<Result<KeyTestResult[]>>;
+  testKeys(id?: string): Promise<Result<KeyTestResult[]>>;
+
+  addModel(provider: AiKeyProvider, model: string): Promise<Result<void>>;
+  removeModel(id: string): Promise<Result<void>>;
+  reorderModels(provider: AiKeyProvider, ids: string[]): Promise<Result<void>>;
+
+  reorderProviders(providers: AiKeyProvider[]): Promise<Result<void>>;
 }

@@ -3,7 +3,7 @@
 import { enforceLimit, requireUser } from "../_shared/auth.ts";
 import { HttpError, readJson, serve } from "../_shared/http.ts";
 import { callModel, ModelError, type ModelRequest } from "../_shared/models.ts";
-import { AI_PROVIDERS, loadSlots, type AiProvider } from "../_shared/providers.ts";
+import { loadAiPlan } from "../_shared/providers.ts";
 import { jsonShapeInstruction, SYSTEM_INSTRUCTION } from "../_shared/prompts.ts";
 
 const DAILY_LIMIT = 150;
@@ -71,8 +71,8 @@ serve(async (req) => {
 
   await enforceLimit(userId, "ai", DAILY_LIMIT);
 
-  const slots = await loadSlots(userId, AI_PROVIDERS);
-  if (slots.length === 0) throw new HttpError(400, "No AI key is saved yet. Add one under Profile → Keys.");
+  const plan = await loadAiPlan(userId);
+  if (plan.length === 0) throw new HttpError(400, "No AI key is saved yet. Add one under Profile → Keys.");
 
   const request: ModelRequest = {
     system: SYSTEM_INSTRUCTION,
@@ -81,19 +81,30 @@ serve(async (req) => {
     jsonShape: jsonShapeInstruction(primaryFormats, addons),
   };
 
-  // Try each key in order, and within a key each model in order. The first success ends it,
-  // so a normal scan costs exactly one AI request.
+  // Providers in the user's order; within one, each model in order, and for each model each key.
+  // A rejected key is skipped for later models, and a missing model is skipped for later keys, so a
+  // normal scan costs one AI request and a failure never repeats a call that cannot succeed.
   const notes: string[] = [];
-  for (const slot of slots) {
-    for (const model of slot.models) {
-      try {
-        const data = await callModel(slot.provider as AiProvider, model, slot.secret, request);
-        return { data, provider: slot.provider, model };
-      } catch (err) {
-        const reason = err instanceof ModelError ? err.message : "unexpected error";
-        notes.push(`${slot.provider}/${model}: ${reason}`);
+  for (const { provider, models, keys } of plan) {
+    if (models.length === 0) {
+      notes.push(`${provider}: no models listed`);
+      continue;
+    }
+    const badKeys = new Set<string>();
+    for (const model of models) {
+      for (const key of keys) {
+        if (badKeys.has(key.id)) continue;
+        try {
+          const data = await callModel(provider, model, key.secret, request);
+          return { data, provider, model };
+        } catch (err) {
+          const failure = err instanceof ModelError ? err : new ModelError("unexpected error");
+          notes.push(`${provider}/${model}: ${failure.message}`);
+          if (failure.kind === "key") badKeys.add(key.id);
+          if (failure.kind === "model") break;
+        }
       }
     }
   }
-  throw new HttpError(502, `Every AI key failed. ${notes.join("; ")}`);
+  throw new HttpError(502, `Every AI attempt failed. ${notes.join("; ")}`);
 });

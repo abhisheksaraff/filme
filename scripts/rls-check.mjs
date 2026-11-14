@@ -29,7 +29,7 @@ const tables = [
   "keywords", "media_keywords", "companies", "media_companies", "venues", "watch_sessions",
   "images", "want_to_watch", "holidays", "holiday_dates", "holiday_overrides", "collections",
   "collection_items", "recommendations", "stories", "notifications", "user_settings",
-  "api_keys", "usage_counters",
+  "api_keys", "usage_counters", "provider_models", "provider_order",
 ];
 
 // Refusing means 401/403 (no permission). 404 means the table is missing or the URL is wrong, which proves nothing.

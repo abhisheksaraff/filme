@@ -17,8 +17,14 @@ export interface KeySlot {
   id: string;
   provider: Provider;
   label: string | null;
-  models: string[];
   secret: string;
+}
+
+/** One AI provider with its models and keys, both in the user's chosen order. */
+export interface ProviderPlan {
+  provider: AiProvider;
+  models: string[];
+  keys: KeySlot[];
 }
 
 /** Decrypted keys for the given providers, in the user's fallback order. */
@@ -33,7 +39,6 @@ export async function loadSlots(userId: string, providers: readonly Provider[], 
     id: row.id as string,
     provider: row.provider as Provider,
     label: (row.label as string | null) ?? null,
-    models: (row.models as string[]) ?? [],
     secret: row.secret as string,
   }));
 }
@@ -91,4 +96,29 @@ export async function validateKey(provider: Provider, secret: string): Promise<K
   } catch {
     return { ok: false, message: "Could not reach the provider." };
   }
+}
+
+/**
+ * The order to try things in for an AI call: providers by the user's order (unlisted ones last,
+ * in default order), each with its saved models and keys. Providers without keys are left out.
+ */
+export async function loadAiPlan(userId: string): Promise<ProviderPlan[]> {
+  const db = adminClient();
+  const [slots, modelRows, orderRows] = await Promise.all([
+    loadSlots(userId, AI_PROVIDERS),
+    db.from("provider_models").select("provider, model").eq("user_id", userId).order("sort_order"),
+    db.from("provider_order").select("provider, sort_order").eq("user_id", userId).order("sort_order"),
+  ]);
+  if (modelRows.error || orderRows.error) throw new HttpError(500, "Could not read provider settings.");
+
+  const chosen = (orderRows.data ?? []).map((r) => r.provider as AiProvider);
+  const ordered = [...chosen, ...AI_PROVIDERS.filter((p) => !chosen.includes(p))];
+
+  return ordered
+    .map((provider) => ({
+      provider,
+      models: (modelRows.data ?? []).filter((m) => m.provider === provider).map((m) => m.model as string),
+      keys: slots.filter((k) => k.provider === provider),
+    }))
+    .filter((plan) => plan.keys.length > 0);
 }
