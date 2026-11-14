@@ -27,6 +27,13 @@ export interface CatalogDetails {
   backdropUrl: string | null;
 }
 
+/** One search result: enough to show a pick-list and to fetch the full details. */
+export interface CatalogHit extends CatalogMatch {
+  title: string;
+  year: string | null;
+  posterUrl: string | null;
+}
+
 export interface CatalogMatch {
   tmdbId: number;
   kind: CatalogKind;
@@ -34,6 +41,8 @@ export interface CatalogMatch {
 
 /** Looks films and shows up in an external catalogue (TMDB). */
 export interface Catalog {
+  /** A few likely titles for what the user has typed so far. Only movies and shows exist on TMDB. */
+  search(title: string, category: string): Promise<Result<CatalogHit[]>>;
   /** Best match for a title, or null when nothing fits. */
   findClosest(title: string, category: string | null): Promise<Result<CatalogMatch | null>>;
   details(match: CatalogMatch): Promise<Result<CatalogDetails>>;

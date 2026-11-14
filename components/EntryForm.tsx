@@ -4,17 +4,26 @@
 
 import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } from "@/lib/domain/formats";
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
-import type { EntryDraft, DraftSeat } from "./entryDraft";
+import TagInput from "./TagInput";
+import { parseSeatTag, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
 
 const field =
   "w-full rounded-xl border border-neutral-300 bg-transparent px-4 py-3 text-base dark:border-neutral-700";
-const small = "rounded-xl border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-neutral-700";
 
 interface Props {
   draft: EntryDraft;
   onChange: (next: EntryDraft) => void;
+  /** Called after the user changes the title or type, so the parent can search TMDB. */
+  onUserEdit?: (field: "title" | "category", next: EntryDraft) => void;
+  /** Shown under the title box, such as a list of matching TMDB titles. */
+  titleExtra?: React.ReactNode;
   disabled?: boolean;
 }
+
+// Shown A–Z; the lists in formats.ts stay in their own order.
+const byName = (a: string, b: string) => a.localeCompare(b);
+const FORMATS_SORTED = [...PRIMARY_FORMATS].sort(byName);
+const ADDONS_SORTED = [...FORMAT_ADDONS].sort(byName);
 
 function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -25,24 +34,27 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-export default function EntryForm({ draft, onChange, disabled }: Props) {
+export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, disabled }: Props) {
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => onChange({ ...draft, [key]: value });
-  const setSeat = (index: number, patch: Partial<DraftSeat>) =>
-    set("seats", draft.seats.map((s, i) => (i === index ? { ...s, ...patch } : s)));
-  const toggleAddon = (addon: FormatAddon) =>
-    set("addons", draft.addons.includes(addon) ? draft.addons.filter((a) => a !== addon) : [...draft.addons, addon]);
+  const edit = (field: "title" | "category", next: EntryDraft) => {
+    onChange(next);
+    onUserEdit?.(field, next);
+  };
 
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-4">
       <Labeled label="Type">
-        <select className={field} value={draft.category} onChange={(e) => set("category", e.target.value as MediaCategory)}>
+        <select className={field} value={draft.category} onChange={(e) => edit("category", { ...draft, category: e.target.value as MediaCategory })}>
           {MEDIA_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </Labeled>
 
-      <Labeled label="Title">
-        <input className={field} value={draft.title} onChange={(e) => set("title", e.target.value)} />
-      </Labeled>
+      <div className="flex flex-col gap-2">
+        <Labeled label="Title">
+          <input className={field} value={draft.title} onChange={(e) => edit("title", { ...draft, title: e.target.value })} />
+        </Labeled>
+        {titleExtra}
+      </div>
 
       {draft.category === "TV Show" && (
         <div className="grid grid-cols-2 gap-3">
@@ -90,38 +102,33 @@ export default function EntryForm({ draft, onChange, disabled }: Props) {
 
       <Labeled label="Format">
         <select className={field} value={draft.primaryFormat} onChange={(e) => set("primaryFormat", e.target.value as PrimaryFormat)}>
-          {PRIMARY_FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
+          {FORMATS_SORTED.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
       </Labeled>
 
-      <details>
-        <summary className="cursor-pointer text-sm font-medium">
-          Add-ons{draft.addons.length > 0 && ` (${draft.addons.length})`}
-        </summary>
-        <div className="mt-2 flex flex-col gap-2">
-          {FORMAT_ADDONS.map((addon) => (
-            <label key={addon} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={draft.addons.includes(addon)} onChange={() => toggleAddon(addon)} />
-              {addon}
-            </label>
-          ))}
-        </div>
-      </details>
+      <TagInput
+        label="Add-ons"
+        tags={draft.addons}
+        options={ADDONS_SORTED}
+        placeholder="Type to filter, Enter to add"
+        onAdd={(texts) => {
+          const fresh = (texts as FormatAddon[]).filter((t) => !draft.addons.includes(t));
+          if (fresh.length > 0) set("addons", [...draft.addons, ...fresh]);
+        }}
+        onRemove={(index) => set("addons", draft.addons.filter((_, i) => i !== index))}
+      />
 
-      <div className="flex flex-col gap-2">
-        <span className="text-sm font-medium">Seats</span>
-        {draft.seats.map((seat, i) => (
-          <div key={i} className="flex gap-2">
-            <input className={field} placeholder="Section" value={seat.section} onChange={(e) => setSeat(i, { section: e.target.value })} />
-            <input className={field} placeholder="Row" value={seat.row} onChange={(e) => setSeat(i, { row: e.target.value })} />
-            <input className={field} placeholder="Seat" value={seat.seat} onChange={(e) => setSeat(i, { seat: e.target.value })} />
-            <button type="button" className={small} onClick={() => set("seats", draft.seats.filter((_, j) => j !== i))}>✕</button>
-          </div>
-        ))}
-        <button type="button" className={small} onClick={() => set("seats", [...draft.seats, { section: "", row: "", seat: "" }])}>
-          Add a seat
-        </button>
-      </div>
+      <TagInput
+        label="Seats"
+        tags={draft.seats.map(seatLabel)}
+        placeholder="Type a seat, Enter to add"
+        hint="Like F12 (row F, seat 12) or 102-F-12 (section, row, seat). Use a comma for several."
+        onAdd={(texts) => {
+          const seats = texts.map(parseSeatTag).filter((seat): seat is DraftSeat => seat !== null);
+          if (seats.length > 0) set("seats", [...draft.seats, ...seats]);
+        }}
+        onRemove={(index) => set("seats", draft.seats.filter((_, i) => i !== index))}
+      />
 
       <Labeled label="Notes">
         <textarea className={field} rows={3} value={draft.notes} onChange={(e) => set("notes", e.target.value)} />

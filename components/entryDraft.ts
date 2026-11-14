@@ -127,3 +127,25 @@ export function entryFromDraft(draft: EntryDraft, media: EntryMedia | null): Res
   }
   return ok(parsed.data);
 }
+
+/** The short text shown on a seat bubble, such as "F-12" or "102-F-12". */
+export function seatLabel(seat: DraftSeat): string {
+  return [seat.section, seat.row, seat.seat].filter(Boolean).join("-");
+}
+
+/**
+ * Turns typed seat text into a seat. "F12" and "F-12" mean row F, seat 12; three parts such as
+ * "102-F-12" mean section, row, seat; anything else is kept whole as the seat.
+ */
+export function parseSeatTag(raw: string): DraftSeat | null {
+  const text = raw.trim();
+  if (!text) return null;
+
+  const rowAndSeat = /^([A-Za-z]{1,3})\s*[-/ ]?\s*(\d{1,4}[A-Za-z]?)$/.exec(text);
+  if (rowAndSeat) return { section: "", row: rowAndSeat[1].toUpperCase(), seat: rowAndSeat[2] };
+
+  const parts = text.split(/[\s\-/]+/).filter(Boolean);
+  if (parts.length === 3) return { section: parts[0], row: parts[1], seat: parts[2] };
+  if (parts.length === 2) return { section: "", row: parts[0], seat: parts[1] };
+  return { section: "", row: "", seat: text };
+}
