@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ConfirmPopup } from "@/components/Popup";
-import LogMenu from "@/components/LogMenu";
+import WhenPopup from "@/components/WhenPopup";
 import PersonCircle from "@/components/PersonCircle";
 import SeasonTiles from "@/components/SeasonTiles";
 import RatingsLine from "@/components/RatingsLine";
@@ -140,7 +140,7 @@ function PreviewView() {
   const lastLine = lastWatchedText(last, kind === "TV Show");
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
         backdropUrl={details?.backdropUrl ?? details?.posterUrl ?? null}
         posterUrl={details?.posterUrl ?? early?.posterUrl ?? null}
@@ -222,14 +222,15 @@ function PreviewView() {
         />
       )}
 
+      {/* From the show page only the whole series can be logged; seasons and episodes are logged from their own pages. */}
       {menu && details && (
-        <LogMenu
-          seasons={showData?.seasons.map((x) => x.season) ?? []}
+        <WhenPopup
+          what="the whole series"
           busy={busy}
+          onToday={() => void logShow(null, true)}
+          onForm={() => void logShow(null, false)}
+          onUndated={() => void logShow(null, false, true)}
           onClose={() => setMenu(false)}
-          onLog={(season, today) => void logShow(season, today)}
-          onLogUndated={(season) => void logShow(season, false, true)}
-          onEpisodeSeason={(n) => router.push(`/season/?tmdb=${details.tmdbId}&n=${n}`)}
         />
       )}
 

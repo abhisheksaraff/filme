@@ -105,7 +105,7 @@ export default function WantPage() {
   const card = "flex flex-col gap-2 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900";
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
       <h1 className="font-serif text-3xl tracking-tight">Watchlist</h1>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
@@ -159,7 +159,7 @@ export default function WantPage() {
 
       {!wanted && <div className="skeleton h-40 rounded-2xl" />}
       {wanted?.length === 0 && <p className="text-sm text-neutral-500">Nothing here yet.</p>}
-      <ul className="grid grid-cols-2 gap-4">
+      <ul className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
         {wanted?.map((item) => {
           const poster = tmdbImageUrl(item.posterPath, "w342");
           return (

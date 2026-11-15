@@ -55,7 +55,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <>
           {/* Sits inside the same centred column as the pages, so it is in one place on phone and desktop. */}
           <div className="pointer-events-none fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-30">
-            <div className="mx-auto w-full max-w-md px-4">
+            <div className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-5xl px-4">
               <RoundButton
                 icon="back"
                 label="Back"

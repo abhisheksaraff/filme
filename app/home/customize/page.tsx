@@ -67,7 +67,7 @@ export default function CustomizeHomePage() {
   if (!ready) return null;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
+    <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 py-8">
       <h1 className="font-serif text-3xl tracking-tight">Customize Home</h1>
       <p className="text-sm text-neutral-500">Switch rows on or off and use the arrows to change their order.</p>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />

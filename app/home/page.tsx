@@ -52,7 +52,7 @@ export default function HomePage() {
   if (!ready) return null;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
       <header className="flex items-center justify-between">
         <Wordmark className="text-3xl" />
         <Link href="/profile/" aria-label="Profile" className="translate-y-1"><Avatar /></Link>

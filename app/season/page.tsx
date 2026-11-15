@@ -167,7 +167,7 @@ function SeasonView() {
   const oldestFirst = [...own].reverse();
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
         titleHref={id ? `/title/?id=${id}` : `/preview/?kind=tv&id=${tmdbParam}`}
         backdropUrl={tmdbImageUrl(detail?.backdropPath, "w780")}

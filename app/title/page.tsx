@@ -24,7 +24,7 @@ import { mediaCategorySchema } from "@/lib/domain/media";
 import { syncCredits } from "@/lib/credits";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { logShowNow } from "@/lib/logShow";
-import LogMenu from "@/components/LogMenu";
+import WhenPopup from "@/components/WhenPopup";
 import ShowSection from "@/components/ShowSection";
 import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
 import { useShowData } from "@/hooks/useShowData";
@@ -154,7 +154,7 @@ function TitleView() {
   const covers: Cover[] = (detail?.viewings ?? []).map((v) => ({ scope: v.scope, season: v.season, episode: v.episode, date: v.watchedOn }));
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
         backdropUrl={backdrop}
         posterUrl={poster}
@@ -228,7 +228,7 @@ function TitleView() {
             </section>
 
             <h2 className="font-serif text-xl">Your viewings</h2>
-            <ul className="flex flex-col gap-5">
+            <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
               {viewings.map((v, i) => (
                 <WatchedCard
                   key={v.id}
@@ -258,14 +258,15 @@ function TitleView() {
         )}
       </div>
 
+      {/* From the show page only the whole series can be logged; seasons and episodes are logged from their own pages. */}
       {menu && detail && (
-        <LogMenu
-          seasons={showData?.seasons.map((x) => x.season) ?? []}
+        <WhenPopup
+          what="the whole series"
           busy={busy}
+          onToday={() => void logShow(null, true)}
+          onForm={() => void logShow(null, false)}
+          onUndated={() => void logShow(null, false, true)}
           onClose={() => setMenu(false)}
-          onLog={logShow}
-          onLogUndated={(season) => void logShow(season, false, true)}
-          onEpisodeSeason={(n) => router.push(`/season/?id=${detail.mediaId}&n=${n}`)}
         />
       )}
 

@@ -48,7 +48,7 @@ export default function WatchlistPage() {
   const ordered = [...recent].sort((a, b) => Number(a.watchedOn === null) - Number(b.watchedOn === null));
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
         <RoundButton icon="map" label="Map" href="/map/" />
@@ -56,7 +56,7 @@ export default function WatchlistPage() {
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
-      <ul className="flex flex-col gap-5">
+      <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
         {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} />)}
         {recent.length === 0 && !problem && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}
       </ul>

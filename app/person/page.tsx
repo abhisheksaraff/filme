@@ -102,7 +102,7 @@ function PersonView() {
   const picture = tmdbImageUrl(person?.profilePath, "w342") ?? other?.profileUrl ?? null;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {person && (
         <>
@@ -129,7 +129,7 @@ function PersonView() {
 
           {person.id !== "" && <h2 className="font-serif text-xl">In your log ({seen.length})</h2>}
           {person.id !== "" && seen.length === 0 && <p className="text-sm text-neutral-500">Nothing you have watched lists them yet.</p>}
-          <ul className="grid grid-cols-2 gap-4">
+          <ul className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
             {seen.map((w) => (
               <li key={w.mediaId}>
                 <Link href={`/title/?id=${w.mediaId}`} className="flex flex-col gap-1">

@@ -110,7 +110,7 @@ function EditView() {
   if (!id) return <main className="p-6 text-sm">No viewing selected.</main>;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
+    <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 py-8">
       {busy && <LoadingOverlay label="Saving…" />}
             <h1 className="font-serif text-3xl tracking-tight">{original?.title ?? "Edit viewing"}</h1>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />

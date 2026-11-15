@@ -428,7 +428,7 @@ function SearchView() {
   const num = (v: string) => (v.trim() === "" ? null : Number(v) || null);
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Search</h1>
 
       <form onSubmit={(e) => { e.preventDefault(); if (askOn) void ask(); }} className="relative">

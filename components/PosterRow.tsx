@@ -8,7 +8,7 @@ export default function PosterRow({ items }: { items: RowItem[] }) {
   return (
     <ul className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-2">
       {items.map((item) => (
-        <li key={item.key} className="w-28 shrink-0">
+        <li key={item.key} className="w-28 shrink-0 md:w-36 lg:w-40">
           <Link
             href={item.href}
             onClick={() => warmTitle(item.href, { title: item.title, posterUrl: item.posterUrl, subtitle: item.subtitle })}

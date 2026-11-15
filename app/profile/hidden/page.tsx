@@ -54,7 +54,7 @@ export default function HiddenPage() {
   if (!ready) return null;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-6">
       <h1 className="font-serif text-3xl tracking-tight">Not interested</h1>
       <p className="text-sm text-neutral-500">These stay out of your Home recommendations. Search still finds them.</p>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />

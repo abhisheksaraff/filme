@@ -110,22 +110,24 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
   return (
     <li id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8) } as React.CSSProperties}
       className={`${animate ? "rise-item" : ""} relative scroll-mt-24 rounded-3xl bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]`}>
+      {/* The whole card opens the title. The map, the venue name, the photos and the buttons sit above this and keep their own taps. */}
+      <Link href={open} aria-label={`Open ${entry.title}`} className="absolute inset-0 z-0 rounded-3xl" />
       {label && <span className="mb-1 block px-3 pt-2 text-xs uppercase tracking-wide text-neutral-500">{label}</span>}
       <div className="flex gap-1">
         {at ? (
           <div className="flex w-1/2 flex-col gap-1">
             {located ? <LazyMap entry={entry as CardData & { venueLatitude: number; venueLongitude: number }} /> : (
-              <Link href={`/venue/?id=${entry.venueId}`} aria-label={`Open ${entry.venue}`} className="flex aspect-square w-full items-center justify-center rounded-[20px] bg-neutral-200 dark:bg-neutral-800"><Icon name={KIND_ICON[entry.category] ?? "film"} size={28} /></Link>
+              <Link href={`/venue/?id=${entry.venueId}`} aria-label={`Open ${entry.venue}`} className="relative z-10 flex aspect-square w-full items-center justify-center rounded-[20px] bg-neutral-200 dark:bg-neutral-800"><Icon name={KIND_ICON[entry.category] ?? "film"} size={28} /></Link>
             )}
-            <Link href={`/venue/?id=${entry.venueId}`} className="line-clamp-2 px-2 pb-1 text-sm font-normal leading-tight text-neutral-500">{entry.venue}</Link>
+            <Link href={`/venue/?id=${entry.venueId}`} className="relative z-10 line-clamp-2 px-2 pb-1 text-sm font-normal leading-tight text-neutral-500">{entry.venue}</Link>
           </div>
         ) : null}
-        <Link href={open} className={`flex flex-col gap-1 ${at ? "w-1/2" : "mx-auto w-1/2"}`}>
+        <div className={`flex flex-col gap-1 ${at ? "w-1/2" : "mx-auto w-1/2"}`}>
           {posterEl}
           {!at && <span className="text-center text-xs text-neutral-500">Watched at home</span>}
-        </Link>
+        </div>
       </div>
-      <Link href={open} className="mt-2 flex flex-col gap-2 px-3">
+      <div className="mt-2 flex flex-col gap-2 px-3">
         {showTitle && <span className="font-serif text-xl font-medium leading-tight">{entry.title}</span>}
         {(episode || rating != null) && (
           <span className="flex items-baseline justify-between text-sm text-neutral-600 dark:text-neutral-400">
@@ -133,15 +135,15 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
             {rating != null && <span>★ {rating}</span>}
           </span>
         )}
-      </Link>
-      {/* Outside the link above, since the format and extras are links of their own. */}
+      </div>
+      {/* Format and extras are plain text here, so a tap falls through to the card link. */}
       <div className="mt-2 flex flex-col gap-2 px-3 pb-2">
-        <ViewingDetails links auditorium={entry.auditorium} seats={entry.seats} totalTickets={entry.totalTickets} format={entry.primaryFormat} addons={entry.addons} watchedOn={entry.watchedOn} watchedAt={entry.watchedAt} />
+        <ViewingDetails auditorium={entry.auditorium} seats={entry.seats} totalTickets={entry.totalTickets} format={entry.primaryFormat} addons={entry.addons} watchedOn={entry.watchedOn} watchedAt={entry.watchedAt} />
         {notes && <p className="text-sm">{notes}</p>}
       </div>
-      {footer && <div className="px-3 pb-2">{footer}</div>}
+      {footer && <div className="relative z-10 px-3 pb-2">{footer}</div>}
       {(editHref || actions) && (
-        <div className="mt-3 flex items-center justify-end gap-2 px-2 pb-2">
+        <div className="relative z-10 mt-3 flex items-center justify-end gap-2 px-2 pb-2">
           {actions}
           {editHref && <RoundButton icon="edit" label="Edit viewing" href={editHref} size="sm" className="!bg-black !text-white" />}
         </div>

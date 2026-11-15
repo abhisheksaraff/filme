@@ -106,7 +106,7 @@ function EpisodeView() {
   const next = season?.episodes.find((x) => x.episode === e + 1);
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
         titleHref={`/season/?id=${id}&n=${s}`}
         backdropUrl={tmdbImageUrl(episode?.stillPath, "w780") ?? tmdbImageUrl(detail?.backdropPath, "w780")}

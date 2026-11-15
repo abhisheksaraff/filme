@@ -25,7 +25,7 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
   return (
     <header>
       <div
-        className="relative h-56 w-full overflow-hidden bg-neutral-300 dark:bg-neutral-800"
+        className="relative h-56 w-full overflow-hidden md:h-72 lg:h-80 bg-neutral-300 dark:bg-neutral-800"
         {...(onCoverClick ? { role: "button", tabIndex: 0, "aria-label": "See all covers", onClick: onCoverClick, onKeyDown: (e: React.KeyboardEvent) => e.key === "Enter" && onCoverClick() } : {})}
       >
         {backdropUrl && (
@@ -40,19 +40,19 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
         {loading && <div className="skeleton absolute inset-0" />}
       </div>
 
-      <div className="relative z-10 -mt-20 flex items-end gap-4 px-5">
+      <div className="relative z-10 -mt-20 flex items-end gap-4 px-5 md:-mt-24 md:gap-6 lg:-mt-28">
         {(() => {
           const poster = posterUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={posterUrl} alt="" className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white object-cover shadow-md dark:border-neutral-950" />
+            <img src={posterUrl} alt="" className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white object-cover shadow-md md:w-36 lg:w-44 dark:border-neutral-950" />
           ) : (
-            <div className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white bg-neutral-200 dark:border-neutral-950 dark:bg-neutral-800" />
+            <div className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white bg-neutral-200 md:w-36 lg:w-44 dark:border-neutral-950 dark:bg-neutral-800" />
           );
           return onPosterClick ? <button type="button" aria-label="See all posters" onClick={onPosterClick} className="shrink-0">{poster}</button> : poster;
         })()}
         <div className="flex min-w-0 flex-col gap-1 pb-1">
-          <h1 className="font-serif text-2xl leading-tight tracking-tight">{titleHref ? <Link href={titleHref}>{title}</Link> : title}</h1>
-          <span className="text-sm text-neutral-500">{subtitle}</span>
+          <h1 className="font-serif text-2xl leading-tight tracking-tight md:text-3xl lg:text-4xl">{titleHref ? <Link href={titleHref}>{title}</Link> : title}</h1>
+          <span className="text-sm text-neutral-500 md:text-base">{subtitle}</span>
           {extra && <div className="rise">{extra}</div>}
         </div>
       </div>

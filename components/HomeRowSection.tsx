@@ -28,7 +28,7 @@ function Placeholder() {
   return (
     <ul className="-mx-5 flex gap-3 overflow-hidden px-5 pb-2" aria-label="Loading">
       {Array.from({ length: 4 }, (_, i) => (
-        <li key={i} className="flex w-28 shrink-0 flex-col gap-1">
+        <li key={i} className="flex w-28 shrink-0 flex-col gap-1 md:w-36 lg:w-40">
           <div className="skeleton aspect-[2/3] w-full rounded-lg" />
           <div className="skeleton h-8 w-full rounded" />
           <div className="skeleton h-4 w-1/2 rounded" />

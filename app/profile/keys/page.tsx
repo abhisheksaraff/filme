@@ -200,7 +200,7 @@ export default function KeysPage() {
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-10">
+    <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-6 px-6 py-10">
       <Link href="/watchlist/" className="text-sm text-neutral-500">← Back</Link>
       <h1 className="font-serif text-3xl tracking-tight">API keys</h1>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">

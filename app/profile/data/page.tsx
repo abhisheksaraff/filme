@@ -50,7 +50,7 @@ export default function DataPage() {
   const stamp = new Date().toISOString().slice(0, 10);
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Import and export</h1>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {message && <p role="status" className="text-sm">{message}</p>}

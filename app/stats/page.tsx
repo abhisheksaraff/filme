@@ -81,7 +81,7 @@ export default function StatsPage() {
     `rounded-full border px-3 py-1 text-sm ${active ? "border-[var(--accent,#171717)] font-medium" : "border-neutral-300 dark:border-neutral-700"}`;
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-8">
+    <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-6 px-6 py-8">
       <h1 className="font-serif text-3xl tracking-tight">Stats</h1>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {!rows && !problem && <div className="skeleton h-64 rounded-2xl" />}

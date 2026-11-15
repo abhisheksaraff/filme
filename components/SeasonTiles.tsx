@@ -9,6 +9,14 @@ import type { ShowData } from "@/lib/logShow";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+/** How much of a season is watched, in words: "22 episodes", "7 of 22 watched", "All 22 watched", or "Not aired yet". */
+function progressText(watched: number, aired: number): string {
+  if (aired === 0) return "Not aired yet";
+  if (watched === 0) return `${aired} ${aired === 1 ? "episode" : "episodes"}`;
+  if (watched >= aired) return aired === 1 ? "Watched" : `All ${aired} watched`;
+  return `${watched} of ${aired} watched`;
+}
+
 interface Props {
   data: ShowData;
   covers: Cover[];
@@ -26,7 +34,7 @@ export default function SeasonTiles({ data, covers, hrefFor }: Props) {
           const poster = tmdbImageUrl(info?.posterPath ?? season.posterPath, "w185");
           const p = progressOf(covers, season.episodes.map((e) => ({ season: e.season, episode: e.episode, airDate: e.airDate })), today());
           return (
-            <li key={season.season} className="w-28 shrink-0">
+            <li key={season.season} className="w-28 shrink-0 md:w-36 lg:w-40">
               <Link href={hrefFor(season.season)} className="flex flex-col gap-1">
                 {poster ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -34,11 +42,11 @@ export default function SeasonTiles({ data, covers, hrefFor }: Props) {
                 ) : (
                   <span className="aspect-[2/3] w-full rounded-xl bg-neutral-200 dark:bg-neutral-800" />
                 )}
-                <span className="text-sm font-medium">Season {season.season}</span>
+                <span className="font-serif text-base font-medium leading-tight">Season {season.season}</span>
                 <span className="h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
                   <span className="block h-full rounded-full bg-neutral-950 dark:bg-white" style={{ width: p.aired > 0 ? `${(p.watched / p.aired) * 100}%` : "0%" }} />
                 </span>
-                <span className="text-xs text-neutral-500">{p.aired > 0 ? `${p.watched}/${p.aired}` : "Not aired yet"}</span>
+                <span className="font-serif text-sm leading-tight text-neutral-500">{progressText(p.watched, p.aired)}</span>
               </Link>
             </li>
           );

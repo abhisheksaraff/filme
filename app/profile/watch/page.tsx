@@ -63,7 +63,7 @@ export default function WatchSettingsPage() {
   if (!ready) return null;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-2">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-2">
       <h1 className="font-serif text-3xl tracking-tight">Watch link</h1>
       <p className="text-sm text-neutral-500">Tell the Watch button which website to open. Put a placeholder where the title goes and it is filled in for each movie or show. Nothing is set by default.</p>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />

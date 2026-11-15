@@ -54,7 +54,7 @@ function VenueView() {
   }] : [];
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {venue && (
         <div className="flex flex-col gap-5">
@@ -70,7 +70,7 @@ function VenueView() {
 
           <h2 className="font-serif text-xl">{venue.viewings.length} {venue.viewings.length === 1 ? "visit" : "visits"}</h2>
           {/* Two to a row so each tile has room for its details; equal heights keep the grid tidy. */}
-          <ul className="grid grid-cols-2 items-stretch gap-3">
+          <ul className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-3 lg:grid-cols-4">
             {venue.viewings.map((v) => (
               <li key={v.sessionId} className="flex">
                 <Link href={`/title/?id=${v.mediaId}`} className="flex w-full flex-col gap-2 rounded-2xl bg-white p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_6px_16px_-6px_rgba(0,0,0,0.18)] dark:bg-neutral-900">

@@ -77,7 +77,7 @@ export default function AppearancePage() {
     update({ ...appearance, birthday: `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}` });
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 pb-4 pt-8">
+    <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-6 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Appearance</h1>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
@@ -92,7 +92,7 @@ export default function AppearancePage() {
 
       <section className="flex flex-col gap-3">
         <h2 className="font-serif text-xl">Theme</h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
           {[{ id: "plain", name: "Plain" }, { id: "auto", name: "By the calendar" }, ...THEMES.map((t) => ({ id: t.slug, name: t.name }))].map((option) => (
             <button
               key={option.id}
