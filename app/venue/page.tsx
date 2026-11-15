@@ -57,7 +57,7 @@ function VenueView() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {venue && (
-        <div className="reveal flex flex-col gap-5">
+        <div className="flex flex-col gap-5">
           {point.length > 0 && <FlatMap points={point} className="h-56" />}
           <div className="flex flex-col gap-1">
             <h1 className="font-serif text-3xl tracking-tight">{venue.name}</h1>

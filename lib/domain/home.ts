@@ -28,6 +28,18 @@ export interface HomeRowDef {
   label: string;
 }
 
+/** TMDB's TV genres that get a Home row of their own (TV has its own genre ids), with the row's title. */
+export const TV_GENRES: readonly { id: number; label: string }[] = [
+  { id: 18, label: "TV dramas" },
+  { id: 35, label: "TV comedies" },
+  { id: 80, label: "Crime TV" },
+  { id: 10765, label: "Sci-fi & fantasy TV" },
+  { id: 9648, label: "Mystery TV" },
+  { id: 16, label: "Animated series" },
+  { id: 99, label: "Documentary series" },
+  { id: 10759, label: "Action & adventure TV" },
+];
+
 /** Every row Home can show, in the order they are offered. */
 export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "like-movie", label: "You might also like" },
@@ -35,6 +47,11 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "continue", label: "Continue watching" },
   { id: "like-tv", label: "TV shows you might like" },
   { id: "want", label: "Watchlist" },
+  { id: "want-pick", label: "From your watchlist" },
+  { id: "because-saved", label: "Because you saved a title" },
+  { id: "like-watchlist", label: "More like your watchlist" },
+  { id: "tv-acclaimed", label: "Acclaimed TV" },
+  ...TV_GENRES.map((g) => ({ id: `tv-${g.id}`, label: g.label })),
   { id: "favourites", label: "New from your favourites" },
   { id: "theatres", label: "In theatres near you" },
   { id: "soon", label: "Opening soon" },

@@ -28,7 +28,7 @@ export default function LogoLights() {
   if (!lights) return null;
   return (
     // Tap the lights and they flicker for a moment before settling back to their twinkle.
-    <Flickers className="reveal -mt-3 -mx-1 pointer-events-none">
+    <Flickers className="-mt-3 -mx-1 pointer-events-none">
       {(on) => <LightString shape={lights.shape} colors={lights.colors} flicker={on} />}
     </Flickers>
   );

@@ -4,7 +4,7 @@
 
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Avatar from "@/components/Avatar";
 import LogoLights from "@/components/decor/LogoLights";
 import Wordmark from "@/components/Wordmark";
@@ -14,13 +14,17 @@ import Icon from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { resolveHomeRows } from "@/lib/domain/home";
 import { clearHomeCache } from "@/lib/home/rows";
+import { homeSnapshot } from "@/lib/home/session";
+import { keepIfSame } from "@/lib/same";
 import { runMaintenance } from "@/lib/maintenance";
 import { services } from "@/lib/services";
 import { currentTheme, readCachedAppearance } from "@/lib/theme";
 
 export default function HomePage() {
   const ready = useRequireSession();
-  const [rows, setRows] = useState<string[] | null>(null);
+  // Home comes back from Back exactly as it was left: the same rows, in the same order, with no placeholders.
+  const [rows, setRows] = useState<string[] | null>(() => homeSnapshot.rows);
+  const [settled, setSettled] = useState<ReadonlySet<string>>(new Set());
   const [problem, setProblem] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -33,12 +37,17 @@ export default function HomePage() {
       if (!layout.ok) setProblem(layout.error);
       const theme = currentTheme(readCachedAppearance());
       const ids = resolveHomeRows(layout.ok ? layout.value : []);
-      setRows(theme ? [`holiday:${theme.slug}`, ...ids] : ids);
+      const next = theme ? [`holiday:${theme.slug}`, ...ids] : ids;
+      // The same list changes nothing on screen.
+      setRows((now) => keepIfSame(now, next));
+      homeSnapshot.rows = next;
     });
     return () => {
       cancelled = true;
     };
   }, [ready]);
+
+  const onSettled = useCallback((id: string) => setSettled((now) => (now.has(id) ? now : new Set(now).add(id))), []);
 
   if (!ready) return null;
 
@@ -57,8 +66,10 @@ export default function HomePage() {
       </Link>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
-      <HomeShortcuts nonce={nonce} onShuffle={() => { clearHomeCache(); setNonce((n) => n + 1); }} />
-      {rows?.map((id) => <HomeRowSection key={id} rowId={id} nonce={nonce} />)}
+      <HomeShortcuts nonce={nonce} onShuffle={() => { clearHomeCache(); setSettled(new Set()); setNonce((n) => n + 1); }} />
+      {rows?.map((id, i) => (
+        <HomeRowSection key={id} rowId={id} nonce={nonce} eager={i < 3} mayFold={rows.slice(0, i).every((above) => settled.has(above))} onSettled={onSettled} />
+      ))}
       {!rows && <div className="skeleton h-40 rounded-2xl" />}
 
     </main>

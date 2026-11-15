@@ -83,9 +83,11 @@ interface Props {
   editHref?: string;
   /** Extra round buttons beside the pencil, such as Watch. */
   actions?: ReactNode;
+  /** Rises into place as the page opens; only the title page does this. */
+  animate?: boolean;
 }
 
-export default function WatchedCard({ entry, index = 0, href, showTitle = true, label, rating, notes, footer, editHref, actions }: Props) {
+export default function WatchedCard({ entry, index = 0, href, showTitle = true, label, rating, notes, footer, editHref, actions, animate = false }: Props) {
   const poster = tmdbImageUrl(entry.posterPath, "w342");
   const located = entry.venueId && entry.venueLatitude !== null && entry.venueLongitude !== null;
   const at = entry.venueId && entry.venue;
@@ -107,7 +109,7 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
 
   return (
     <li id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8) } as React.CSSProperties}
-      className={`reveal-item relative scroll-mt-24 rounded-3xl bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]`}>
+      className={`${animate ? "rise-item" : ""} relative scroll-mt-24 rounded-3xl bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]`}>
       {label && <span className="mb-1 block px-3 pt-2 text-xs uppercase tracking-wide text-neutral-500">{label}</span>}
       <div className="flex gap-1">
         {at ? (

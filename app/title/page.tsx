@@ -234,6 +234,7 @@ function TitleView() {
                   key={v.id}
                   index={i}
                   showTitle={false}
+                  animate
                   href={`/title/?id=${detail.mediaId}`}
                   label={ORDINAL(order.get(v.id) ?? 1)}
                   rating={v.rating}

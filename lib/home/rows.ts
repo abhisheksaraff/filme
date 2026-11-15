@@ -1,11 +1,12 @@
 // lib/home/rows.ts
 // Builds each Home row from the log, the watchlist and TMDB. Rows are kept until the app
 // is reopened or the user refreshes, so coming back to Home never reshuffles or spends TMDB calls.
-import { ART_HOUSE, GENRES, WORLD_CINEMA } from "@/lib/domain/home";
+import { ART_HOUSE, GENRES, TV_GENRES, WORLD_CINEMA } from "@/lib/domain/home";
 import { THEMES } from "@/lib/domain/holidays";
 import type { StatRow } from "@/lib/domain/stats";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import type { CatalogHit, CatalogKind } from "@/lib/ports/catalog";
+import type { CatalogHit, CatalogKind, CatalogMatch } from "@/lib/ports/catalog";
+import type { WantedItem } from "@/lib/ports/wanted";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { clearStored, readStored, writeStored } from "@/lib/persistentCache";
 import { services } from "@/lib/services";
@@ -45,6 +46,13 @@ const DRAMA = 18;
 
 const cache = new Map<string, { at: number; value: Promise<Result<unknown>> }>();
 const usedSurprises = new Set<string>();
+/** The last finished answer for each row, readable at once, so Home can come back exactly as it was left. */
+const resolved = new Map<string, Result<RowResult>>();
+
+/** A row's last finished answer, if it has one this visit. */
+export function peekRow(id: string): Result<RowResult> | null {
+  return resolved.get(id) ?? null;
+}
 
 /** Runs `make` once per key within `ttl` milliseconds; failures are not kept. */
 function cached<T>(key: string, make: () => Promise<Result<T>>, ttl = CACHE_MS, persist = false): Promise<Result<T>> {
@@ -71,6 +79,7 @@ function cached<T>(key: string, make: () => Promise<Result<T>>, ttl = CACHE_MS, 
 /** Forgets every row so the next load picks fresh titles. */
 export function clearHomeCache(): void {
   cache.clear();
+  resolved.clear();
   clearStored("row:");
   usedSurprises.clear();
 }
@@ -343,6 +352,80 @@ async function holidayRow(slug: string): Promise<Result<RowResult>> {
   return ok({ title: `${holiday.name} picks`, icon: holiday.slug, items, empty: "Nothing new for this holiday." });
 }
 
+/** Whole titles saved on the watchlist (not single episodes), with the id TMDB knows them by. */
+async function savedTitles(): Promise<{ kind: CatalogKind; tmdbId: number; item: WantedItem }[]> {
+  const res = await services.wanted.list();
+  if (!res.ok) return [];
+  return res.value.flatMap((item) =>
+    item.tmdbId !== null && item.season === null && item.episode === null && (item.category === "Movie" || item.category === "TV Show")
+      ? [{ kind: item.category as CatalogKind, tmdbId: item.tmdbId, item }]
+      : [],
+  );
+}
+
+function savedItem(entry: { kind: CatalogKind; tmdbId: number; item: WantedItem }): RowItem {
+  return {
+    key: `want:${entry.item.mediaId}`,
+    title: entry.item.title,
+    subtitle: null,
+    posterUrl: tmdbImageUrl(entry.item.posterPath, "w185"),
+    href: previewHref(entry.kind, entry.tmdbId),
+  };
+}
+
+/** A random handful of what is on the watchlist, movies and shows together, reshuffled on every refresh. */
+async function wantPickRow(): Promise<Result<RowResult>> {
+  const saved = await savedTitles();
+  const movies = shuffle(saved.filter((s) => s.kind === "Movie"));
+  const shows = shuffle(saved.filter((s) => s.kind === "TV Show"));
+  const items = interleave(movies, shows).slice(0, 12).map(savedItem);
+  return ok({ title: "From your watchlist", items, empty: "Save a few titles to see picks from your list here." });
+}
+
+/** Titles related to the given seeds, leaving out anything already seen, hidden or saved. */
+async function relatedTo(seeds: CatalogMatch[], title: string, empty: string): Promise<Result<RowResult>> {
+  if (seeds.length === 0) return ok({ title, items: [], empty });
+  const [lists, seen, saved] = await Promise.all([
+    Promise.all(seeds.map((match) => services.catalog.recommendations(match))),
+    seenSet(),
+    savedTitles(),
+  ]);
+  const good = lists.flatMap((list) => (list.ok ? [list.value] : []));
+  if (good.length === 0) {
+    const bad = lists.find((list) => !list.ok);
+    return bad && !bad.ok ? fail(bad.error) : ok({ title, items: [], empty });
+  }
+  const skip = new Set([...seen, ...saved.map((s) => seenKey(s.kind, s.tmdbId))]);
+  const unique = new Map<string, CatalogHit>();
+  for (const hit of shuffle(good.flat())) if (!skip.has(seenKey(hit.kind, hit.tmdbId))) unique.set(seenKey(hit.kind, hit.tmdbId), hit);
+  return ok({ title, items: [...unique.values()].slice(0, 18).map(hitItem), empty });
+}
+
+/** One title picked at random from the watchlist, and what TMDB says goes with it. */
+async function becauseSavedRow(): Promise<Result<RowResult>> {
+  const saved = await savedTitles();
+  const one = saved.length > 0 ? pick(saved) : null;
+  if (!one) return ok({ title: "Because you saved a title", items: [], empty: "Save a few titles to get related picks here." });
+  return relatedTo([{ kind: one.kind, tmdbId: one.tmdbId }], `Because you saved ${one.item.title}`, "Nothing related right now.");
+}
+
+/** Several watchlist titles at random, and the titles related to any of them, movies and shows mixed. */
+async function likeWatchlistRow(): Promise<Result<RowResult>> {
+  const saved = await savedTitles();
+  const seeds = shuffle(saved).slice(0, SEEDS + 1).map((s) => ({ kind: s.kind, tmdbId: s.tmdbId }));
+  return relatedTo(seeds, "More like your watchlist", "Save a few titles to get related picks here.");
+}
+
+async function tvAcclaimedRow(): Promise<Result<RowResult>> {
+  return discoverRow("Acclaimed TV", "Nothing new here right now.", { kind: "TV Show", sortBy: "vote_average.desc", minVotes: 400, minRating: 8, page: randomPage(4) });
+}
+
+async function tvGenreRow(genreId: number): Promise<Result<RowResult>> {
+  const genre = TV_GENRES.find((g) => g.id === genreId);
+  if (!genre) return fail("Unknown genre.");
+  return discoverRow(genre.label, "Nothing new here right now.", { kind: "TV Show", genreId, sortBy: "popularity.desc", minVotes: 150, minRating: 6.5, page: randomPage(3) });
+}
+
 /** The user's country for theatre listings; Canada until a location is saved. */
 async function regionCode(): Promise<string> {
   const res = await services.settings.location();
@@ -408,12 +491,17 @@ async function arrivingRow(): Promise<Result<RowResult>> {
 export function loadRow(id: string): Promise<Result<RowResult>> {
   // Rows are kept until the app reopens or Home is refreshed; the watchlist is always read fresh
   // so a title saved a moment ago shows up.
-  return cached(`row:${id}`, () => {
+  const result = cached(`row:${id}`, () => {
     if (id === "like-movie") return likeRow("Movie");
     if (id === "like-tv") return likeRow("TV Show");
     if (id === "new-episodes") return newEpisodesRow();
     if (id === "continue") return continueRow();
     if (id === "want") return wantRow();
+    if (id === "want-pick") return wantPickRow();
+    if (id === "because-saved") return becauseSavedRow();
+    if (id === "like-watchlist") return likeWatchlistRow();
+    if (id === "tv-acclaimed") return tvAcclaimedRow();
+    if (id.startsWith("tv-")) return tvGenreRow(Number(id.slice("tv-".length)));
     if (id === "favourites") return favouritesRow();
     if (id === "theatres") return theatreRow("now");
     if (id === "soon") return theatreRow("soon");
@@ -423,5 +511,9 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id.startsWith("holiday:")) return holidayRow(id.slice("holiday:".length));
     if (id.startsWith("genre-")) return genreRow(Number(id.slice("genre-".length)));
     return Promise.resolve(fail("Unknown row."));
-  }, id === "want" ? 0 : id === "new-episodes" || id === "continue" ? CACHE_MS : Infinity, id !== "want" && id !== "new-episodes" && id !== "continue");
+  }, id === "want" ? 0 : id === "new-episodes" || id === "continue" ? CACHE_MS : Infinity, id !== "want" && id !== "new-episodes" && id !== "continue" && id !== "want-pick" && id !== "because-saved" && id !== "like-watchlist");
+  result.then((res) => {
+    if (res.ok) resolved.set(id, res);
+  });
+  return result;
 }

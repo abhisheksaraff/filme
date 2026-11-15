@@ -153,22 +153,14 @@ html:not(.dark) {
   100% { opacity: 0; }
 }
 
-/* Pictures fade in when loaded. A data attribute marks them because React rewrites the class list when styling changes, which used to wipe the marker and blank the picture. The animation is the fallback: if the script never marks one, it still appears after 3s. */
-img:not([data-loaded]):not([data-no-fade]) { opacity: 0; animation: img-fallback 0.3s ease 3s forwards; }
-img[data-loaded] { opacity: 1; animation: wave-img 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-@keyframes img-fallback { to { opacity: 1; } }
 
-/* New content arrives as a soft wave sweeping left to right, with a slight glide in the same direction; items follow one another in a ripple. The mask lives only inside the animation, so cards keep their shadows afterwards. Nothing replays when a refetch brings the same content, because nothing is added to the page. */
-:root { --wave: linear-gradient(100deg, #000 0%, #000 38%, transparent 62%, transparent 100%); }
-.reveal, .reveal-item { animation: wave 0.8s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-.reveal-item { animation-delay: calc(var(--i, 0) * 70ms); }
-@keyframes wave {
-  from { -webkit-mask-image: var(--wave); mask-image: var(--wave); -webkit-mask-size: 300% 100%; mask-size: 300% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: 100% 0; mask-position: 100% 0; transform: translateX(-22px); opacity: 0.5; }
-  to { -webkit-mask-image: var(--wave); mask-image: var(--wave); -webkit-mask-size: 300% 100%; mask-size: 300% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: 0 0; mask-position: 0 0; transform: none; opacity: 1; }
-}
-@keyframes wave-img {
-  from { -webkit-mask-image: var(--wave); mask-image: var(--wave); -webkit-mask-size: 300% 100%; mask-size: 300% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: 100% 0; mask-position: 100% 0; opacity: 0.4; }
-  to { -webkit-mask-image: var(--wave); mask-image: var(--wave); -webkit-mask-size: 300% 100%; mask-size: 300% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: 0 0; mask-position: 0 0; opacity: 1; }
+/* Details pages (a title, a preview, a season, an episode) rise a little as they fade in, one block after another.
+   Only opacity and movement are animated, with no masks, so the phone stays smooth. Every other page swaps placeholders for content with no effect at all. */
+.rise, .rise-item { animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+.rise-item { animation-delay: calc(var(--i, 0) * 60ms); }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
 }
 /* A cover photo settles in: fades up while easing back from a slight zoom. */
 .settle { animation: settle 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -177,6 +169,6 @@ img[data-loaded] { opacity: 1; animation: wave-img 0.7s cubic-bezier(0.22, 1, 0.
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .reveal, .reveal-item, .settle, img[data-loaded] { animation: fade-only 0.3s ease both; animation-delay: 0s; }
+  .rise, .rise-item, .settle { animation: fade-only 0.3s ease both; animation-delay: 0s; }
   @keyframes fade-only { from { opacity: 0; } to { opacity: 1; } }
 }

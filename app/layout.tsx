@@ -4,7 +4,6 @@ import { Geist, Geist_Mono, Libre_Caslon_Text, Playfair_Display } from "next/fon
 import Decorations from "@/components/Decorations";
 import PageAccents from "@/components/decor/PageAccents";
 import Shell from "@/components/Shell";
-import RevealImages from "@/components/RevealImages";
 import ToastHost from "@/components/Toast";
 import ThemeApplier from "@/components/ThemeApplier";
 import "./globals.css";
@@ -86,7 +85,6 @@ export default function RootLayout({
         <Decorations />
         <Shell>{children}</Shell>
         <PageAccents />
-        <RevealImages />
           <ToastHost />
       </body>
     </html>

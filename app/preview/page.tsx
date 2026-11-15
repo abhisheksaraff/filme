@@ -156,7 +156,7 @@ function PreviewView() {
         <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
         {details && (
-          <div className="reveal flex flex-col gap-5">
+          <div className="rise flex flex-col gap-5">
             {details.genres.length > 0 && <span className="text-sm text-neutral-500">{details.genres.join(", ")}</span>}
 
             {status && (

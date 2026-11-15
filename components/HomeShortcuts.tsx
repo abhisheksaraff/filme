@@ -9,6 +9,8 @@ import Icon, { type IconName } from "@/components/Icon";
 import RoundButton from "@/components/RoundButton";
 import { buildStory, periodFor, previousPeriod, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
+import { homeSnapshot } from "@/lib/home/session";
+import { keepIfSame } from "@/lib/same";
 import type { AppNotification } from "@/lib/ports/notifications";
 import { services } from "@/lib/services";
 
@@ -48,8 +50,9 @@ function Circle({ item }: { item: Item }) {
 }
 
 export default function HomeShortcuts({ nonce, onShuffle }: { nonce: number; onShuffle: () => void }) {
-  const [notes, setNotes] = useState<AppNotification[]>([]);
-  const [stories, setStories] = useState<Item[]>([]);
+  // Both start from what Home last showed, so coming back does not make the circles appear one by one.
+  const [notes, setNotes] = useState<AppNotification[]>(() => homeSnapshot.notes);
+  const [stories, setStories] = useState<Item[]>(() => homeSnapshot.stories);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,7 +61,9 @@ export default function HomeShortcuts({ nonce, onShuffle }: { nonce: number; onS
       services.notifications.active().then((res) => {
         if (cancelled || !res.ok) return;
         const now = Date.now();
-        setNotes(res.value.filter((n) => !n.readAt || now - Date.parse(n.readAt) < READ_VISIBLE_MS));
+        const next = res.value.filter((n) => !n.readAt || now - Date.parse(n.readAt) < READ_VISIBLE_MS);
+        homeSnapshot.notes = next;
+        setNotes((prev) => keepIfSame(prev, next));
       });
     load();
     const timer = setTimeout(load, 4000);
@@ -81,11 +86,11 @@ export default function HomeShortcuts({ nonce, onShuffle }: { nonce: number; onS
         { kind: "year", period: previousPeriod("year", now), label: "Last year", icon: "archive" },
       ];
       // Recaps with nothing in them are left out.
-      setStories(
-        candidates
-          .filter((c) => buildStory(res.value, c.kind, c.period).length > 0)
-          .map((c) => ({ key: `${c.kind}-${c.period}`, href: `/story/?kind=${c.kind}&period=${c.period}`, icon: c.icon, label: c.label })),
-      );
+      const next = candidates
+        .filter((c) => buildStory(res.value, c.kind, c.period).length > 0)
+        .map((c) => ({ key: `${c.kind}-${c.period}`, href: `/story/?kind=${c.kind}&period=${c.period}`, icon: c.icon, label: c.label }));
+      homeSnapshot.stories = next;
+      setStories((prev) => keepIfSame(prev, next));
     });
     return () => {
       cancelled = true;
