@@ -1,5 +1,6 @@
 // lib/openCard.ts
 // Which viewing card is unfolded. Only one at a time: opening a card rolls up the one that was open.
+// Callers pass a key that includes the page, so the same viewing on two pages opens independently.
 import { useSyncExternalStore } from "react";
 
 let openId: string | null = null;

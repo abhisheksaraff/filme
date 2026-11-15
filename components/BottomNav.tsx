@@ -1,5 +1,5 @@
 // components/BottomNav.tsx
-// A floating pill with the main places. The current one sits in a grey circle; only Home and Watchlist fill their icon in white.
+// A floating pill with the main places. The current one sits in a grey circle; Home, Calendar, Map, Watched and Watchlist fill their icon in white, wholly or in part.
 "use client";
 
 import Link from "next/link";
@@ -8,9 +8,9 @@ import Icon, { type IconName } from "./Icon";
 
 const TABS: { href: string; label: string; icon: IconName; fills?: boolean }[] = [
   { href: "/home/", label: "Home", icon: "home", fills: true },
-  { href: "/calendar/", label: "Calendar", icon: "calendar" },
-  { href: "/map/", label: "Map", icon: "map" },
-  { href: "/watchlist/", label: "Watched", icon: "ticket" },
+  { href: "/calendar/", label: "Calendar", icon: "calendar", fills: true },
+  { href: "/map/", label: "Map", icon: "map", fills: true },
+  { href: "/watchlist/", label: "Watched", icon: "ticket", fills: true },
   { href: "/want/", label: "Watchlist", icon: "bookmark", fills: true },
   { href: "/scan/", label: "Add an entry", icon: "plus" },
 ];

@@ -13,25 +13,27 @@ interface Props {
   size?: number;
   /** Fills the shape in; used for the selected tab. */
   filled?: boolean;
-  /** Colour of the inner detail lines when filled, so they match the surface behind the icon. */
-  detail?: string;
 }
 
-export default function Icon({ name, size = 20, filled = false, detail = "white" }: Props) {
+export default function Icon({ name, size = 20, filled = false }: Props) {
   const fill = filled ? "currentColor" : "none";
   const paths: Record<IconName, ReactNode> = {
     home: <path fill={fill} d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" />,
     calendar: (
       <>
-        <rect fill={fill} x="4" y="5" width="16" height="15" rx="2" />
+        <rect x="4" y="5" width="16" height="15" rx="2" />
+        {/* Selected: only the part below the horizontal line fills in. */}
+        {filled && <path fill="currentColor" d="M4 10h16v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />}
         <path d="M8 3v4M16 3v4" />
-        <path d="M4 10h16" stroke={filled ? detail : "currentColor"} />
+        <path d="M4 10h16" />
       </>
     ),
     ticket: (
       <>
-        <path fill={fill} d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" />
-        <path d="M14 6v12" stroke={filled ? detail : "currentColor"} strokeDasharray="2 2" />
+        <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" />
+        {/* Selected: the left half, up to the tear line, fills in. */}
+        {filled && <path fill="currentColor" d="M4 8a2 2 0 0 1 2-2h8v12H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" />}
+        <path d="M14 6v12" strokeDasharray="2 2" />
       </>
     ),
     bookmark: <path fill={fill} d="M6 4h12v17l-6-4-6 4z" />,
@@ -90,7 +92,13 @@ export default function Icon({ name, size = 20, filled = false, detail = "white"
     ),
     chart: <path d="M5 20V10M12 20V4M19 20v-7" />,
     none: <><circle cx="12" cy="12" r="8" /><path d="M6.300 17.700L17.700 6.300" /></>,
-    map: <path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2zM9 4v14M15 6v14" />,
+    map: (
+      <>
+        {/* Selected: the middle of the three panels fills in. */}
+        {filled && <path fill="currentColor" d="M9 4l6 2v14l-6-2z" />}
+        <path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2zM9 4v14M15 6v14" />
+      </>
+    ),
     film: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4" /></>,
     mic: <path d="M12 4a3 3 0 0 1 3 3v4a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3zM6 11a6 6 0 0 0 12 0M12 17v3M9 20h6" />,
     masks: <path d="M4 5h9v6a4.500 4.500 0 0 1-9 0zM7 9h.01M10 9h.01M6.500 12.500c1 1 3 1 4 0M11 8h9v6a4.500 4.500 0 0 1-7 3.700M16 12h.01M19 12h.01" />,

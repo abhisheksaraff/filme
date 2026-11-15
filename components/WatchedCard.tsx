@@ -4,6 +4,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import FlatMap, { KIND_ICON } from "@/components/FlatMap";
 import Icon, { type IconName } from "@/components/Icon";
@@ -70,7 +71,7 @@ function SmallMap({ point, icon, href, label, onTap }: { point: VenuePoint; icon
   const box = useRef<HTMLDivElement>(null);
   const seen = useNearScreen(box);
   return (
-    <div ref={box} className="relative aspect-square w-full overflow-hidden rounded-[20px] bg-neutral-200 dark:bg-neutral-800">
+    <div ref={box} className="relative isolate aspect-square w-full overflow-hidden rounded-[20px] bg-neutral-200 dark:bg-neutral-800">
       {seen && <FlatMap points={[point]} focus={{ lon: point.longitude, lat: point.latitude, zoom: 14 }} still pinIcon={icon} className="h-full" />}
       {href ? (
         <Link href={href} aria-label={label} className="absolute inset-0 z-30" />
@@ -89,7 +90,7 @@ function PictureStack({ images }: { images: StoredImage[] }) {
   const shown = many ? images.slice(0, 2) : images;
   return (
     <>
-      <ul className="relative z-10 ml-auto flex items-center pl-3" aria-label="Photos and stubs">
+      <ul className="relative top-[3px] z-10 ml-auto flex items-center pl-3" aria-label="Photos and stubs">
         {shown.map((image, i) => (
           <li key={image.id} className={i > 0 ? "-ml-3" : ""}>
             <button type="button" onClick={() => setStart(i)} aria-label={image.note ?? `Picture ${i + 1}`}
@@ -126,7 +127,9 @@ interface Props {
 }
 
 export default function WatchedCard({ entry, index = 0, showTitle = true, label, rating, notes, animate = false }: Props) {
-  const { open, toggle } = useOpenCard(entry.id);
+  // Keyed by page too, so the same viewing opened on Watched is not also open on its title page.
+  const path = usePathname();
+  const { open, toggle } = useOpenCard(`${path}|${entry.id}`);
   const root = useRef<HTMLLIElement>(null);
   const near = useNearScreen(root);
   const images = useViewingPictures(entry.id, near);
@@ -164,12 +167,12 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
       {/* Tapping the card anywhere else rolls it out or back up. The title, poster, map, venue name and pictures sit above this and keep their own taps. */}
       <button type="button" aria-expanded={open} aria-label={`${open ? "Fold" : "Unfold"} ${entry.title}`} onClick={toggle} className="absolute inset-0 z-0 rounded-3xl" />
 
-      {/* The only way to the edit screen: it floats over the top-left corner once the card is open. */}
-      <div className={`absolute left-3 top-3 z-20 ${smooth ? "transition-[opacity,transform] duration-300" : ""} ${open ? "scale-100 opacity-100" : "pointer-events-none scale-75 opacity-0"}`}>
-        <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${entry.id}`} className="!bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)]" />
+      {/* The only way to the edit screen: it floats over the top-right corner once the card is open, above everything else on the card. */}
+      <div className={`absolute right-3 top-3 z-40 ${smooth ? "transition-[opacity,transform] duration-300" : ""} ${open ? "scale-100 opacity-100" : "pointer-events-none scale-75 opacity-0"}`}>
+        <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${entry.id}`} className="relative !bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)] before:absolute before:-inset-3 before:content-['']" />
       </div>
 
-      {label && <span className={`mb-1 block px-3 pt-2 text-xs uppercase tracking-wide text-neutral-500 ${smooth ? "transition-[padding] duration-300" : ""} ${open ? "pl-14" : ""}`}>{label}</span>}
+      {label && <span className={`mb-1 block px-3 pt-2 text-xs uppercase tracking-wide text-neutral-500 `}>{label}</span>}
       <div className="flex gap-1">
         <div className="flex w-1/2 flex-col gap-1">
           {at ? (
