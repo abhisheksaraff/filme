@@ -2,6 +2,7 @@
 // Small chores that run quietly when Home opens: cleanup, filling in credits, and report banners.
 import { backfillCredits } from "@/lib/credits";
 import { buildStory, periodFor, previousPeriod } from "@/lib/domain/stories";
+import { moveLegacyImages } from "@/lib/imageMove";
 import { loadStatRows } from "@/lib/home/rows";
 import { services } from "@/lib/services";
 
@@ -37,5 +38,6 @@ export function runMaintenance(): void {
     await services.log.purgeExpired();
     await ensureBanners();
     await backfillCredits();
+    await moveLegacyImages();
   })().catch(() => undefined);
 }

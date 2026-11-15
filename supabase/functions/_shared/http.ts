@@ -21,7 +21,7 @@ function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-action, x-path",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
@@ -47,13 +47,22 @@ export async function readJson(req: Request): Promise<Record<string, unknown>> {
   throw new HttpError(400, "Request body must be a JSON object.");
 }
 
+/** Lets a handler send a file: the response keeps its own body and type and only gains the CORS headers. */
+function withCors(req: Request, res: Response): Response {
+  const headers = new Headers(res.headers);
+  for (const [key, value] of Object.entries(corsHeaders(req))) headers.set(key, value);
+  headers.set("Cache-Control", "no-store");
+  return new Response(res.body, { status: res.status, headers });
+}
+
 /** Wraps a handler: answers CORS preflight, allows POST only, and turns errors into safe JSON. */
 export function serve(handler: (req: Request) => Promise<unknown>): void {
   Deno.serve(async (req) => {
     if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders(req) });
     try {
       if (req.method !== "POST") throw new HttpError(405, "Use POST.");
-      return json(req, await handler(req));
+      const out = await handler(req);
+      return out instanceof Response ? withCors(req, out) : json(req, out);
     } catch (err) {
       if (err instanceof HttpError) return json(req, { error: err.message }, err.status);
       // Log the kind of failure only; never log request bodies, which can contain keys.

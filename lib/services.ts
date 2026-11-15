@@ -3,6 +3,8 @@
 import { musicBrainzArtists } from "@/lib/adapters/musicbrainz/MusicBrainzArtists";
 import { nominatimGeocoder } from "@/lib/adapters/geo/NominatimGeocoder";
 import { edgeAiProvider } from "@/lib/adapters/ai/EdgeAIProvider";
+import { supabaseAuth } from "@/lib/adapters/supabase/auth";
+import { activeStore } from "@/lib/files";
 import { supabaseLogRepository } from "@/lib/adapters/supabase/SupabaseLogRepository";
 import { supabaseCollectionRepository } from "@/lib/adapters/supabase/SupabaseCollectionRepository";
 import { supabaseSettingsRepository } from "@/lib/adapters/supabase/SupabaseSettingsRepository";
@@ -14,6 +16,8 @@ import { supabaseWantedRepository } from "@/lib/adapters/supabase/SupabaseWanted
 import { supabaseKeyVault } from "@/lib/adapters/supabase/SupabaseKeyVault";
 import { edgeCatalog } from "@/lib/adapters/tmdb/EdgeCatalog";
 import type { AiProvider } from "@/lib/ports/ai";
+import type { AuthProvider } from "@/lib/ports/auth";
+import type { FileStore } from "@/lib/ports/files";
 import type { ArtistSearch } from "@/lib/ports/artists";
 import type { BrowseRepository } from "@/lib/ports/browse";
 import type { DataRepository } from "@/lib/ports/data";
@@ -30,6 +34,8 @@ import type { WantedRepository } from "@/lib/ports/wanted";
 export const services: {
   ai: AiProvider;
   artists: ArtistSearch;
+  auth: AuthProvider;
+  files: FileStore;
   browse: BrowseRepository;
   data: DataRepository;
   images: ImageRepository;
@@ -44,6 +50,8 @@ export const services: {
 } = {
   ai: edgeAiProvider,
   artists: musicBrainzArtists,
+  auth: supabaseAuth,
+  files: activeStore,
   browse: supabaseBrowseRepository,
   data: supabaseDataRepository,
   images: supabaseImageRepository,

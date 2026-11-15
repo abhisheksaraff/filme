@@ -4,7 +4,6 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { hasSession } from "@/lib/adapters/supabase/auth";
 import type { Appearance } from "@/lib/domain/appearance";
 import { services } from "@/lib/services";
 import { MOVING_SLUGS, fallbackMovingDates } from "@/lib/domain/holidays";
@@ -37,7 +36,7 @@ export default function ThemeApplier() {
   useEffect(() => {
     if (fromServer.current) return;
     let cancelled = false;
-    hasSession().then(async (signedIn) => {
+    services.auth.hasSession().then(async (signedIn) => {
       if (!signedIn || cancelled) return;
       const res = await services.settings.appearance();
       if (cancelled || !res.ok) return;

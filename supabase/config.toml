@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.tmdb]
 verify_jwt = false
+
+[functions.files]
+verify_jwt = false

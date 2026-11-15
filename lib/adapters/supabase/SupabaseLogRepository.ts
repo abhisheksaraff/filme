@@ -7,9 +7,9 @@ import type { CatalogMatch } from "@/lib/ports/catalog";
 import type { DeletedEntry, LogRepository, OwnHit, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { getSupabase } from "./client";
+import { putWithFallback, storeFor } from "@/lib/files";
 import { lastHomeVenue } from "./venues";
 
-const BUCKET = "media";
 
 const VENUE_TYPE: Record<LogEntry["category"], string> = {
   Movie: "cinema",
@@ -179,21 +179,21 @@ export const supabaseLogRepository: LogRepository = {
     const sessionId = session.data.id as string;
 
     // Upload the stubs; if anything goes wrong, undo the viewing and the files already sent.
-    const uploaded: string[] = [];
+    const uploaded: { path: string; store: string }[] = [];
     try {
       for (const [index, blob] of stubs.entries()) {
         const path = `${userId}/tickets/${sessionId}/${crypto.randomUUID()}.${EXTENSION[blob.type] ?? "bin"}`;
-        const up = await db.storage.from(BUCKET).upload(path, blob, { contentType: blob.type });
-        if (up.error) throw new Error("upload");
-        uploaded.push(path);
+        const up = await putWithFallback(path, blob);
+        if (!up.ok) throw new Error("upload");
+        uploaded.push({ path, store: up.value.id });
 
         const row = await db
           .from("images")
-          .insert({ kind: "ticket", source: "upload", path, session_id: sessionId, is_default: index === 0 });
+          .insert({ kind: "ticket", source: "upload", path, store: up.value.id, session_id: sessionId, is_default: index === 0 });
         if (row.error) throw new Error("record");
       }
     } catch {
-      if (uploaded.length > 0) await db.storage.from(BUCKET).remove(uploaded);
+      for (const file of uploaded) await storeFor(file.store).remove([file.path]);
       await db.from("watch_sessions").delete().eq("id", sessionId);
       return fail("Could not upload the ticket images. Nothing was saved.");
     }
@@ -245,11 +245,15 @@ export const supabaseLogRepository: LogRepository = {
     const stubsBySession = new Map<string, string[]>();
     if (ids.length > 0) {
       const rows = await db
-        .from("images").select("session_id, path").eq("kind", "ticket").in("session_id", ids)
+        .from("images").select("session_id, path, store").eq("kind", "ticket").in("session_id", ids)
         .order("is_default", { ascending: false });
-      const paths = (rows.data ?? []).map((row) => row.path as string);
-      const signed = paths.length > 0 ? await db.storage.from(BUCKET).createSignedUrls(paths, 3600) : null;
-      const urlByPath = new Map((signed?.data ?? []).map((item) => [item.path, item.signedUrl]));
+      // Each stub is linked from whichever store holds it.
+      const urlByPath = new Map<string, string>();
+      for (const store of new Set((rows.data ?? []).map((row) => row.store as string))) {
+        const paths = (rows.data ?? []).filter((row) => row.store === store).map((row) => row.path as string);
+        const res = await storeFor(store).urls(paths);
+        if (res.ok) for (const [path, url] of res.value) urlByPath.set(path, url);
+      }
       for (const row of rows.data ?? []) {
         const url = urlByPath.get(row.path as string);
         if (!url) continue;
@@ -365,9 +369,11 @@ export const supabaseLogRepository: LogRepository = {
     const ids = old.data.map((r) => r.id as string);
 
     // Files are removed first: once the rows are gone nothing would remember their paths.
-    const files = await db.from("images").select("path, source").in("session_id", ids);
-    const paths = (files.data ?? []).filter((f) => f.source === "upload").map((f) => f.path as string);
-    if (paths.length > 0) await db.storage.from(BUCKET).remove(paths);
+    const files = await db.from("images").select("path, source, store").in("session_id", ids);
+    for (const store of new Set((files.data ?? []).map((f) => f.store as string))) {
+      const paths = (files.data ?? []).filter((f) => f.source === "upload" && f.store === store).map((f) => f.path as string);
+      if (paths.length > 0) await storeFor(store).remove(paths);
+    }
     const del = await db.from("watch_sessions").delete().in("id", ids);
     return del.error ? fail("Could not remove old deleted viewings.") : ok(ids.length);
   },

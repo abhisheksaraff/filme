@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { signIn } from "@/lib/adapters/supabase/auth";
+import { services } from "@/lib/services";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const result = await signIn(String(form.get("email")), String(form.get("password")));
+      const result = await services.auth.signIn(String(form.get("email")), String(form.get("password")));
       if (result.error) setError(result.error);
       else router.replace("/home/");
     } catch {

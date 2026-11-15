@@ -1,5 +1,6 @@
 // lib/adapters/supabase/auth.ts
 import type { AuthError } from "@supabase/supabase-js";
+import type { AuthProvider } from "@/lib/ports/auth";
 import { getSupabase } from "./client";
 
 /**
@@ -31,3 +32,5 @@ export async function hasSession(): Promise<boolean> {
   const { data } = await getSupabase().auth.getSession();
   return data.session !== null;
 }
+
+export const supabaseAuth: AuthProvider = { signIn, signOut, hasSession };

@@ -3,7 +3,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { hasSession } from "@/lib/adapters/supabase/auth";
+import { services } from "@/lib/services";
 
 /** Sends visitors who are not signed in to the login page; returns true once a session is confirmed. */
 export function useRequireSession(): boolean {
@@ -12,7 +12,7 @@ export function useRequireSession(): boolean {
 
   useEffect(() => {
     let cancelled = false;
-    hasSession().then((signedIn) => {
+    services.auth.hasSession().then((signedIn) => {
       if (cancelled) return;
       if (signedIn) setReady(true);
       else router.replace("/login/");

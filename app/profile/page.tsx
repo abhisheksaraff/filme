@@ -9,9 +9,9 @@ import Avatar from "@/components/Avatar";
 import RoundButton from "@/components/RoundButton";
 import Icon, { type IconName } from "@/components/Icon";
 import CropDialog from "@/components/CropDialog";
+import DataSync from "@/components/DataSync";
 import { useRequireSession } from "@/hooks/useRequireSession";
-import { getSupabase } from "@/lib/adapters/supabase/client";
-import { signOut } from "@/lib/adapters/supabase/auth";
+import { allStores } from "@/lib/files";
 import { services } from "@/lib/services";
 
 const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
@@ -19,14 +19,14 @@ const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
   { href: "/map/", icon: "map", label: "Map", note: "Every venue you have been to" },
   { href: "/collections/", icon: "layers", label: "Collections", note: "Your own lists of titles" },
   { href: "/profile/appearance/", icon: "palette", label: "Appearance", note: "Light or dark, themes and decorations" },
-  { href: "/profile/data/", icon: "archive", label: "Your data", note: "Backups, restore, Letterboxd and Trakt files" },
+  { href: "/profile/data/", icon: "archive", label: "Import and export", note: "Letterboxd and Trakt files" },
   { href: "/profile/keys/", icon: "key", label: "API keys", note: "AI and TMDB keys, models and order" },
 ];
 
-/** Supabase's free plan holds 1 GB of files; the meter is measured against that. */
-const FREE_BYTES = 1_000_000_000;
+/** The free 10 GB of the image store; the meter is measured against that. */
+const FREE_BYTES = 10_000_000_000;
 
-const megabytes = (bytes: number) => (bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0);
+const size = (bytes: number) => (bytes >= 1_000_000_000 ? `${(bytes / 1_000_000_000).toFixed(2)} GB` : `${(bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0)} MB`);
 
 export default function ProfilePage() {
   const ready = useRequireSession();
@@ -40,8 +40,9 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
-    getSupabase().rpc("my_storage_bytes").then(({ data, error }) => {
-      if (!cancelled && !error) setUsed(Number(data ?? 0));
+    // Images may be in either store while they are being moved, so both count.
+    Promise.all(allStores.map((store) => store.usage())).then((results) => {
+      if (!cancelled && results.every((res) => res.ok)) setUsed(results.reduce((sum, res) => sum + (res.ok ? res.value : 0), 0));
     });
     return () => {
       cancelled = true;
@@ -56,7 +57,7 @@ export default function ProfilePage() {
   }
 
   async function onSignOut() {
-    await signOut();
+    await services.auth.signOut();
     router.replace("/login/");
   }
 
@@ -79,7 +80,7 @@ export default function ProfilePage() {
         <div className="h-2 overflow-hidden rounded-full bg-neutral-300 dark:bg-neutral-700">
           <div className="h-full rounded-full bg-neutral-900 dark:bg-white" style={{ width: `${share}%` }} />
         </div>
-        <span>{used === null ? "Checking…" : `${megabytes(used)} MB of ${megabytes(FREE_BYTES)} MB`}</span>
+        <span>{used === null ? "Checking…" : `${size(used)} of ${size(FREE_BYTES)}`}</span>
       </section>
 
       <ul className="flex flex-col gap-3">
@@ -95,6 +96,8 @@ export default function ProfilePage() {
           </li>
         ))}
       </ul>
+      <DataSync />
+
       <RoundButton icon="logout" label="Sign out" onClick={onSignOut} className="self-center" size="lg" />
 
       {crop && <CropDialog file={crop} aspect={1} maxEdge={512} title="Frame your picture" onCancel={() => setCrop(null)} onDone={saveAvatar} />}
