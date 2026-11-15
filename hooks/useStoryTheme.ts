@@ -7,8 +7,11 @@ import { useEffect, useState } from "react";
 import { debugLog } from "@/lib/debug";
 import type { StoryTheme, StoryThemeInput } from "@/lib/ports/ai";
 import { readStored, writeStored } from "@/lib/persistentCache";
+import { fail } from "@/lib/ports/result";
 import { services } from "@/lib/services";
 
+/** A request with no reply by then counts as failed, so the story never waits for ever. */
+const GIVE_UP_MS = 60_000;
 const KEEP_MS = 90 * 24 * 60 * 60 * 1000;
 const RECENT_KEY = "filme-story-music";
 
@@ -34,11 +37,14 @@ export interface StoryThemeState {
   /** True once there is an answer, or a failure; the story's own searches wait for this. */
   done: boolean;
   theme: StoryTheme | null;
+  /** Asks again after a failure. */
+  retry: () => void;
 }
 
 /** `input` is null until the story's content is known. `fresh` skips what was saved, for the debug story. */
 export function useStoryTheme(storyKey: string | null, input: Omit<StoryThemeInput, "recentMusic"> | null, fresh: boolean): StoryThemeState {
-  const [state, setState] = useState<StoryThemeState>({ done: false, theme: null });
+  const [state, setState] = useState<{ done: boolean; theme: StoryTheme | null }>({ done: false, theme: null });
+  const [attempt, setAttempt] = useState(0);
   const inputKey = input ? JSON.stringify(input) : null;
 
   useEffect(() => {
@@ -51,7 +57,11 @@ export function useStoryTheme(storyKey: string | null, input: Omit<StoryThemeInp
         debugLog(`theme: saved, music "${kept.music}"`);
         return !cancelled && setState({ done: true, theme: kept });
       }
-      const res = await services.ai.storyTheme({ ...(JSON.parse(inputKey) as Omit<StoryThemeInput, "recentMusic">), recentMusic: recentMusic() });
+      debugLog("theme: asking the AI");
+      const res = await Promise.race([
+        services.ai.storyTheme({ ...(JSON.parse(inputKey) as Omit<StoryThemeInput, "recentMusic">), recentMusic: recentMusic() }),
+        new Promise<ReturnType<typeof fail>>((resolve) => setTimeout(() => resolve(fail("The AI took too long to answer.")), GIVE_UP_MS)),
+      ]);
       if (cancelled) return;
       if (res.ok) {
         debugLog(`theme: asked the AI, music "${res.value.music}", ${res.value.pictures.length} pictures, ${res.value.lines.length} lines`);
@@ -66,7 +76,12 @@ export function useStoryTheme(storyKey: string | null, input: Omit<StoryThemeInp
     return () => {
       cancelled = true;
     };
-  }, [storyKey, inputKey, fresh]);
+  }, [storyKey, inputKey, fresh, attempt]);
 
-  return state;
+  const retry = () => {
+    setState({ done: false, theme: null });
+    setAttempt((n) => n + 1);
+  };
+
+  return { ...state, retry };
 }

@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { debugLog } from "@/lib/debug";
 import type { MediaTrack } from "@/lib/ports/media";
+import { clearPreloaded, takePreloaded } from "@/lib/storyAudio";
 
 const PREF = "filme-story-sound";
 /** A fraction of full volume. */
@@ -27,19 +28,27 @@ export function useStoryMusic(tracks: MediaTrack[]) {
   const context = useRef<AudioContext | null>(null);
   const gain = useRef<GainNode | null>(null);
   const started = useRef(false);
+  /** Set when the story closes, so a track that finishes loading afterwards never starts. */
+  const closed = useRef(false);
+  /** The address already set on the element by the preload, so it is not set again. */
+  const preSrc = useRef<string | null>(null);
 
   const tryTrack = useCallback((first: number) => {
     const el = audio.current;
     if (!el) return;
     // Each track that cannot be loaded or played passes on to the next.
     const attempt = (i: number): void => {
-      if (i >= tracks.length) return;
-      el.src = tracks[i].url;
+      if (i >= tracks.length || closed.current) return;
+      if (preSrc.current !== tracks[i].url) el.src = tracks[i].url;
       el.onerror = () => {
         debugLog(`track ${i + 1} could not load (${new URL(tracks[i].url).host})`);
         attempt(i + 1);
       };
       el.play().then(() => {
+        if (closed.current) {
+          el.pause();
+          return;
+        }
         const ctx = context.current;
         if (ctx && gain.current) gain.current.gain.setTargetAtTime(VOLUME, ctx.currentTime, 1.2);
         debugLog(`track ${i + 1} playing`);
@@ -56,7 +65,9 @@ export function useStoryMusic(tracks: MediaTrack[]) {
     if (tracks.length === 0 || started.current) return;
     started.current = true;
     if (!audio.current) {
-      const el = new Audio();
+      const pre = takePreloaded(tracks);
+      const el = pre?.el ?? new Audio();
+      preSrc.current = pre ? pre.track.url : null;
       // Without the server's permission the browser would play it silently through the volume control, so it errors instead and the next track is tried.
       el.crossOrigin = "anonymous";
       el.loop = true;
@@ -72,7 +83,9 @@ export function useStoryMusic(tracks: MediaTrack[]) {
       gain.current = node;
     }
     void context.current?.resume();
-    tryTrack(0);
+    // Starts with the track that was downloaded ahead, if there was one.
+    const first = preSrc.current ? tracks.findIndex((t) => t.url === preSrc.current) : 0;
+    tryTrack(Math.max(0, first));
   }, [tracks, tryTrack]);
 
   const stop = useCallback(() => {
@@ -100,9 +113,19 @@ export function useStoryMusic(tracks: MediaTrack[]) {
     if (on) start();
   }, [on, start]);
 
-  useEffect(() => () => {
-    audio.current?.pause();
-    void context.current?.close();
+  // Closing the story ends its music for good, including a track that was still loading.
+  useEffect(() => {
+    closed.current = false;
+    return () => {
+      closed.current = true;
+      started.current = false;
+      audio.current?.pause();
+      void context.current?.close();
+      audio.current = null;
+      context.current = null;
+      gain.current = null;
+      clearPreloaded();
+    };
   }, []);
 
   return { available: tracks.length > 0, on, playing, toggle, touch };

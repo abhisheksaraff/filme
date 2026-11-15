@@ -6,7 +6,7 @@ export type IconName =
   | "home" | "calendar" | "ticket" | "bookmark" | "plus" | "close" | "download" | "upload" | "star"
   | "note" | "trash" | "edit" | "filter" | "shuffle" | "refresh" | "database" | "watch" | "sliders" | "image" | "bell" | "archive"
   | "calendarPlus" | "check" | "back" | "search" | "user" | "undo" | "open" | "sparkle" | "globe" | "chart"
-  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "posterFrame" | "coverFrame" | "none" | "eye";
+  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "posterFrame" | "coverFrame" | "none" | "eye" | "sound" | "mute";
 
 interface Props {
   name: IconName;
@@ -39,6 +39,19 @@ export default function Icon({ name, size = 20, filled = false }: Props) {
     bookmark: <path fill={fill} d="M6 4h12v17l-6-4-6 4z" />,
     plus: <path d="M12 5v14M5 12h14" />,
     close: <path d="M6 6l12 12M18 6L6 18" />,
+    // A speaker with sound waves, and the same speaker crossed out for muted.
+    sound: (
+      <>
+        <path fill={fill} d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" />
+        <path d="M15.5 9a4 4 0 0 1 0 6M18.2 6.5a7.5 7.5 0 0 1 0 11" />
+      </>
+    ),
+    mute: (
+      <>
+        <path fill={fill} d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" />
+        <path d="M16 9.5l5 5M21 9.5l-5 5" />
+      </>
+    ),
     download: <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />,
     upload: <path d="M12 16V5M7 9l5-5 5 5M5 20h14" />,
     star: <path fill={fill} d="M12 4l2.4 5 5.6.7-4.1 3.8 1.1 5.5L12 16.3 7 19l1.1-5.5L4 9.7 9.600 9z" />,

@@ -3,6 +3,8 @@
 // colours from its poster, with cut-out stickers round the edges and soft music chosen for the season or festival.
 "use client";
 
+import Icon from "@/components/Icon";
+import LoadingOverlay from "@/components/LoadingOverlay";
 import ProblemPopup from "@/components/ProblemPopup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -57,7 +59,12 @@ function StoryView() {
   const [slides, setSlides] = useState<Slide[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
-  const touchStart = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  /** How far a downward swipe has pulled the story, in pixels; it closes once pulled far enough. */
+  const [pull, setPull] = useState(0);
+  const [pulling, setPulling] = useState(false);
+  /** False until the first tap on the "Tap to play" screen, which also lets the phone start the sound. */
+  const [started, setStarted] = useState(false);
   /** Each poster's main colour as a gradient, filled in as the pictures are read. */
   const [grads, setGrads] = useState<Record<string, Gradient>>({});
   const [animate] = useState(() => readCachedAppearance().animationsEnabled);
@@ -88,7 +95,7 @@ function StoryView() {
     [slides, mood, isDebug, kind, period],
   );
   const themeState = useStoryTheme(storyKey, themeInput, isDebug);
-  const media = useStoryMedia(storyKey, mood, themeState.theme, themeState.done);
+  const media = useStoryMedia(storyKey, mood, themeState.theme);
   const music = useStoryMusic(media.tracks);
   // Real cut-outs when enough were found; otherwise a festival's own drawn charms.
   const pool: Sticker[] = useMemo(() => {
@@ -145,10 +152,10 @@ function StoryView() {
   const lastIndex = slides ? slides.length - 1 : 0;
   // Goes on by itself; stops on the last slide and on the debug checks.
   useEffect(() => {
-    if (!slides || index >= lastIndex || checksOn) return;
+    if (!slides || !started || index >= lastIndex || checksOn) return;
     const timer = setTimeout(() => setIndex((i) => Math.min(i + 1, lastIndex)), SLIDE_MS);
     return () => clearTimeout(timer);
-  }, [slides, index, lastIndex, checksOn, taps]);
+  }, [slides, started, index, lastIndex, checksOn, taps]);
 
   function step(by: 1 | -1) {
     if (!slides) return;
@@ -265,6 +272,29 @@ function StoryView() {
   if (!ready) return null;
   if (!valid) return <main className="p-6 text-sm">That story does not exist.</main>;
 
+  // The story opens only once its AI theme, pictures and first track are ready. The debug story opens without a theme so its checks can be read.
+  const opened = isDebug ? themeState.done && (themeState.theme === null || media.ready) : themeState.theme !== null && media.ready;
+  const empty = slides !== null && slides.length === 0;
+  if (!problem && !empty && !opened) {
+    if (!isDebug && themeState.done && themeState.theme === null) {
+      return (
+        <main className="fixed inset-0 flex flex-col items-center justify-center gap-5 bg-neutral-950 px-8 text-center text-white">
+          <p className="font-serif text-2xl">We couldn&apos;t make this story right now.</p>
+          <div className="flex gap-3">
+            <button type="button" onClick={themeState.retry} className="rounded-full bg-white px-5 py-2 text-sm font-medium text-neutral-950">Try again</button>
+            <button type="button" onClick={close} className="rounded-full border border-white/40 px-5 py-2 text-sm">Close</button>
+          </div>
+        </main>
+      );
+    }
+    return (
+      <>
+        <LoadingOverlay label="Getting your story ready…" />
+        <button type="button" aria-label="Close" onClick={close} className="fixed right-4 top-[max(1rem,env(safe-area-inset-top))] z-[60] p-2 text-white"><Icon name="close" size={22} /></button>
+      </>
+    );
+  }
+
   const slide = slides?.[index];
   // The debug checks slide: what each search found, whether anything played, and what the security policy blocked.
   const checks = isDebug && slide?.heading === "Checks"
@@ -287,24 +317,38 @@ function StoryView() {
   return (
     <main
       className="fixed inset-0 flex flex-col text-white"
-      style={{ background: `linear-gradient(160deg, ${grad.from}, ${grad.to})` }}
+      style={{ background: `linear-gradient(160deg, ${grad.from}, ${grad.to})`, transform: pull > 0 ? `translateY(${pull}px)` : undefined, transition: pulling ? "none" : "transform 200ms ease-out" }}
       onClick={() => { music.touch(); setTaps((n) => n + 1); }}
-      onTouchStart={(e) => { touchStart.current = e.touches[0].clientX; }}
+      onTouchStart={(e) => { touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+      onTouchMove={(e) => {
+        const start = touchStart.current;
+        if (!start) return;
+        const dy = e.touches[0].clientY - start.y;
+        // Only a mostly downward drag pulls the story along.
+        if (dy > 0 && dy > Math.abs(e.touches[0].clientX - start.x)) {
+          setPulling(true);
+          setPull(dy);
+        }
+      }}
       onTouchEnd={(e) => {
         const start = touchStart.current;
         touchStart.current = null;
+        setPulling(false);
         if (start === null) return;
-        const delta = e.changedTouches[0].clientX - start;
-        if (Math.abs(delta) > 50) step(delta < 0 ? 1 : -1);
+        const dx = e.changedTouches[0].clientX - start.x;
+        const dy = e.changedTouches[0].clientY - start.y;
+        if (dy > 120 && dy > Math.abs(dx)) return close();
+        setPull(0);
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
       }}
     >
       <StoryStickers pool={pool} index={index} animate={animate} memories={isDebug && slide?.heading === "Checks" ? [] : memories} />
       <div className="relative z-10 flex gap-1 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         {slides?.map((_, i) => (
           <div key={i} className="h-1 flex-1 overflow-hidden rounded-full bg-white/30">
-            {i < index || (i === index && (!animate || last || checks !== null)) ? (
+            {i < index || (i === index && started && (!animate || last || checks !== null)) ? (
               <div className="h-full w-full bg-white" />
-            ) : i === index ? (
+            ) : i === index && started ? (
               <div key={`${index}-${taps}`} className="h-full bg-white" style={{ animation: `story-fill ${SLIDE_MS}ms linear forwards` }} />
             ) : null}
           </div>
@@ -316,11 +360,11 @@ function StoryView() {
           {music.available && (
             <button type="button" aria-pressed={music.on} aria-label={music.on ? "Turn the music off" : "Turn the music on"}
               onClick={(e) => { e.stopPropagation(); music.toggle(); }} className="relative z-10 px-2">
-              {music.on ? "Music on" : "Music off"}
+              <Icon name={music.on ? "sound" : "mute"} size={22} />
             </button>
           )}
-          <button type="button" aria-label="Save as picture" onClick={savePicture} className="relative z-10 px-2">Save</button>
-          <button type="button" aria-label="Close" onClick={close} className="relative z-10 px-2 text-lg">✕</button>
+          <button type="button" aria-label="Save as picture" onClick={savePicture} className="relative z-10 px-2"><Icon name="download" size={22} /></button>
+          <button type="button" aria-label="Close" onClick={close} className="relative z-10 px-2"><Icon name="close" size={22} /></button>
         </span>
       </div>
 
@@ -332,6 +376,12 @@ function StoryView() {
         {slides && slides.length === 0 && <p className="text-white/70">Nothing to show for this one yet.</p>}
         {!slides && !problem && <p className="text-white/70">Loading…</p>}
 
+        {slide && !started && (
+          // The tap lets the phone play sound; it reaches the page's own tap handler, which starts the music.
+          <button type="button" aria-label="Tap to play" onClick={() => setStarted(true)} className="absolute inset-0 z-30 flex items-end justify-center bg-black/30 pb-[max(4rem,env(safe-area-inset-bottom))] backdrop-blur-[2px]">
+            <span className="rounded-full border border-white/60 px-6 py-2 text-sm tracking-wide text-white">Tap to play</span>
+          </button>
+        )}
         {slide && (
           <>
             <p className="text-sm uppercase tracking-widest text-white/60">{slide.heading}</p>
