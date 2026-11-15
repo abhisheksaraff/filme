@@ -1,10 +1,13 @@
 // components/decor/Scene.tsx
 // The moving background of the active theme: snow, fireworks, lanterns, a night sky, balloons, or Halloween walkers.
-// It never takes a tap, and only opacity and position are animated so it stays smooth on iPhone.
+// It is drawn behind the page, so text always reads over it. Taps on the page reach it through tap.ts: pieces pop,
+// fireworks go off early (or fizzle and fall), creatures lunge. Only opacity and position are animated so it stays smooth on iPhone.
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Accent, Balloon, Bat, Cloud, Dracula, Lantern, Monster, Moon, Petal, Sleigh, Snowflake, Star, Wolf } from "./art";
+import { useDecorTap } from "./tap";
+import { Bits, Piece } from "./Touchy";
 import { useDecor } from "./useDecor";
 
 /** Deterministic pseudo-random numbers, so a piece keeps its place between renders. */
@@ -15,44 +18,68 @@ const seeded = (i: number, salt: number) => {
 const between = (min: number, max: number) => min + Math.random() * (max - min);
 const pick = <T,>(list: readonly T[]): T => list[Math.floor(Math.random() * list.length)];
 
-/** Pieces that drift down (or up) the whole screen, each on its own timing so they never move in step. */
-function Drifting({ count, direction, render, slow = 1 }: { count: number; direction: "down" | "up"; render: (i: number) => ReactNode; slow?: number }) {
+/** Pieces that drift down (or up) the whole screen, each on its own timing so they never move in step. A tap pops one; it is back on its next pass. */
+function Drifting({ count, direction, render, slow = 1, bits }: { count: number; direction: "down" | "up"; render: (i: number) => ReactNode; slow?: number; bits: readonly string[] }) {
   return (
     <>
       {Array.from({ length: count }, (_, i) => (
-        <span
+        <Piece
           key={i}
+          colors={bits}
+          back="loop"
           className={direction === "down" ? "drift-down" : "drift-up"}
           style={{ left: `${seeded(i, 1) * 96}%`, animationDuration: `${(14 + seeded(i, 2) * 14) * slow}s`, animationDelay: `${-seeded(i, 3) * 28}s` }}
         >
           <span className="sway" style={{ animationDuration: `${3 + seeded(i, 4) * 3}s`, animationDelay: `${-seeded(i, 5) * 4}s` }}>
             {render(i)}
           </span>
-        </span>
+        </Piece>
       ))}
     </>
   );
 }
 
-/** Something that crosses the screen now and then, then waits a good while before coming back. */
-function Crosser({ children, top, seconds, wait, first }: { children: ReactNode; top: string; seconds: number; wait: [number, number]; first: number }) {
+/**
+ * Something that crosses the screen now and then, then waits a good while before coming back.
+ * Tapped, it either pops into sprinkles (when `bits` is given) or hands the tap to its children to react to.
+ */
+function Crosser({ children, top, seconds, wait, first, bits, slop = 28 }: {
+  children: ReactNode | ((tapped: boolean) => ReactNode);
+  top: string;
+  seconds: number;
+  wait: [number, number];
+  first: number;
+  bits?: readonly string[];
+  slop?: number;
+}) {
   const [run, setRun] = useState<number | null>(null);
+  const [tapped, setTapped] = useState(false);
   const spawned = useRef(false);
+  const holder = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (run !== null) return;
     const timer = setTimeout(() => {
       spawned.current = true;
+      setTapped(false);
       if (document.visibilityState === "visible") setRun(Date.now());
       else setRun(null);
     }, (spawned.current ? between(wait[0], wait[1]) : first) * 1000);
     return () => clearTimeout(timer);
   }, [run, wait, first]);
 
+  useDecorTap(holder, () => setTapped(true), run !== null && !tapped);
+
   if (run === null) return null;
+  const body = typeof children === "function" ? children(tapped) : children;
   return (
-    <div key={run} className="cross" style={{ top, animationDuration: `${seconds}s` }} onAnimationEnd={() => setRun(null)}>
-      {children}
+    <div key={run} ref={holder} data-slop={slop} className="cross" style={{ top, animationDuration: `${seconds}s` }} onAnimationEnd={() => setRun(null)}>
+      {bits && typeof children !== "function" ? (
+        <>
+          <span className={`decor-piece block ${tapped ? "decor-gone" : ""}`}>{body}</span>
+          {tapped && <Bits colors={bits} count={14} />}
+        </>
+      ) : body}
     </div>
   );
 }
@@ -61,52 +88,92 @@ const GOLD = ["#ffd54a", "#ffe9a8", "#ff9bd0", "#9be7ff"];
 const MULTI = ["#ffb300", "#ff5c5c", "#5cc8ff", "#62d26f", "#c58bff", "#ff8fb1"];
 const RED = ["#e5322d", "#f4a3a1", "#ff7a76"];
 
-/** Small bursts of light that open high up and fade, never more than a few at once. */
+/** The burst itself: sparks flying out in a ring. */
+function Burst({ x, y, color }: { x: number; y: number; color: string }) {
+  return (
+    <div className="absolute" style={{ left: `${x}%`, top: `${y}%` }}>
+      {Array.from({ length: 18 }, (_, i) => (
+        <i key={i} className="spark" style={{ "--a": `${i * 20}deg`, "--d": `${i % 2 ? 44 : 66}px`, background: color } as CSSProperties} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * One firework: a rocket climbs, then bursts. Tap the rocket while it climbs and it goes off at once; about one in
+ * four is a dud that sputters, puffs smoke and falls back down.
+ */
+function Rocket({ x, y, color, onGone }: { x: number; y: number; color: string; onGone: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [phase, setPhase] = useState<"rise" | "burst" | "dud">("rise");
+  const [at, setAt] = useState({ x, y });
+  const gone = useRef(onGone);
+  useEffect(() => {
+    gone.current = onGone;
+  });
+
+  useDecorTap(ref, () => {
+    const box = ref.current?.getBoundingClientRect();
+    if (box) setAt({ x: ((box.left + box.width / 2) / window.innerWidth) * 100, y: ((box.top + box.height / 2) / window.innerHeight) * 100 });
+    setPhase(Math.random() < 0.25 ? "dud" : "burst");
+  }, phase === "rise");
+
+  useEffect(() => {
+    if (phase === "rise") return;
+    const timer = setTimeout(() => gone.current(), phase === "burst" ? 2200 : 1700);
+    return () => clearTimeout(timer);
+  }, [phase]);
+
+  if (phase === "rise") {
+    return <div ref={ref} data-slop={40} className="rocket" style={{ left: `${x}%`, top: `${y}%`, "--r": 100 - y, "--c": color } as CSSProperties} onAnimationEnd={() => setPhase("burst")} />;
+  }
+  if (phase === "burst") return <Burst x={at.x} y={at.y} color={color} />;
+  const side = at.x > 50 ? -1 : 1;
+  return (
+    <div className="absolute" style={{ left: `${at.x}%`, top: `${at.y}%` }}>
+      <i className="dud" style={{ "--c": color, "--sx": `${side * 22}px`, "--rot": `${side * 50}deg` } as CSSProperties} />
+      {[0, 1, 2].map((i) => <i key={i} className="puff" style={{ left: (i - 1) * 9, animationDelay: `${i * 0.12}s` }} />)}
+      {Array.from({ length: 6 }, (_, i) => <i key={i} className="spark" style={{ "--a": `${i * 60 + 20}deg`, "--d": "16px", background: color } as CSSProperties} />)}
+    </div>
+  );
+}
+
+/** Small fireworks that open high up and fade, never more than a few at once. */
 function Fireworks({ colors, gap }: { colors: readonly string[]; gap: [number, number] }) {
-  const [bursts, setBursts] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+  const [rockets, setRockets] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
 
   useEffect(() => {
     let next: ReturnType<typeof setTimeout>;
-    const timers = new Set<ReturnType<typeof setTimeout>>();
     const fire = () => {
       if (document.visibilityState === "visible") {
         const id = Date.now() + Math.random();
-        setBursts((list) => [...list.slice(-2), { id, x: between(10, 90), y: between(8, 42), color: pick(colors) }]);
-        const gone = setTimeout(() => {
-          setBursts((list) => list.filter((b) => b.id !== id));
-          timers.delete(gone);
-        }, 2200);
-        timers.add(gone);
+        setRockets((list) => [...list.slice(-2), { id, x: between(10, 90), y: between(8, 42), color: pick(colors) }]);
       }
       next = setTimeout(fire, between(gap[0], gap[1]) * 1000);
     };
     next = setTimeout(fire, 1200);
-    return () => {
-      clearTimeout(next);
-      timers.forEach(clearTimeout);
-    };
+    return () => clearTimeout(next);
   }, [colors, gap]);
 
   return (
     <>
-      {bursts.map((b) => (
-        <div key={b.id} className="absolute" style={{ left: `${b.x}%`, top: `${b.y}%` }}>
-          {Array.from({ length: 18 }, (_, i) => (
-            <i key={i} className="spark" style={{ "--a": `${i * 20}deg`, "--d": `${i % 2 ? 44 : 66}px`, background: b.color } as CSSProperties} />
-          ))}
-        </div>
+      {rockets.map((r) => (
+        <Rocket key={r.id} x={r.x} y={r.y} color={r.color} onGone={() => setRockets((list) => list.filter((q) => q.id !== r.id))} />
       ))}
     </>
   );
 }
 
+const STAR_BITS = ["#fff3b0", "#ffd54a", "#ffffff"];
+const LANTERN_BITS = ["#ffd54a", "#e23b2e", "#ff8a2a"];
+
 function Night() {
   return (
     <>
       {Array.from({ length: 16 }, (_, i) => (
-        <span key={i} className="twinkle absolute" style={{ left: `${seeded(i, 1) * 96}%`, top: `${seeded(i, 2) * 46}%`, animationDelay: `${seeded(i, 3) * 4}s` }}>
+        <Piece key={i} colors={STAR_BITS} back={9000} slop={12} className="twinkle absolute" style={{ left: `${seeded(i, 1) * 96}%`, top: `${seeded(i, 2) * 46}%`, animationDelay: `${seeded(i, 3) * 4}s` }}>
           <Star size={6 + Math.round(seeded(i, 4) * 6)} />
-        </span>
+        </Piece>
       ))}
       <span className="bob-slow absolute right-[8%] top-[9%]"><Moon size={58} /></span>
       {[0, 1, 2].map((i) => (
@@ -122,14 +189,16 @@ function Lanterns() {
   return (
     <>
       {[10, 46, 80].map((left, i) => (
-        <span key={left} className="swing absolute top-0" style={{ left: `${left}%`, animationDuration: `${4.5 + i}s`, animationDelay: `${-i * 1.7}s` }}>
+        <Piece key={left} mode="kick" colors={LANTERN_BITS} slop={20} className="swing absolute top-0" style={{ left: `${left}%`, animationDuration: `${4.5 + i}s`, animationDelay: `${-i * 1.7}s` }}>
           <Lantern size={46 + (i % 2) * 8} />
-        </span>
+        </Piece>
       ))}
     </>
   );
 }
 
+/** How long a scared creature stays lunging at the screen. */
+const SCARE_MS = 1300;
 const KINDS = ["dracula", "wolf", "monster"] as const;
 type Kind = (typeof KINDS)[number];
 const SPRITES: Record<Kind, ReactNode> = { dracula: <Dracula />, wolf: <Wolf />, monster: <Monster /> };
@@ -146,6 +215,11 @@ const quad = (a: Point, c: Point, b: Point, t: number): Point => ({
  */
 function Walk({ kind, route, onDone }: { kind: Kind; route: "bottom" | "top"; onDone: () => void }) {
   const holder = useRef<HTMLDivElement>(null);
+  // When a tap scared it, the moment it began; the walk pauses while it lunges, then carries on.
+  const scareStart = useRef<number | null>(null);
+  useDecorTap(holder, () => {
+    if (scareStart.current === null) scareStart.current = performance.now();
+  });
   // Kept in a ref so a re-render of the parent never restarts the walk.
   const finished = useRef(onDone);
   useEffect(() => {
@@ -170,12 +244,28 @@ function Walk({ kind, route, onDone }: { kind: Kind; route: "bottom" | "top"; on
     const TOTAL = 26000;
     const IN = 0.27;
     const LOOP = 0.46;
-    const started = performance.now();
+    let started = performance.now();
+    let lastNow = started;
     let last = from;
     let face = 1;
     let frame = 0;
 
     const step = (now: number) => {
+      const dt = now - lastNow;
+      lastNow = now;
+      let grow = 1;
+      let shake = 0;
+      const scared = scareStart.current;
+      if (scared !== null) {
+        const k = (now - scared) / SCARE_MS;
+        if (k >= 1) scareStart.current = null;
+        else {
+          // Frozen on the spot: the clock stops, it swells toward you and trembles, then settles.
+          started += dt;
+          grow = 1 + 1.1 * Math.sin(Math.PI * Math.min(1, k * 1.1));
+          shake = Math.sin(k * 70) * 5 * (1 - k);
+        }
+      }
       const t = Math.min(1, (now - started) / TOTAL);
       let p: Point;
       if (t < IN) p = quad(from, in1, entry, t / IN);
@@ -185,7 +275,7 @@ function Walk({ kind, route, onDone }: { kind: Kind; route: "bottom" | "top"; on
       } else p = quad(entry, out1, to, (t - IN - LOOP) / (1 - IN - LOOP));
       if (Math.abs(p.x - last.x) > 0.15) face = p.x >= last.x ? 1 : -1;
       last = p;
-      el.style.transform = `translate(${p.x - 40}px, ${p.y - 40}px) scaleX(${face})`;
+      el.style.transform = `translate(${p.x - 40 + shake}px, ${p.y - 40}px) scale(${face * grow}, ${grow})`;
       if (t < 1) frame = requestAnimationFrame(step);
       else finished.current();
     };
@@ -194,7 +284,7 @@ function Walk({ kind, route, onDone }: { kind: Kind; route: "bottom" | "top"; on
   }, [route]);
 
   return (
-    <div ref={holder} className="absolute left-0 top-0 will-change-transform" style={{ transform: "translate(-200px, -200px)" }}>
+    <div ref={holder} data-slop={12} className="absolute left-0 top-0 will-change-transform" style={{ transform: "translate(-200px, -200px)" }}>
       <div className="walker-bob">{SPRITES[kind]}</div>
     </div>
   );
@@ -228,63 +318,61 @@ const GAP_FEWER: [number, number] = [6, 12];
 const PETALS = ["#ff7aa8", "#ff4d7d", "#ffb3cf"];
 const BALLOONS = ["#ff5c8a", "#5cc8ff", "#ffd54a", "#7ce0c3", "#c58bff", "#ff8a2a"];
 const SPRINKLES = ["#ff5c8a", "#5cc8ff", "#ffd54a", "#62d26f", "#c58bff"];
+const SNOW_BITS = ["#ffffff", "#cfe8ff", "#e6f3ff"];
+const SLEIGH_BITS = ["#ffd54a", "#e5322d", "#62d26f", "#ffffff"];
 
-interface Layers { back?: ReactNode; front?: ReactNode }
-
-const SCENES: Record<string, () => Layers> = {
-  christmas: () => ({
-    back: (
-      <>
-        <Drifting count={24} direction="down" render={(i) => <Snowflake size={10 + Math.round(seeded(i, 6) * 14)} />} />
-        <Crosser top="7%" seconds={16} wait={WAIT_SLEIGH} first={20}><Sleigh /></Crosser>
-      </>
-    ),
-  }),
-  valentines: () => ({
-    back: (
-      <>
-        <Drifting count={14} direction="down" slow={1.3} render={(i) => <Petal size={10 + Math.round(seeded(i, 6) * 10)} color={PETALS[i % PETALS.length]} />} />
-        <Crosser top="16%" seconds={20} wait={WAIT_CUPID} first={25}><Accent name="cupid" size={54} /></Crosser>
-      </>
-    ),
-  }),
-  "lunar-new-year": () => ({ back: <Lanterns /> }),
-  "eid-al-fitr": () => ({ back: <Night /> }),
-  "eid-al-adha": () => ({ back: <Night /> }),
-  "new-year": () => ({ back: <Fireworks colors={GOLD} gap={GAP_FEW} /> }),
-  "canada-day": () => ({ back: <Fireworks colors={RED} gap={GAP_FEWER} /> }),
-  diwali: () => ({ back: <Fireworks colors={MULTI} gap={GAP_FEW} /> }),
-  birthday: () => ({
-    back: (
-      <>
-        <Drifting count={7} direction="up" slow={1.1} render={(i) => <Balloon size={34 + Math.round(seeded(i, 6) * 16)} color={BALLOONS[i % BALLOONS.length]} />} />
-        <Drifting count={16} direction="down" slow={1.4} render={(i) => <i className="block h-1.5 w-3 rounded-full" style={{ background: SPRINKLES[i % SPRINKLES.length], transform: `rotate(${i * 37}deg)` }} />} />
-      </>
-    ),
-  }),
-  halloween: () => ({
-    front: (
-      <>
-        <Walkers />
-        <Crosser top="14%" seconds={11} wait={WAIT_BATS} first={30}>
+const SCENES: Record<string, () => ReactNode> = {
+  christmas: () => (
+    <>
+      <Drifting count={24} direction="down" bits={SNOW_BITS} render={(i) => <Snowflake size={10 + Math.round(seeded(i, 6) * 14)} />} />
+      <Crosser top="7%" seconds={16} wait={WAIT_SLEIGH} first={20} bits={SLEIGH_BITS}><Sleigh /></Crosser>
+    </>
+  ),
+  valentines: () => (
+    <>
+      <Drifting count={14} direction="down" slow={1.3} bits={PETALS} render={(i) => <Petal size={10 + Math.round(seeded(i, 6) * 10)} color={PETALS[i % PETALS.length]} />} />
+      <Crosser top="16%" seconds={20} wait={WAIT_CUPID} first={25} bits={PETALS}><Accent name="cupid" size={54} /></Crosser>
+    </>
+  ),
+  "lunar-new-year": () => <Lanterns />,
+  "eid-al-fitr": () => <Night />,
+  "eid-al-adha": () => <Night />,
+  "new-year": () => <Fireworks colors={GOLD} gap={GAP_FEW} />,
+  "canada-day": () => <Fireworks colors={RED} gap={GAP_FEWER} />,
+  diwali: () => <Fireworks colors={MULTI} gap={GAP_FEW} />,
+  birthday: () => (
+    <>
+      <Drifting count={7} direction="up" slow={1.1} bits={BALLOONS} render={(i) => <Balloon size={34 + Math.round(seeded(i, 6) * 16)} color={BALLOONS[i % BALLOONS.length]} />} />
+      <Drifting count={16} direction="down" slow={1.4} bits={SPRINKLES} render={(i) => <i className="block h-1.5 w-3 rounded-full" style={{ background: SPRINKLES[i % SPRINKLES.length], transform: `rotate(${i * 37}deg)` }} />} />
+    </>
+  ),
+  halloween: () => (
+    <>
+      <Walkers />
+      <Crosser top="14%" seconds={11} wait={WAIT_BATS} first={30} slop={34}>
+        {(scattered) => (
           <div className="flex gap-3">
-            {[0, 1, 2, 3, 4].map((i) => <span key={i} className="flap" style={{ marginTop: (i % 3) * 14, animationDelay: `${i * 0.08}s` }}><Bat size={22 + (i % 2) * 8} /></span>)}
+            {[0, 1, 2, 3, 4].map((i) => (
+              <span
+                key={i}
+                className={`block ${scattered ? "bat-scatter" : ""}`}
+                style={{ "--dx": `${(i - 2) * 70 + (i % 2 ? 30 : -30)}px`, "--dy": `${i % 2 ? -260 : -180}px` } as CSSProperties}
+              >
+                <span className="flap" style={{ marginTop: (i % 3) * 14, animationDelay: `${i * 0.08}s` }}><Bat size={22 + (i % 2) * 8} /></span>
+              </span>
+            ))}
           </div>
-        </Crosser>
-      </>
-    ),
-  }),
+        )}
+      </Crosser>
+    </>
+  ),
 };
 
 export default function Scene() {
   const { theme, animations } = useDecor();
   if (!theme || !animations) return null;
-  const layers = SCENES[theme.slug]?.();
-  if (!layers) return null;
-  return (
-    <>
-      {layers.back && <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden motion-reduce:hidden">{layers.back}</div>}
-      {layers.front && <div aria-hidden className="pointer-events-none fixed inset-0 z-[15] overflow-hidden motion-reduce:hidden">{layers.front}</div>}
-    </>
-  );
+  const scene = SCENES[theme.slug]?.();
+  if (!scene) return null;
+  // Behind everything: negative depth puts it under the page's text and cards, which is why taps are caught on the window.
+  return <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden motion-reduce:hidden">{scene}</div>;
 }

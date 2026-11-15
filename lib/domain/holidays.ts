@@ -1,23 +1,16 @@
 // lib/domain/holidays.ts
 // Every theme the app can wear, and when each switches on by itself. A theme is a colour tint for
-// the whole interface (applied by remapping the grey scale), an accent colour and floating
-// decorations. Dates are worked out here; moving holidays arrive as a looked-up list.
-
-export type Motion = "fall" | "rise" | "float";
+// the whole interface (applied by remapping the grey scale) and an accent colour; its pictures live in components/decor. Dates are worked out here; moving holidays arrive as a looked-up list.
 
 export interface Theme {
   slug: string;
   name: string;
-  emoji: string;
   /** Tint for the grey scale: hue in degrees and saturation in percent. */
   hue: number;
   sat: number;
   /** Accent colour on a light and on a dark background. */
   light: string;
   dark: string;
-  /** Characters that drift across the screen, and how they move. */
-  glyphs: string[];
-  motion: Motion;
   /** Word used to find themed titles on TMDB. */
   search: string;
   /** First and last day (inclusive) it shows in a year, or null when it is not on that year. */
@@ -71,33 +64,33 @@ function moving(slug: string) {
   };
 }
 
-const EID = { hue: 165, sat: 22, light: "#00796b", dark: "#5eead4", glyphs: ["🌙", "⭐", "✨"], motion: "float" as Motion, search: "eid" };
+const EID = { hue: 165, sat: 22, light: "#00796b", dark: "#5eead4", search: "eid" };
 
 export const THEMES: readonly Theme[] = [
-  { slug: "new-year", name: "New Year", emoji: "🎆", hue: 45, sat: 25, light: "#9a6b00", dark: "#ffd54a",
-    glyphs: ["✨", "🎆", "🥂"], motion: "rise", search: "new year",
+  { slug: "new-year", name: "New Year", hue: 45, sat: 25, light: "#9a6b00", dark: "#ffd54a",
+    search: "new year",
     window: (y) => ({ start: day(y, 12, 29), end: day(y + 1, 1, 2) }) },
-  { slug: "valentines", name: "Valentine's Day", emoji: "💘", hue: 340, sat: 22, light: "#c2185b", dark: "#ff7aa8",
-    glyphs: ["💗", "💘", "💖"], motion: "rise", search: "valentine",
+  { slug: "valentines", name: "Valentine's Day", hue: 340, sat: 22, light: "#c2185b", dark: "#ff7aa8",
+    search: "valentine",
     window: (y) => ({ start: day(y, 2, 12), end: day(y, 2, 14) }) },
-  { slug: "lunar-new-year", name: "Lunar New Year", emoji: "🧧", hue: 5, sat: 28, light: "#c62828", dark: "#ffd54a",
-    glyphs: ["🏮", "🧧", "✨"], motion: "fall", search: "chinese new year", window: moving("lunar-new-year") },
-  { slug: "st-patricks", name: "St. Patrick's Day", emoji: "☘️", hue: 140, sat: 20, light: "#1b7f3a", dark: "#4ade80",
-    glyphs: ["☘️", "🍀"], motion: "fall", search: "irish",
+  { slug: "lunar-new-year", name: "Lunar New Year", hue: 5, sat: 28, light: "#c62828", dark: "#ffd54a",
+    search: "chinese new year", window: moving("lunar-new-year") },
+  { slug: "st-patricks", name: "St. Patrick's Day", hue: 140, sat: 20, light: "#1b7f3a", dark: "#4ade80",
+    search: "irish",
     window: (y) => ({ start: day(y, 3, 15), end: day(y, 3, 17) }) },
-  { slug: "easter", name: "Easter", emoji: "🐣", hue: 270, sat: 18, light: "#6d4bb8", dark: "#c4b5fd",
-    glyphs: ["🥚", "🐣", "🌷"], motion: "float", search: "easter",
+  { slug: "easter", name: "Easter", hue: 270, sat: 18, light: "#6d4bb8", dark: "#c4b5fd",
+    search: "easter",
     window: (y) => {
       const easter = easterSunday(y);
       return { start: day(y, easter.getMonth() + 1, easter.getDate() - 2), end: day(y, easter.getMonth() + 1, easter.getDate() + 1) };
     } },
-  { slug: "eid-al-fitr", name: "Eid al-Fitr", emoji: "🌙", ...EID, window: moving("eid-al-fitr") },
-  { slug: "eid-al-adha", name: "Eid al-Adha", emoji: "🌙", ...EID, window: moving("eid-al-adha") },
-  { slug: "canada-day", name: "Canada Day", emoji: "🍁", hue: 0, sat: 18, light: "#c62828", dark: "#ff6b6b",
-    glyphs: ["🍁"], motion: "fall", search: "canada",
+  { slug: "eid-al-fitr", name: "Eid al-Fitr", ...EID, window: moving("eid-al-fitr") },
+  { slug: "eid-al-adha", name: "Eid al-Adha", ...EID, window: moving("eid-al-adha") },
+  { slug: "canada-day", name: "Canada Day", hue: 0, sat: 18, light: "#c62828", dark: "#ff6b6b",
+    search: "canada",
     window: (y) => ({ start: day(y, 6, 30), end: day(y, 7, 1) }) },
-  { slug: "birthday", name: "Birthday", emoji: "🎂", hue: 300, sat: 22, light: "#ad1fa3", dark: "#f0abfc",
-    glyphs: ["🎈", "🎉", "🎊"], motion: "rise", search: "birthday",
+  { slug: "birthday", name: "Birthday", hue: 300, sat: 22, light: "#ad1fa3", dark: "#f0abfc",
+    search: "birthday",
     window: (y, ctx) => {
       const match = /^(\d{2})-(\d{2})$/.exec(ctx.birthday ?? "");
       if (!match) return null;
@@ -105,15 +98,15 @@ export const THEMES: readonly Theme[] = [
       const date = Number(match[2]);
       return { start: day(y, month, date - 1), end: day(y, month, date + 1) };
     } },
-  { slug: "diwali", name: "Diwali", emoji: "🪔", hue: 35, sat: 30, light: "#e65100", dark: "#ffb300",
-    glyphs: ["🪔", "✨", "🎇"], motion: "rise", search: "diwali", window: moving("diwali") },
-  { slug: "halloween", name: "Halloween", emoji: "🎃", hue: 25, sat: 28, light: "#d84315", dark: "#ff9800",
-    glyphs: ["🎃", "🦇", "👻"], motion: "float", search: "halloween",
+  { slug: "diwali", name: "Diwali", hue: 35, sat: 30, light: "#e65100", dark: "#ffb300",
+    search: "diwali", window: moving("diwali") },
+  { slug: "halloween", name: "Halloween", hue: 25, sat: 28, light: "#d84315", dark: "#ff9800",
+    search: "halloween",
     window: (y) => ({ start: day(y, 10, 24), end: day(y, 10, 31) }) },
-  { slug: "hanukkah", name: "Hanukkah", emoji: "🕎", hue: 215, sat: 28, light: "#1565c0", dark: "#90caf9",
-    glyphs: ["🕎", "✨", "⭐"], motion: "fall", search: "hanukkah", window: moving("hanukkah") },
-  { slug: "christmas", name: "Christmas", emoji: "🎄", hue: 355, sat: 22, light: "#b71c1c", dark: "#ff6b6b",
-    glyphs: ["❄️", "❅", "🎄"], motion: "fall", search: "christmas",
+  { slug: "hanukkah", name: "Hanukkah", hue: 215, sat: 28, light: "#1565c0", dark: "#90caf9",
+    search: "hanukkah", window: moving("hanukkah") },
+  { slug: "christmas", name: "Christmas", hue: 355, sat: 22, light: "#b71c1c", dark: "#ff6b6b",
+    search: "christmas",
     window: (y) => ({ start: day(y, 12, 18), end: day(y, 12, 26) }) },
 ];
 

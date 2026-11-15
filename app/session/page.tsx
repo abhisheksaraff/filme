@@ -15,7 +15,7 @@ function Redirect() {
   useEffect(() => {
     if (!ready) return;
     if (!id) return void router.replace("/watchlist/");
-    services.log.getViewing(id).then((res) => router.replace(res.ok ? `/title/?id=${res.value.mediaId}&v=${id}` : "/watchlist/"));
+    services.log.getViewing(id).then((res) => router.replace(res.ok ? `/title/?id=${res.value.mediaId}` : "/watchlist/"));
   }, [ready, id, router]);
 
   return null;

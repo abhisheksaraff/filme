@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import ThemeIcon from "@/components/ThemeIcon";
 import { Accent, Garland } from "./art";
+import { Falls, Flickers } from "./Touchy";
 import { useDecor } from "./useDecor";
 
 /** Pages that already have their own picture or crowd the top corner. */
@@ -48,11 +49,16 @@ export default function PageAccents() {
   const path = usePathname() ?? "/";
   const { theme, decorations } = useDecor();
   const [pick, setPick] = useState<Pick>(null);
+  // Counts visits, so pieces that fell off the screen on one page are back on the next.
+  const [visit, setVisit] = useState(0);
   const slug = theme?.slug ?? null;
 
   useEffect(() => {
     const art = slug ? ART[slug] : null;
-    const timer = setTimeout(() => setPick(art ? roll(art) : null), 0);
+    const timer = setTimeout(() => {
+      setPick(art ? roll(art) : null);
+      setVisit((n) => n + 1);
+    }, 0);
     return () => clearTimeout(timer);
   }, [path, slug]);
 
@@ -62,30 +68,32 @@ export default function PageAccents() {
   if (pick.kind === "corner") {
     return (
       <div
+        key={visit}
         aria-hidden
         className="reveal pointer-events-none fixed right-4 z-10"
         style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 0.15rem)" }}
       >
-        {pick.name === "icon" ? <ThemeIcon slug={slug} size={40} /> : <Accent name={pick.name} size={44} />}
+        <Falls slop={18}>{pick.name === "icon" ? <ThemeIcon slug={slug} size={40} /> : <Accent name={pick.name} size={44} />}</Falls>
       </div>
     );
   }
 
   return (
     <div
+      key={visit}
       aria-hidden
       className="reveal pointer-events-none fixed inset-x-0 z-10 mx-auto w-full max-w-md px-4"
       style={{ bottom: "calc(env(safe-area-inset-bottom) + 5.1rem)" }}
     >
-      {art.strip === "garland" && <Garland />}
+      {art.strip === "garland" && <Flickers>{(on) => <Garland flicker={on} />}</Flickers>}
       {art.strip === "diyas" && (
         <div className="flex justify-around">
-          {[0, 1, 2, 3, 4].map((i) => <Accent key={i} name="diya" size={34} />)}
+          {[0, 1, 2, 3, 4].map((i) => <Falls key={i}><Accent name="diya" size={34} /></Falls>)}
         </div>
       )}
       {art.strip === "icons" && (
         <div className="flex justify-around">
-          {[0, 1, 2, 3, 4, 5, 6].map((i) => <span key={i} style={{ marginTop: i % 2 ? 6 : 0 }}><ThemeIcon slug={slug} size={28} /></span>)}
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => <Falls key={i} style={{ marginTop: i % 2 ? 6 : 0 }} slop={10}><ThemeIcon slug={slug} size={28} /></Falls>)}
         </div>
       )}
     </div>

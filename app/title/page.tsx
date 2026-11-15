@@ -41,9 +41,6 @@ function TitleView() {
   const router = useRouter();
   const params = useSearchParams();
   const id = params.get("id");
-  // A link to one viewing scrolls to its card and outlines it for a moment.
-  const targetViewing = params.get("v");
-  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const [detail, setDetail] = useState<TitleDetail | null>(null);
   const [credits, setCredits] = useState<TitleCredits | null>(null);
@@ -83,19 +80,6 @@ function TitleView() {
       cancelled = true;
     };
   }, [ready, id, reload]);
-
-  useEffect(() => {
-    if (!targetViewing || !detail) return;
-    const el = document.getElementById(`v-${targetViewing}`);
-    if (!el) return;
-    el.scrollIntoView({ block: "center", behavior: "smooth" });
-    const on = setTimeout(() => setHighlightId(targetViewing), 0);
-    const off = setTimeout(() => setHighlightId(null), 2500);
-    return () => {
-      clearTimeout(on);
-      clearTimeout(off);
-    };
-  }, [targetViewing, detail]);
 
   async function toggleWanted() {
     if (!detail || detail.tmdbId === null || (detail.category !== "Movie" && detail.category !== "TV Show")) return;
@@ -249,8 +233,7 @@ function TitleView() {
                   key={v.id}
                   index={i}
                   showTitle={false}
-                  highlight={highlightId === v.id}
-                  href={`/title/?id=${detail.mediaId}&v=${v.id}`}
+                  href={`/title/?id=${detail.mediaId}`}
                   label={ORDINAL(order.get(v.id) ?? 1)}
                   rating={v.rating}
                   notes={v.notes}

@@ -7,6 +7,7 @@ import { loadRow, type RowResult } from "@/lib/home/rows";
 import type { Result } from "@/lib/ports/result";
 import { HOME_ROWS } from "@/lib/domain/home";
 import PosterRow from "./PosterRow";
+import ThemeIcon from "./ThemeIcon";
 
 interface Props {
   rowId: string;
@@ -36,7 +37,10 @@ export default function HomeRowSection({ rowId, nonce }: Props) {
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="font-serif text-xl">{done?.ok ? done.value.title : label}</h2>
+      <h2 className="flex items-center gap-2 font-serif text-xl">
+        {done?.ok && done.value.icon && <ThemeIcon slug={done.value.icon} size={22} />}
+        {done?.ok ? done.value.title : label}
+      </h2>
       {done?.ok && done.value.subtitle && <p className="-mt-1.5 text-sm text-neutral-500">{done.value.subtitle}</p>}
       {!done && (
         <ul className="-mx-5 flex gap-3 overflow-hidden px-5" aria-label="Loading">

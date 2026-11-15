@@ -72,7 +72,7 @@ function VenueView() {
           <ul className="grid grid-cols-2 items-stretch gap-3">
             {venue.viewings.map((v) => (
               <li key={v.sessionId} className="flex">
-                <Link href={`/title/?id=${v.mediaId}&v=${v.sessionId}`} className="flex w-full flex-col gap-2 rounded-2xl bg-white p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_6px_16px_-6px_rgba(0,0,0,0.18)] dark:bg-neutral-900">
+                <Link href={`/title/?id=${v.mediaId}`} className="flex w-full flex-col gap-2 rounded-2xl bg-white p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_6px_16px_-6px_rgba(0,0,0,0.18)] dark:bg-neutral-900">
                   {v.posterPath ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={tmdbImageUrl(v.posterPath, "w185") ?? ""} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-lg object-cover" />

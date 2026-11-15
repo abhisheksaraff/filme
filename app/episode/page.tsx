@@ -143,7 +143,7 @@ function EpisodeView() {
                 <ul className="flex flex-col gap-2">
                   {covering.map((v) => (
                     <li key={v.id}>
-                      <Link href={`/title/?id=${id}&v=${v.id}`} className="flex justify-between gap-2 rounded-2xl border border-neutral-300 p-3 text-sm dark:border-neutral-700">
+                      <Link href={`/title/?id=${id}`} className="flex justify-between gap-2 rounded-2xl border border-neutral-300 p-3 text-sm dark:border-neutral-700">
                         <span>{v.watchedOn ?? ""}{v.scope !== "episode" ? ` · with ${scopeLabel(v.season, null).toLowerCase()}` : ""}</span>
                         <span className="text-neutral-500">{oldestFirst.findIndex((x) => x.id === v.id) === 0 ? "First viewing" : `Rewatch #${oldestFirst.findIndex((x) => x.id === v.id)}`}</span>
                       </Link>

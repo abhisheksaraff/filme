@@ -89,7 +89,7 @@ function EditView() {
     if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {
       void syncCredits(saved.value.mediaId, entry.value.category, tmdbId);
     }
-    router.replace(`/title/?id=${saved.value.mediaId}&v=${id}`);
+    router.replace(`/title/?id=${saved.value.mediaId}`);
   }
 
   async function onDelete() {

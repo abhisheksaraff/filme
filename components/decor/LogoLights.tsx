@@ -3,6 +3,7 @@
 "use client";
 
 import { LightString, type LightShape } from "./art";
+import { Flickers } from "./Touchy";
 import { useDecor } from "./useDecor";
 
 const LIGHTS: Record<string, { shape: LightShape; colors: string[] }> = {
@@ -26,8 +27,9 @@ export default function LogoLights() {
   const lights = theme && decorations ? LIGHTS[theme.slug] : null;
   if (!lights) return null;
   return (
-    <div className="reveal -mt-3 -mx-1 pointer-events-none">
-      <LightString shape={lights.shape} colors={lights.colors} />
-    </div>
+    // Tap the lights and they flicker for a moment before settling back to their twinkle.
+    <Flickers className="reveal -mt-3 -mx-1 pointer-events-none">
+      {(on) => <LightString shape={lights.shape} colors={lights.colors} flicker={on} />}
+    </Flickers>
   );
 }

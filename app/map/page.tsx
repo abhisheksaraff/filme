@@ -141,7 +141,7 @@ function MapView() {
           <ul className="grid grid-cols-3 gap-3">
             {shown.map((v) => (
               <li key={v.sessionId}>
-                <Link href={`/title/?id=${v.mediaId}&v=${v.sessionId}`} className="flex flex-col gap-1">
+                <Link href={`/title/?id=${v.mediaId}`} className="flex flex-col gap-1">
                   <span className="relative block">
                     {v.posterPath ? (
                       // eslint-disable-next-line @next/next/no-img-element

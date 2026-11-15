@@ -24,6 +24,8 @@ export interface RowItem {
 
 export interface RowResult {
   title: string;
+  /** A theme slug whose drawn icon sits beside the title, such as on a holiday row. */
+  icon?: string;
   items: RowItem[];
   /** A line under the row title, such as the country on World Cinema. */
   subtitle?: string;
@@ -324,7 +326,7 @@ async function holidayRow(slug: string): Promise<Result<RowResult>> {
   if (!movies.ok && !shows.ok) return fail(movies.ok ? "Could not search TMDB." : movies.error);
   const hits = interleave(movies.ok ? movies.value : [], shows.ok ? shows.value : []);
   const items = hits.map(hitItem).filter((item) => !seen.has(item.key));
-  return ok({ title: `${holiday.emoji} ${holiday.name} picks`, items, empty: "Nothing new for this holiday." });
+  return ok({ title: `${holiday.name} picks`, icon: holiday.slug, items, empty: "Nothing new for this holiday." });
 }
 
 /** The user's country for theatre listings; Canada until a location is saved. */

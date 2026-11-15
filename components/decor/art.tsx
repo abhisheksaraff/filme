@@ -256,7 +256,7 @@ export function Accent({ name, size = 44, style }: { name: string; size?: number
 export type LightShape = "bulb" | "flag" | "heart" | "star" | "egg";
 
 /** A string of small lights, flags or charms hung in scallops across the width; they twinkle softly, out of step with each other. */
-export function LightString({ shape, colors, className = "" }: { shape: LightShape; colors: string[]; className?: string }) {
+export function LightString({ shape, colors, className = "", flicker = false }: { shape: LightShape; colors: string[]; className?: string; flicker?: boolean }) {
   const W = 360;
   const quad = (t: number, a: number, c: number, b: number) => (1 - t) * (1 - t) * a + 2 * t * (1 - t) * c + t * t * b;
   const items: { x: number; y: number; color: string; delay: number }[] = [];
@@ -278,7 +278,7 @@ export function LightString({ shape, colors, className = "" }: { shape: LightSha
     <svg viewBox={`0 0 ${W} 52`} width="100%" aria-hidden className={`pointer-events-none ${className}`}>
       <path d={wire} stroke="#6b6b6b" strokeOpacity=".7" strokeWidth="1.300" fill="none" />
       {items.map((item, i) => (
-        <g key={i} className="twinkle" style={{ animationDelay: `${item.delay}s` }} transform={`translate(${item.x} ${item.y})`}>
+        <g key={i} className={flicker ? "flicker" : "twinkle"} style={{ animationDelay: flicker ? `${(i * 0.13) % 0.5}s` : `${item.delay}s` }} transform={`translate(${item.x} ${item.y})`}>
           {shape === "bulb" && (
             <>
               <rect x="-2" y="-1" width="4" height="4" rx="1" fill="#555" />
@@ -302,7 +302,7 @@ export function LightString({ shape, colors, className = "" }: { shape: LightSha
 }
 
 /** A leafy garland with baubles, for the bottom of a page. */
-export function Garland({ className = "" }: { className?: string }) {
+export function Garland({ className = "", flicker = false }: { className?: string; flicker?: boolean }) {
   return (
     <svg viewBox="0 0 340 46" width="100%" aria-hidden className={`pointer-events-none ${className}`}>
       <g fill="#2c8a4f">
@@ -313,7 +313,7 @@ export function Garland({ className = "" }: { className?: string }) {
         {[[30, 30, "#e5322d"], [84, 32, "#ffd54a"], [140, 31, "#e5322d"], [196, 33, "#5cc8ff"], [252, 31, "#ffd54a"], [306, 32, "#e5322d"]].map(([x, y, c]) => <circle key={String(x)} cx={Number(x)} cy={Number(y)} r="5" fill={String(c)} />)}
       </g>
       <g fill="#fff3b0">
-        {[[58, 14], [112, 27], [168, 14], [224, 28], [280, 14]].map(([x, y], i) => <circle key={x} cx={x} cy={y} r="2" className="twinkle" style={{ animationDelay: `${i * 0.7}s` }} />)}
+        {[[58, 14], [112, 27], [168, 14], [224, 28], [280, 14]].map(([x, y], i) => <circle key={x} cx={x} cy={y} r="2" className={flicker ? "flicker" : "twinkle"} style={{ animationDelay: flicker ? `${i * 0.11}s` : `${i * 0.7}s` }} />)}
       </g>
     </svg>
   );
