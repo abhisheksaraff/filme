@@ -12,6 +12,7 @@ create table if not exists public.hidden_titles (
   primary key (user_id, category, tmdb_id)
 );
 alter table public.hidden_titles enable row level security;
+drop policy if exists "owner only" on public.hidden_titles;
 create policy "owner only" on public.hidden_titles for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 revoke all on public.hidden_titles from anon;

@@ -27,6 +27,7 @@ import CropDialog from "@/components/CropDialog";
 import Icon from "@/components/Icon";
 import { convertImage, PHOTO_PRESET, STUB_PRESET } from "@/lib/images/convert";
 import { takePrefill } from "@/lib/logPrefill";
+import { withCoverage } from "@/lib/logShow";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
 import { savePeople, syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
@@ -169,7 +170,13 @@ export default function ScanPage() {
     if (!prefill) return;
 
     (async () => {
-      setDraft((current) => ({ ...current, category: prefill.category, title: prefill.title }));
+      setDraft((current) => ({
+        ...current,
+        category: prefill.category,
+        title: prefill.title,
+        season: prefill.season != null ? String(prefill.season) : current.season,
+        episode: prefill.episode != null ? String(prefill.episode) : current.episode,
+      }));
       if (prefill.tmdbId === null || (prefill.category !== "Movie" && prefill.category !== "TV Show")) return;
       setBusy("Finding on TMDB…");
       const details = await services.catalog.details({ tmdbId: prefill.tmdbId, kind: prefill.category });
@@ -192,7 +199,7 @@ export default function ScanPage() {
       setBusy("Preparing images…");
       const stubs = await Promise.all(images.map((src) => convertImage(src, STUB_PRESET)));
       setBusy("Saving…");
-      const saved = await services.log.saveEntry(entry.value, stubs);
+      const saved = await services.log.saveEntry(await withCoverage(entry.value), stubs);
       if (!saved.ok) {
         setProblem(saved.error);
         setBusy(null);

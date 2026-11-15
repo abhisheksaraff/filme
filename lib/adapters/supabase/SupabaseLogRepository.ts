@@ -2,6 +2,7 @@
 // Writes a viewing across media_items, venues, watch_sessions, images and Storage.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logEntrySchema, type LogEntry } from "@/lib/domain/entry";
+import type { LastViewing } from "@/lib/domain/lastWatched";
 import type { StatRow } from "@/lib/domain/stats";
 import type { CatalogMatch } from "@/lib/ports/catalog";
 import type { DeletedEntry, LogRepository, OwnHit, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
@@ -117,6 +118,9 @@ function sessionColumns(entry: LogEntry) {
     auditorium: entry.auditorium,
     seats: entry.seats,
     total_tickets: entry.totalTickets,
+    episodes_covered: entry.category === "TV Show" ? entry.episodesCovered ?? null : null,
+    seasons_covered: entry.category === "TV Show" ? entry.seasonsCovered ?? null : null,
+    minutes: entry.category === "TV Show" ? entry.minutes ?? null : null,
   };
 }
 
@@ -179,12 +183,12 @@ export const supabaseLogRepository: LogRepository = {
     const sessionId = session.data.id as string;
 
     // Watching a title takes it off the Watchlist; it is marked cleared (not deleted) so it can be counted.
-    const cleared = await db
-      .from("want_to_watch")
-      .update({ cleared_at: new Date().toISOString() })
-      .eq("media_id", media.value)
-      .is("cleared_at", null)
-      .select("id");
+    // Logging a series clears the show and every season and episode saved under it; a season clears itself and its
+    // episodes; an episode clears only itself.
+    let clearing = db.from("want_to_watch").update({ cleared_at: new Date().toISOString() }).eq("media_id", media.value).is("cleared_at", null);
+    if (entry.category === "TV Show" && entry.episode !== null) clearing = clearing.eq("season_number", entry.season ?? 1).eq("episode_number", entry.episode);
+    else if (entry.category === "TV Show" && entry.season !== null) clearing = clearing.eq("season_number", entry.season);
+    const cleared = await clearing.select("id");
     const clearedWatchlist = !cleared.error && (cleared.data?.length ?? 0) > 0;
 
     // Upload the stubs; if anything goes wrong, undo the viewing and the files already sent.
@@ -243,7 +247,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const sessions = await db
       .from("watch_sessions")
-      .select("id, watched_on, watched_at, auditorium, primary_format, seats, total_tickets, rating, notes, venue:venues(id, name)")
+      .select("id, watched_on, watched_at, auditorium, primary_format, seats, total_tickets, rating, notes, scope, season_number, episode_number, venue:venues(id, name)")
       .eq("media_id", mediaId)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false })
@@ -282,6 +286,9 @@ export const supabaseLogRepository: LogRepository = {
       totalTickets: row.total_tickets,
       rating: row.rating === null ? null : Number(row.rating),
       notes: row.notes,
+      scope: (row.scope as ViewingSummary["scope"]) ?? "show",
+      season: row.season_number ?? null,
+      episode: row.episode_number ?? null,
       stubUrls: stubsBySession.get(row.id) ?? [],
     }));
 
@@ -472,6 +479,21 @@ export const supabaseLogRepository: LogRepository = {
     return ok(matchesFrom(data, 1000).map((m) => `${m.kind}:${m.tmdbId}`));
   },
 
+  async lastViewing(mediaId) {
+    const { data, error } = await getSupabase()
+      .from("watch_sessions")
+      .select("watched_on, scope, season_number, episode_number")
+      .eq("media_id", mediaId)
+      .is("deleted_at", null)
+      .not("watched_on", "is", null)
+      .order("watched_on", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return fail("Could not load your last viewing.");
+    if (!data) return ok(null);
+    return ok({ watchedOn: data.watched_on as string, scope: data.scope as LastViewing["scope"], season: data.season_number ?? null, episode: data.episode_number ?? null });
+  },
+
   async statRows() {
     const db = getSupabase();
     const rows: StatRow[] = [];
@@ -481,7 +503,7 @@ export const supabaseLogRepository: LogRepository = {
       const { data, error } = await db
         .from("watch_sessions")
         .select(
-          "id, media_id, watched_on, primary_format, rating, total_tickets, notes, scope, season_number, episode_number, media:media_items(title, category, runtime, original_language, poster_path, release_date), venue:venues(name)",
+          "id, media_id, watched_on, primary_format, rating, total_tickets, notes, scope, season_number, episode_number, episodes_covered, seasons_covered, minutes, media:media_items(title, category, runtime, original_language, poster_path, release_date), venue:venues(name)",
         )
         .is("deleted_at", null)
         .order("created_at")
@@ -509,6 +531,10 @@ export const supabaseLogRepository: LogRepository = {
           scope: row.scope as string,
           season: row.season_number ?? null,
           episode: row.episode_number ?? null,
+          episodes: media?.category === "TV Show" ? row.episodes_covered ?? 1 : 1,
+          // Single episodes add no seasons here; statistics count the distinct seasons they fall in.
+          seasons: media?.category === "TV Show" && row.scope !== "episode" ? row.seasons_covered ?? (row.scope === "season" ? 1 : 0) : 0,
+          minutes: row.minutes ?? null,
           genres: [],
           directors: [],
           actors: [],

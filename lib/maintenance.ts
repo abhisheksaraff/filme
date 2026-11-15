@@ -3,6 +3,7 @@
 import { backfillCredits } from "@/lib/credits";
 import { buildStory, periodFor, previousPeriod } from "@/lib/domain/stories";
 import { moveLegacyImages } from "@/lib/imageMove";
+import { checkNewEpisodes } from "@/lib/shows";
 import { loadStatRows } from "@/lib/home/rows";
 import { services } from "@/lib/services";
 
@@ -36,6 +37,7 @@ export function runMaintenance(): void {
   started = true;
   void (async () => {
     await services.log.purgeExpired();
+    await checkNewEpisodes();
     await ensureBanners();
     await backfillCredits();
     await moveLegacyImages();

@@ -14,6 +14,8 @@ import TitleHero from "@/components/TitleHero";
 import { clearHomeCache } from "@/lib/home/rows";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
+import type { LastViewing } from "@/lib/domain/lastWatched";
+import { lastWatchedText } from "@/lib/domain/lastWatched";
 import type { CatalogDetails, CatalogKind } from "@/lib/ports/catalog";
 import type { TitleLinks } from "@/lib/ports/ratings";
 import type { TitleStatus } from "@/lib/ports/wanted";
@@ -36,6 +38,7 @@ function PreviewView() {
   // "Not interested": null while unknown, then whether this title is already hidden from Home.
   const [hidden, setHidden] = useState<boolean | null>(null);
   const [confirmHide, setConfirmHide] = useState(false);
+  const [last, setLast] = useState<LastViewing | null>(null);
 
   useEffect(() => {
     if (!ready || kind === null || !Number.isInteger(id) || id <= 0) return;
@@ -44,7 +47,10 @@ function PreviewView() {
       if (cancelled) return;
       if (d.ok) setDetails(d.value);
       else setProblem(d.error);
-      if (s.ok) setStatus(s.value);
+      if (s.ok) {
+        setStatus(s.value);
+        if (s.value.mediaId && s.value.logged) services.log.lastViewing(s.value.mediaId).then((l) => !cancelled && l.ok && setLast(l.value));
+      }
       services.hidden.list().then((h) => !cancelled && h.ok && setHidden(h.value.some((t) => t.category === kind && t.tmdbId === id)));
       if (d.ok) {
         services.ratings
@@ -101,6 +107,7 @@ function PreviewView() {
 
   if (!ready) return null;
   if (kind === null || !Number.isInteger(id) || id <= 0) return <main className="p-6 text-sm">No title selected.</main>;
+  const lastLine = lastWatchedText(last, kind === "TV Show");
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
@@ -125,7 +132,6 @@ function PreviewView() {
                 <TitleActions
                   wanted={status.wanted}
                   canBookmark
-                  watched={status.logged}
                   watch={{ tmdbId: details.tmdbId, kind: details.category === "TV Show" ? "TV Show" : "Movie", title: details.title, year: details.releaseYear ? String(details.releaseYear) : null }}
                   busy={busy}
                   onToggleWanted={toggleWanted}
@@ -138,6 +144,7 @@ function PreviewView() {
             )}
 
             {details.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{details.overview}</p>}
+            {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}
 
             {ROLES.map(([role, label]) => {
               const people = details.credits.filter((c) => c.role === role);

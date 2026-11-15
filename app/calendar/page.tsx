@@ -13,6 +13,7 @@ import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { MONTH_NAMES, type StatRow } from "@/lib/domain/stats";
 import { loadStatRows } from "@/lib/home/rows";
+import { groupByShow, scopeLabel } from "@/lib/domain/tv";
 import { buildIcs, downloadText } from "@/lib/ics";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -60,7 +61,8 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
         if (day === null) return <div key={i} />;
         const date = `${prefix}-${pad(day)}`;
         // Newest first, so the latest viewing of the day is the card on top.
-        const list = [...(byDay.get(date) ?? [])].reverse();
+        // Several viewings of one show on a day (episodes, a season) share one card.
+        const list = groupByShow([...(byDay.get(date) ?? [])].reverse());
         const deck = list.slice(0, DECK);
         const single = list.length === 1;
         return (
@@ -71,7 +73,8 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
             onClick={() => onPick(date)}
             className={`relative aspect-[2/3] rounded-lg text-xs ${picked === date ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${list.length ? "" : "cursor-default"}`}
           >
-            {deck.map((row, n) => {
+            {deck.map((group, n) => {
+              const row = group[0];
               const poster = tmdbImageUrl(row.posterPath, "w185");
               // A lone viewing fills the square; a busy day cascades down and to the right, each card under the last.
               const box = single ? { left: 0, top: 0, width: "100%", height: "100%" } : { left: `${n * STEP}%`, top: `${n * STEP}%`, width: `${CARD}%`, height: `${CARD}%` };
@@ -86,8 +89,8 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
             })}
             <span className={`absolute left-1.5 top-0.5 z-10 rounded px-1 font-medium leading-tight text-neutral-950 ${list.length ? "bg-white/85" : "dark:text-white"}`}>{day}</span>
             {list.length > DECK && <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-white">+{list.length - DECK}</span>}
-            {single && list[0].rating !== null && (
-              <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {list[0].rating}</span>
+            {single && list[0].length === 1 && list[0][0].rating !== null && (
+              <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {list[0][0].rating}</span>
             )}
           </button>
         );
@@ -223,7 +226,7 @@ export default function CalendarPage() {
   }
 
   if (!ready) return null;
-  const pickedRows = picked ? byDay.get(picked) ?? [] : [];
+  const pickedRows = picked ? groupByShow(byDay.get(picked) ?? []) : [];
   const visible = current - first;
 
   return (
@@ -284,8 +287,11 @@ export default function CalendarPage() {
         <section id="picked-day" className="flex scroll-mt-4 flex-col gap-3">
           <h2 className="px-1 font-serif text-xl">{dayLabel(picked)}</h2>
           <ul className="flex flex-col gap-3">
-            {pickedRows.map((row) => {
+            {pickedRows.map((group) => {
+              const row = group[0];
               const poster = tmdbImageUrl(row.posterPath, "w185");
+              // A show's card lists what was watched that day, one line each: "Whole series", "Season 2" or "S2 E4".
+              const parts = row.category === "TV Show" ? group.map((r) => scopeLabel(r.season, r.episode)) : [];
               return (
                 <li key={row.id}>
                   <Link href={`/title/?id=${row.mediaId}`} className="flex items-center gap-3 rounded-2xl bg-neutral-100 p-3 dark:bg-neutral-900">
@@ -297,7 +303,12 @@ export default function CalendarPage() {
                     )}
                     <span className="flex min-w-0 flex-col gap-0.5 text-sm">
                       <span className="font-serif text-base leading-tight">{row.title}</span>
-                      <span className="text-neutral-500">{[row.venue, row.format, row.rating !== null ? `★ ${row.rating}` : null].filter(Boolean).join(" · ")}</span>
+                      {parts.length > 0 && (
+                        <span className="flex flex-col text-neutral-700 dark:text-neutral-300">
+                          {parts.map((part, i) => <span key={i}>{part}</span>)}
+                        </span>
+                      )}
+                      <span className="text-neutral-500">{[row.venue, row.format, group.length === 1 && row.rating !== null ? `★ ${row.rating}` : null].filter(Boolean).join(" · ")}</span>
                     </span>
                   </Link>
                 </li>

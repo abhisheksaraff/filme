@@ -1,6 +1,6 @@
 // lib/adapters/supabase/SupabaseWantedRepository.ts
 // The want-to-watch list: titles saved from the catalogue without a viewing.
-import type { WantedItem, WantedRepository } from "@/lib/ports/wanted";
+import type { WantedItem, WantedRepository, WantScope } from "@/lib/ports/wanted";
 import { fail, ok } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 import { findOrCreateMedia } from "./SupabaseLogRepository";
@@ -15,11 +15,19 @@ interface MediaRow {
   poster_path: string | null;
 }
 
+const WHOLE: WantScope = { season: null, episode: null };
+
+/** Narrows a want_to_watch query to one scope; null columns need the "is" operator, not "eq". */
+function inScope<Q extends { filter: (column: string, operator: string, value: unknown) => Q }>(query: Q, scope: WantScope): Q {
+  const withSeason = query.filter("season_number", scope.season === null ? "is" : "eq", scope.season);
+  return withSeason.filter("episode_number", scope.episode === null ? "is" : "eq", scope.episode);
+}
+
 export const supabaseWantedRepository: WantedRepository = {
   async list() {
     const { data, error } = await getSupabase()
       .from("want_to_watch")
-      .select("media_id, media:media_items(title, category, tmdb_id, poster_path)")
+      .select("media_id, season_number, episode_number, media:media_items(title, category, tmdb_id, poster_path)")
       .is("cleared_at", null)
       .order("added_at", { ascending: false });
     if (error) return fail("Could not load your want-to-watch list.");
@@ -32,12 +40,14 @@ export const supabaseWantedRepository: WantedRepository = {
         category: media?.category ?? "Movie",
         title: media?.title ?? "Untitled",
         posterPath: media?.poster_path ?? null,
+        season: (row.season_number as number | null) ?? null,
+        episode: (row.episode_number as number | null) ?? null,
       };
     });
     return ok(items);
   },
 
-  async add(d) {
+  async add(d, scope = WHOLE) {
     const db = getSupabase();
     const media = await findOrCreateMedia(db, {
       category: d.category,
@@ -59,18 +69,24 @@ export const supabaseWantedRepository: WantedRepository = {
     });
     if (!media.ok) return media;
 
-    const { error } = await db.from("want_to_watch").insert({ media_id: media.value });
+    const { error } = await db.from("want_to_watch").insert({ media_id: media.value, season_number: scope.season, episode_number: scope.episode });
     if (error && error.code !== DUPLICATE) return fail("Could not add it to your list.");
     // A title cleared earlier by watching it goes back on the list as new.
     if (error) {
-      const again = await db.from("want_to_watch").update({ cleared_at: null, added_at: new Date().toISOString() }).eq("media_id", media.value).not("cleared_at", "is", null);
+      const again = await db
+        .from("want_to_watch")
+        .update({ cleared_at: null, added_at: new Date().toISOString() })
+        .eq("media_id", media.value)
+        .not("cleared_at", "is", null)
+        .filter("season_number", scope.season === null ? "is" : "eq", scope.season)
+        .filter("episode_number", scope.episode === null ? "is" : "eq", scope.episode);
       if (again.error) return fail("Could not add it to your list.");
     }
     return ok(media.value);
   },
 
-  async remove(mediaId) {
-    const { error } = await getSupabase().from("want_to_watch").delete().eq("media_id", mediaId);
+  async remove(mediaId, scope = WHOLE) {
+    const { error } = await inScope(getSupabase().from("want_to_watch").delete().eq("media_id", mediaId), scope);
     return error ? fail("Could not remove it from your list.") : ok(undefined);
   },
 
@@ -80,7 +96,7 @@ export const supabaseWantedRepository: WantedRepository = {
     return ok(data.map((row) => ({ addedAt: row.added_at as string, clearedAt: row.cleared_at as string })));
   },
 
-  async status(kind, tmdbId) {
+  async status(kind, tmdbId, scope = WHOLE) {
     const db = getSupabase();
     const media = await db.from("media_items").select("id").eq("category", kind).eq("tmdb_id", tmdbId).maybeSingle();
     if (media.error) return fail("Could not check this title.");
@@ -88,7 +104,7 @@ export const supabaseWantedRepository: WantedRepository = {
 
     const id = media.data.id as string;
     const [want, logged] = await Promise.all([
-      db.from("want_to_watch").select("id", { count: "exact", head: true }).eq("media_id", id).is("cleared_at", null),
+      inScope(db.from("want_to_watch").select("id", { count: "exact", head: true }).eq("media_id", id).is("cleared_at", null), scope),
       db.from("watch_sessions").select("id", { count: "exact", head: true }).eq("media_id", id).is("deleted_at", null),
     ]);
     if (want.error || logged.error) return fail("Could not check this title.");

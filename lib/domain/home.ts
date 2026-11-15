@@ -31,6 +31,8 @@ export interface HomeRowDef {
 /** Every row Home can show, in the order they are offered. */
 export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "like-movie", label: "You might also like" },
+  { id: "new-episodes", label: "New episodes" },
+  { id: "continue", label: "Continue watching" },
   { id: "like-tv", label: "TV shows you might like" },
   { id: "want", label: "Watchlist" },
   { id: "favourites", label: "New from your favourites" },
@@ -44,11 +46,11 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
 
 /** Shown until the user customises Home. */
 export const DEFAULT_HOME_ROWS: readonly string[] = [
-  "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
+  "new-episodes", "continue", "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
 ];
 
 /** Rows the very first saved layouts predate; they are added once to layouts saved before rows were tracked. */
-const ADDED_LATER = ["like-tv"];
+const ADDED_LATER = ["like-tv", "new-episodes", "continue"];
 
 /**
  * Adds rows a saved layout has not been offered yet. `seen` is the list it was last saved against;
@@ -58,7 +60,10 @@ export function addNewRows(layout: readonly string[], seen: readonly string[] | 
   const all = HOME_ROWS.map((row) => row.id);
   const known = new Set(seen ?? all.filter((id) => !ADDED_LATER.includes(id)));
   const fresh = all.filter((id) => !known.has(id) && !layout.includes(id));
-  return [...layout, ...fresh];
+  // New-episode rows go first: they are what you open the app to see.
+  const PRIORITY = ["new-episodes", "continue"];
+  const first = fresh.filter((id) => PRIORITY.includes(id));
+  return [...first, ...layout, ...fresh.filter((id) => !first.includes(id))];
 }
 
 /** Every row id Home can show, recorded when a layout is saved. */

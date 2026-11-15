@@ -11,6 +11,7 @@ import { changesFromEdit, draftFromEntry, emptyPeople, entryFromDraft, PERSON_RO
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { LogEntry } from "@/lib/domain/entry";
 import { savePeople, syncCredits } from "@/lib/credits";
+import { withCoverage } from "@/lib/logShow";
 import { services } from "@/lib/services";
 
 function EditView() {
@@ -70,7 +71,7 @@ function EditView() {
       return;
     }
     setBusy(true);
-    const saved = await services.log.updateViewing(id, entry.value);
+    const saved = await services.log.updateViewing(id, await withCoverage(entry.value));
     if (!saved.ok) {
       setProblem(saved.error);
       setBusy(false);

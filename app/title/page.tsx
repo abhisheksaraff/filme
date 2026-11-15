@@ -3,15 +3,14 @@
 "use client";
 
 import { toast } from "@/components/Toast";
+import RoundButton from "@/components/RoundButton";
 import PicturesViewer from "@/components/PicturesViewer";
 import RatingsLine from "@/components/RatingsLine";
 import type { TitleLinks } from "@/lib/ports/ratings";
-import RoundButton from "@/components/RoundButton";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import TitleHero from "@/components/TitleHero";
-import CoverPicker from "@/components/CoverPicker";
 import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
@@ -21,7 +20,12 @@ import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { mediaCategorySchema } from "@/lib/domain/media";
 import { syncCredits } from "@/lib/credits";
 import { startEntryFrom } from "@/lib/logPrefill";
-import { logWholeSeason } from "@/lib/logSeason";
+import { logShowNow } from "@/lib/logShow";
+import LogMenu from "@/components/LogMenu";
+import ShowSection from "@/components/ShowSection";
+import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
+import { useShowData } from "@/hooks/useShowData";
+import { scopeLabel, scopeRank, type Cover } from "@/lib/domain/tv";
 import type { TitleCredits } from "@/lib/ports/browse";
 import type { TitleDetail } from "@/lib/ports/log";
 import { services } from "@/lib/services";
@@ -43,8 +47,8 @@ function TitleView() {
   const [wanted, setWanted] = useState(false);
   const [links, setLinks] = useState<TitleLinks | null>(null);
   const [viewer, setViewer] = useState<"poster" | "backdrop" | null>(null);
-  const [seasonPick, setSeasonPick] = useState("all");
-  const [seasonDate, setSeasonDate] = useState("");
+  const [menu, setMenu] = useState(false);
+  const showData = useShowData(detail?.category === "TV Show" ? detail.tmdbId : null, ready);
 
   useEffect(() => {
     if (!ready || !id) return;
@@ -97,22 +101,28 @@ function TitleView() {
     setBusy(false);
   }
 
-  function logAnother() {
+  /** Opens the entry form for this title; for a show, with the season (and episode) already filled in. */
+  function logAnother(season: number | null = null, episode: number | null = null) {
     if (!detail) return;
     const category = mediaCategorySchema.safeParse(detail.category);
     if (!category.success) return;
-    startEntryFrom({ category: category.data, title: detail.title, tmdbId: detail.tmdbId });
+    startEntryFrom({ category: category.data, title: detail.title, tmdbId: detail.tmdbId, season, episode });
     router.push("/scan/");
   }
 
-  async function logSeason() {
+  /** From the + on a show: one viewing for the whole series or a season, dated today, or the form to choose a date. */
+  async function logShow(season: number | null, today: boolean) {
+    if (!today) return logAnother(season, null);
     if (!detail?.tmdbId) return;
     setBusy(true);
     setProblem(null);
-    const res = await logWholeSeason(detail.tmdbId, seasonPick === "all" ? null : Number(seasonPick), seasonDate || null);
-    if (!res.ok) setProblem(res.error);
-    else setReload((n) => n + 1);
+    const full = await services.catalog.details({ tmdbId: detail.tmdbId, kind: "TV Show" });
+    const res = full.ok ? await logShowNow(full.value, season, null) : full;
     setBusy(false);
+    setMenu(false);
+    if (!res.ok) return setProblem(res.error);
+    toast(season === null ? "Logged the whole series" : `Logged Season ${season}`);
+    setReload((n) => n + 1);
   }
 
   if (!ready) return null;
@@ -125,8 +135,19 @@ function TitleView() {
   const groups = Object.entries(
     (credits?.people ?? []).reduce<Record<string, TitleCredits["people"]>>((acc, p) => ({ ...acc, [p.role]: [...(acc[p.role] ?? []), p] }), {}),
   );
-  // Oldest first, so the first time you watched it is labelled "First viewing".
-  const order = new Map([...(detail?.viewings ?? [])].reverse().map((v, i) => [v.id, i + 1]));
+  // Oldest first, so the first time you watched it is labelled "First viewing". A show counts each series, season
+  // and episode on its own, so watching Season 2 again is a rewatch of Season 2 and not of the whole show.
+  const order = new Map<string, number>();
+  const seen = new Map<string, number>();
+  for (const v of [...(detail?.viewings ?? [])].reverse()) {
+    const key = `${v.scope}:${v.season ?? ""}:${v.episode ?? ""}`;
+    const n = (seen.get(key) ?? 0) + 1;
+    seen.set(key, n);
+    order.set(v.id, n);
+  }
+  const lastLine = lastWatchedText(latestViewing(detail?.viewings ?? []), isShow);
+  const viewings = isShow ? [...(detail?.viewings ?? [])].sort((a, b) => scopeRank(a.season, a.episode) - scopeRank(b.season, b.episode)) : detail?.viewings ?? [];
+  const covers: Cover[] = (detail?.viewings ?? []).map((v) => ({ scope: v.scope, season: v.season, episode: v.episode, date: v.watchedOn }));
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
@@ -164,30 +185,18 @@ function TitleView() {
             </ul>
 
             {detail.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{detail.overview}</p>}
+            {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}
 
             <TitleActions
               wanted={wanted}
               canBookmark={detail.tmdbId !== null && (detail.category === "Movie" || detail.category === "TV Show")}
-              watched={detail.viewings.length > 0}
               watch={isLive ? null : { tmdbId: detail.tmdbId, kind: isShow ? "TV Show" : "Movie", title: detail.title, year: detail.releaseDate?.slice(0, 4) ?? null }}
               busy={busy}
               onToggleWanted={toggleWanted}
-              onLog={logAnother}
+              onLog={isShow ? () => setMenu(true) : () => logAnother()}
             />
 
-            {isShow && detail.tmdbId !== null && (
-              <section className={card}>
-                <h2 className="font-serif text-lg">Log a whole season</h2>
-                <div className="flex flex-wrap gap-2">
-                  <select value={seasonPick} onChange={(e) => setSeasonPick(e.target.value)} className="rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-base dark:border-neutral-700" aria-label="Season">
-                    <option value="all">Whole show</option>
-                    {Array.from({ length: 30 }, (_, i) => <option key={i} value={i + 1}>Season {i + 1}</option>)}
-                  </select>
-                  <input type="date" value={seasonDate} onChange={(e) => setSeasonDate(e.target.value)} aria-label="Date watched" className="rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-base dark:border-neutral-700" />
-                </div>
-                <RoundButton icon="layers" label="Log every episode" tone="dark" disabled={busy} onClick={logSeason} className="self-start" />
-              </section>
-            )}
+            {isShow && detail.tmdbId !== null && <ShowSection mediaId={detail.mediaId} data={showData} covers={covers} />}
 
             {groups.map(([role, people]) => (
               <section key={role} className="flex flex-col gap-2">
@@ -202,19 +211,25 @@ function TitleView() {
 
             {isLive && <PerformerInput mediaId={detail.mediaId} onAdded={() => setReload((n) => n + 1)} />}
 
-            <section className="flex flex-col gap-2">
-              <h2 className="font-serif text-lg">Pictures</h2>
-              <CoverPicker mediaId={detail.mediaId} tmdbId={detail.tmdbId} category={detail.category} kind="poster" onChanged={() => setReload((n) => n + 1)} />
-              <CoverPicker mediaId={detail.mediaId} tmdbId={detail.tmdbId} category={detail.category} kind="backdrop" onChanged={() => setReload((n) => n + 1)} />
+            <section className="flex flex-col gap-3">
+              <h2 className="font-serif text-lg">Update photos</h2>
+              <div className="flex gap-6">
+                {([["poster", "posterFrame", "Poster"], ["backdrop", "coverFrame", "Cover"]] as const).map(([kind, icon, label]) => (
+                  <div key={kind} className="flex flex-col items-center gap-1.5">
+                    <RoundButton icon={icon} label={`Change the ${label.toLowerCase()}`} tone="dark" size="lg" onClick={() => setViewer(kind)} />
+                    <span className="text-xs text-neutral-600 dark:text-neutral-400">{label}</span>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <h2 className="font-serif text-xl">Your viewings</h2>
             <ul className="flex flex-col gap-4">
-              {detail.viewings.map((v) => (
+              {viewings.map((v) => (
                 <li key={v.id}>
                   {/* The whole row is one link: details, edit and delete live on the viewing's own page. */}
                   <Link href={`/session/?id=${v.id}`} className="flex flex-col gap-2 rounded-2xl border border-neutral-300 p-4 dark:border-neutral-700">
-                    <span className="text-xs uppercase tracking-wide text-neutral-500">{ORDINAL(order.get(v.id) ?? 1)}</span>
+                    <span className="text-xs uppercase tracking-wide text-neutral-500">{isShow ? `${scopeLabel(v.season, v.episode)} · ` : ""}{ORDINAL(order.get(v.id) ?? 1)}</span>
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="font-medium">{[v.watchedOn ?? "Date unknown", v.watchedAt].filter(Boolean).join(" · ")}</span>
                       {v.rating !== null && <span className="text-sm">★ {v.rating}</span>}
@@ -247,6 +262,16 @@ function TitleView() {
           </>
         )}
       </div>
+
+      {menu && detail && (
+        <LogMenu
+          seasons={showData?.seasons.map((x) => x.season) ?? []}
+          busy={busy}
+          onClose={() => setMenu(false)}
+          onLog={logShow}
+          onEpisodeSeason={(n) => router.push(`/season/?id=${detail.mediaId}&n=${n}`)}
+        />
+      )}
 
       {viewer && detail && (
         <PicturesViewer

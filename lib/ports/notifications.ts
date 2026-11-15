@@ -3,7 +3,7 @@ import type { Result } from "./result";
 
 export interface AppNotification {
   id: string;
-  /** "report-month", "report-year" or "backup". */
+  /** "report-month", "report-year", "backup" or "new-episode". */
   kind: string;
   /** The month, year or reminder month it is about. */
   period: string;

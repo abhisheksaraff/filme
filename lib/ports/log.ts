@@ -1,5 +1,6 @@
 // lib/ports/log.ts
 import type { LogEntry } from "@/lib/domain/entry";
+import type { LastViewing } from "@/lib/domain/lastWatched";
 import type { SeatDetail } from "@/lib/domain/sessions";
 import type { StatRow } from "@/lib/domain/stats";
 import type { CatalogMatch } from "./catalog";
@@ -29,6 +30,10 @@ export interface ViewingSummary {
   totalTickets: number | null;
   rating: number | null;
   notes: string | null;
+  /** For shows: whether it covered the whole series, a season or one episode. */
+  scope: "show" | "season" | "episode";
+  season: number | null;
+  episode: number | null;
   stubUrls: string[];
 }
 
@@ -90,6 +95,8 @@ export interface LogRepository {
   favourites(limit: number): Promise<Result<CatalogMatch[]>>;
   /** Every catalogue title already seen, as "Movie:123" keys, so browsing can skip them. */
   seen(): Promise<Result<string[]>>;
+  /** The most recent dated viewing of a title, for the "Last watched" line; null when there is none. */
+  lastViewing(mediaId: string): Promise<Result<LastViewing | null>>;
   /** One compact row per viewing, for statistics and stories. */
   statRows(): Promise<Result<StatRow[]>>;
 }

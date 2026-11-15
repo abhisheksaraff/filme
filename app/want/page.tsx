@@ -11,6 +11,7 @@ import type { CatalogHit, ShowStatus } from "@/lib/ports/catalog";
 import type { WantedItem } from "@/lib/ports/wanted";
 import { buildIcs, downloadText } from "@/lib/ics";
 import { previewHref } from "@/lib/home/rows";
+import { withShow } from "@/lib/domain/tv";
 import { services } from "@/lib/services";
 
 interface FollowedShow {
@@ -71,9 +72,9 @@ export default function WantPage() {
     };
   }, [ready]);
 
-  async function remove(mediaId: string) {
-    const res = await services.wanted.remove(mediaId);
-    if (res.ok) setWanted((list) => list?.filter((item) => item.mediaId !== mediaId) ?? null);
+  async function remove(item: WantedItem) {
+    const res = await services.wanted.remove(item.mediaId, { season: item.season, episode: item.episode });
+    if (res.ok) setWanted((list) => list?.filter((w) => w !== item) ?? null);
     else setProblem(res.error);
   }
 
@@ -167,17 +168,27 @@ export default function WantPage() {
         {wanted?.map((item) => {
           const poster = tmdbImageUrl(item.posterPath, "w342");
           return (
-            <li key={item.mediaId} className="flex flex-col gap-2">
-              <Link href={item.tmdbId !== null && (item.category === "Movie" || item.category === "TV Show") ? previewHref(item.category, item.tmdbId) : `/title/?id=${item.mediaId}`}>
+            <li key={`${item.mediaId}:${item.season ?? ""}:${item.episode ?? ""}`} className="flex flex-col gap-2">
+              <Link
+                href={
+                  item.episode !== null
+                    ? `/episode/?id=${item.mediaId}&s=${item.season ?? 1}&e=${item.episode}`
+                    : item.season !== null
+                      ? `/season/?id=${item.mediaId}&n=${item.season}`
+                      : item.tmdbId !== null && (item.category === "Movie" || item.category === "TV Show")
+                        ? previewHref(item.category, item.tmdbId)
+                        : `/title/?id=${item.mediaId}`
+                }
+              >
                 {poster ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-2xl object-cover" />
                 ) : (
                   <div className="aspect-[2/3] w-full rounded-2xl bg-neutral-200 dark:bg-neutral-800" />
                 )}
-                <span className="mt-1 block font-serif text-base leading-tight">{item.title}</span>
+                <span className="mt-1 block font-serif text-base leading-tight">{withShow(item.title, item.season, item.episode)}</span>
               </Link>
-              <RoundButton icon="close" label="Remove from list" size="sm" onClick={() => remove(item.mediaId)} className="self-start" />
+              <RoundButton icon="close" label="Remove from list" size="sm" onClick={() => remove(item)} className="self-start" />
             </li>
           );
         })}

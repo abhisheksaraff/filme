@@ -1,10 +1,12 @@
 // components/PicturesViewer.tsx
-// Every poster or cover for a title in the full-screen viewer: yours first, then TMDB's. Set one as the main.
+// A title's posters or covers in the full-screen viewer: your own upload first, then TMDB's. Upload, make default, delete.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import CropDialog from "@/components/CropDialog";
 import ImageViewer, { type ViewerImage } from "@/components/ImageViewer";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
+import type { StoredImage } from "@/lib/ports/images";
 import { toast } from "@/lib/toast";
 import { services } from "@/lib/services";
 
@@ -15,62 +17,136 @@ interface Props {
   kind: "poster" | "backdrop";
   /** The picture in use now, so the viewer opens on it. */
   currentPath: string | null;
-  /** Called after a new main picture is chosen so the page can show it. */
+  /** Called after the main picture changes so the page can show it. */
   onChanged: () => void;
   onClose: () => void;
 }
 
 export default function PicturesViewer({ mediaId, tmdbId, category, kind, currentPath, onChanged, onClose }: Props) {
-  const [images, setImages] = useState<ViewerImage[] | null>(null);
+  const [mine, setMine] = useState<StoredImage[] | null>(null);
+  const [theirs, setTheirs] = useState<string[] | null>(null);
+  // The TMDB picture in use. Starts as the title's own and follows choices made here, before the page reloads.
+  const [main, setMain] = useState<string | null>(currentPath);
   const [reload, setReload] = useState(0);
+  const [crop, setCrop] = useState<File | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
   const word = kind === "poster" ? "Poster" : "Cover";
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [mine, theirs] = await Promise.all([
-        services.images.list({ mediaId }, [kind]),
-        tmdbId !== null && (category === "Movie" || category === "TV Show")
-          ? services.catalog.images({ kind: category, tmdbId })
-          : Promise.resolve(null),
-      ]);
-      if (cancelled) return;
-      const own = mine.ok ? mine.value.map((image): ViewerImage => ({ id: image.id, url: image.url, isDefault: image.isDefault })) : [];
-      const paths = theirs && theirs.ok ? (kind === "poster" ? theirs.value.posters : theirs.value.backdrops) : [];
-      // A TMDB picture is the main one only when none of your own is.
-      const ownMain = own.some((image) => image.isDefault);
-      const tmdb = paths.map((path): ViewerImage => ({
-        url: tmdbImageUrl(path, "w780") ?? "",
-        tmdbPath: path,
-        isDefault: !ownMain && path === currentPath,
-      }));
-      setImages([...own, ...tmdb].filter((image) => image.url !== ""));
-    })();
+    services.images.list({ mediaId }, [kind]).then((res) => !cancelled && res.ok && setMine(res.value));
     return () => {
       cancelled = true;
     };
-    // currentPath is only used to mark the main picture when the viewer opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mediaId, tmdbId, category, kind, reload]);
+  }, [mediaId, kind, reload]);
 
-  if (!images) {
+  useEffect(() => {
+    if (tmdbId === null || (category !== "Movie" && category !== "TV Show")) {
+      // Nothing to fetch: custom titles only have your own pictures.
+      const none = setTimeout(() => setTheirs([]), 0);
+      return () => clearTimeout(none);
+    }
+    let cancelled = false;
+    services.catalog.images({ kind: category, tmdbId }).then((res) => {
+      if (!cancelled) setTheirs(res.ok ? (kind === "poster" ? res.value.posters : res.value.backdrops) : []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tmdbId, category, kind]);
+
+  if (!mine || !theirs) {
     return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 text-sm text-white/70" role="status">Loading pictures…</div>;
   }
 
+  const ownMain = mine.some((image) => image.isDefault);
+  const images: ViewerImage[] = [
+    ...mine.map((image): ViewerImage => ({ id: image.id, url: image.url, isDefault: image.isDefault })),
+    ...theirs
+      .map((path): ViewerImage => ({ url: tmdbImageUrl(path, "w780") ?? "", tmdbPath: path, isDefault: !ownMain && path === main }))
+      .filter((image) => image.url !== ""),
+  ];
   const start = Math.max(0, images.findIndex((image) => image.isDefault));
+
+  function changed(message: string) {
+    toast(message);
+    onChanged();
+    setReload((n) => n + 1);
+  }
+
+  async function chooseTmdb(path: string) {
+    const res = await services.images.useTmdbCover(mediaId, kind, path);
+    if (!res.ok) return setProblem(res.error);
+    setMain(path);
+    changed(`${word} updated`);
+  }
+
+  async function saveUpload(blob: Blob) {
+    setCrop(null);
+    // Adding replaces any earlier upload, so only the newest one is ever kept.
+    const added = await services.images.add({ mediaId }, kind, blob, null);
+    if (!added.ok) return setProblem(added.error);
+    const set = await services.images.setDefault({ mediaId }, added.value.id);
+    if (!set.ok) return setProblem(set.error);
+    changed(`${word} updated`);
+  }
+
+  async function removeUpload(image: ViewerImage) {
+    if (!image.id) return;
+    const res = await services.images.remove(image.id);
+    if (!res.ok) return setProblem(res.error);
+    // If it was the main one, the title goes back to the picture TMDB lists as its own.
+    if (image.isDefault && tmdbId !== null && (category === "Movie" || category === "TV Show")) {
+      const details = await services.catalog.details({ kind: category, tmdbId });
+      const path = details.ok ? (kind === "poster" ? details.value.posterPath : details.value.backdropPath) : null;
+      if (path) {
+        await services.images.useTmdbCover(mediaId, kind, path);
+        setMain(path);
+      }
+    }
+    changed(`${word} deleted`);
+  }
+
   return (
-    <ImageViewer
-      images={images}
-      start={start}
-      onClose={onClose}
-      onSetDefault={async (image) => {
-        const res = image.id ? await services.images.setDefault({ mediaId }, image.id) : image.tmdbPath ? await services.images.useTmdbCover(mediaId, kind, image.tmdbPath) : null;
-        if (res && res.ok) {
-          toast(`${word} updated`);
-          onChanged();
-          setReload((n) => n + 1);
-        }
-      }}
-    />
+    // The key makes the viewer reopen on the main picture after an upload, a new default or a deletion.
+    <>
+      <ImageViewer
+        key={reload}
+        images={images}
+        start={start}
+        onClose={onClose}
+        onAdd={() => input.current?.click()}
+        onSetDefault={async (image) => {
+          if (image.id) {
+            const res = await services.images.setDefault({ mediaId }, image.id);
+            if (!res.ok) return setProblem(res.error);
+            changed(`${word} updated`);
+          } else if (image.tmdbPath) await chooseTmdb(image.tmdbPath);
+        }}
+        onDelete={removeUpload}
+        deleteMessage="Your upload is removed and TMDB's picture becomes the main one again."
+      />
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          setCrop(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
+      {problem && (
+        <p role="alert" className="fixed inset-x-4 top-20 z-[55] rounded-2xl bg-red-600 px-4 py-2 text-center text-sm text-white" onClick={() => setProblem(null)}>
+          {problem}
+        </p>
+      )}
+      {crop && (
+        <div className="relative z-[56]">
+          <CropDialog file={crop} aspect={kind === "poster" ? 2 / 3 : 16 / 9} maxEdge={kind === "poster" ? 1500 : 1920} title={`Frame your ${word.toLowerCase()}`} onCancel={() => setCrop(null)} onDone={saveUpload} />
+        </div>
+      )}
+    </>
   );
 }

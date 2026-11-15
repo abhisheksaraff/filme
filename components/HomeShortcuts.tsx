@@ -25,6 +25,10 @@ interface Item {
 }
 
 function describe(n: AppNotification): { label: string; href: string; icon: IconName } {
+  if (n.kind === "new-episode") {
+    const [mediaId, , ...name] = n.period.split("|");
+    return { label: name.join("|") || "New episode", href: `/title/?id=${mediaId}`, icon: "tv" };
+  }
   if (n.kind === "backup") return { label: "Backup", href: "/profile/", icon: "archive" };
   const kind: StoryKind = n.kind === "report-year" ? "year" : "month";
   return { label: kind === "year" ? "Year recap" : "Month recap", href: `/story/?kind=${kind}&period=${n.period}`, icon: "sparkle" };

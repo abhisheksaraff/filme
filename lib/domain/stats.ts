@@ -24,6 +24,11 @@ export interface StatRow {
   scope: string;
   season: number | null;
   episode: number | null;
+  /** Episodes and seasons the viewing covered (1 and 0 for anything that is not a show). */
+  episodes: number;
+  seasons: number;
+  /** Real minutes for a show viewing; null falls back to the title's runtime times its episodes. */
+  minutes: number | null;
   genres: string[];
   directors: string[];
   actors: string[];
@@ -41,6 +46,10 @@ export interface Stats {
   /** Viewings of a title beyond the first. */
   rewatches: number;
   minutes: number;
+  /** Episodes watched, seasons watched and different shows, counted separately. */
+  episodes: number;
+  seasons: number;
+  shows: number;
   tickets: number;
   uniqueVenues: number;
   averageRating: number | null;
@@ -139,7 +148,12 @@ export function computeStats(all: StatRow[], year: number | null, range?: { from
     viewings: rows.length,
     titles,
     rewatches: rows.length - titles,
-    minutes: rows.reduce((sum, row) => sum + (row.runtime ?? 0), 0),
+    minutes: rows.reduce((sum, row) => sum + (row.minutes ?? (row.runtime ?? 0) * row.episodes), 0),
+    episodes: rows.reduce((sum, row) => sum + (row.category === "TV Show" ? row.episodes : 0), 0),
+    seasons:
+      rows.reduce((sum, row) => sum + (row.category === "TV Show" ? row.seasons : 0), 0) +
+      new Set(rows.filter((row) => row.category === "TV Show" && row.scope === "episode" && row.season !== null).map((row) => `${row.mediaId}:${row.season}`)).size,
+    shows: new Set(rows.filter((row) => row.category === "TV Show").map((row) => row.mediaId)).size,
     tickets: rows.reduce((sum, row) => sum + (row.tickets ?? 0), 0),
     uniqueVenues: new Set(rows.flatMap((row) => (row.venue ? [row.venue] : []))).size,
     averageRating: rated.length > 0 ? rated.reduce((sum, row) => sum + row.rating, 0) / rated.length : null,

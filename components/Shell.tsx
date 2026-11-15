@@ -13,7 +13,7 @@ const NO_NAV = ["/", "/login/", "/story/"];
 /** No back button: Home is the end of the trail. */
 const NO_BACK = ["/", "/login/", "/home/", "/story/"];
 /** Pages that open on a cover photo or fill the screen: the same button floats over it instead of reserving a row. */
-const OVER_COVER = ["/title/", "/preview/", "/map/", "/session/"];
+const OVER_COVER = ["/title/", "/preview/", "/map/", "/session/", "/season/", "/episode/"];
 /** The page fills the whole screen, so no space is kept free for the bottom bar. */
 const FULL_SCREEN = ["/map/"];
 
@@ -54,7 +54,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       {showBack && (
         <>
           {/* Sits inside the same centred column as the pages, so it is in one place on phone and desktop. */}
-          <div className="pointer-events-none fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-30">
+          <div className="app-chrome pointer-events-none fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-30">
             <div className="mx-auto w-full max-w-md px-4">
               <RoundButton
                 icon="back"

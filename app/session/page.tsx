@@ -3,6 +3,7 @@
 // notes, and a small map of where it was watched. Editing and deleting live here, not on the title page.
 "use client";
 
+import { scopeLabel } from "@/lib/domain/tv";
 import RoundButton from "@/components/RoundButton";
 import Link from "next/link";
 import FlatMap, { KIND_ICON } from "@/components/FlatMap";
@@ -141,7 +142,7 @@ function SessionView() {
             posterUrl={tmdbImageUrl(viewing.posterPath, "w342")}
             title={viewing.title}
             titleHref={`/title/?id=${viewing.mediaId}`}
-            subtitle={[v.watchedOn ?? "Date unknown", v.watchedAt, v.rating !== null ? `★ ${v.rating}` : null].filter(Boolean).join(" · ")}
+            subtitle={[viewing.category === "TV Show" ? scopeLabel(viewing.season, viewing.episode) : null, v.watchedOn ?? "Date unknown", v.watchedAt, v.rating !== null ? `★ ${v.rating}` : null].filter(Boolean).join(" · ")}
           />
 
           <div className="flex flex-col gap-5 px-5">

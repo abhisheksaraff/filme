@@ -6,7 +6,7 @@ export type IconName =
   | "home" | "calendar" | "ticket" | "bookmark" | "plus" | "close" | "download" | "upload" | "star"
   | "note" | "trash" | "edit" | "filter" | "shuffle" | "refresh" | "database" | "watch" | "sliders" | "image" | "bell" | "archive"
   | "calendarPlus" | "check" | "back" | "search" | "user" | "undo" | "open" | "sparkle" | "globe" | "chart"
-  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers";
+  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "posterFrame" | "coverFrame";
 
 interface Props {
   name: IconName;
@@ -107,6 +107,19 @@ export default function Icon({ name, size = 20, filled = false, detail = "white"
     folder: <path d="M4 7a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />,
     logout: <path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" />,
     layers: <path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4" />,
+    posterFrame: (
+      <>
+        <rect x="7" y="3" width="10" height="15" rx="1.500" />
+        <path d="M9.500 14.500l2-2.500 1.500 1.500 1.500-2 1 1.500" />
+      </>
+    ),
+    coverFrame: (
+      <>
+        <rect x="3" y="7" width="18" height="10" rx="1.500" />
+        <path d="M6 14.500l3-3 2.500 2.500 2-2 3.500 3" />
+        <circle cx="16" cy="10.500" r="1" />
+      </>
+    ),
   };
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

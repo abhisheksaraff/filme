@@ -17,7 +17,7 @@ const TABS: { href: string; label: string; icon: IconName }[] = [
 export default function BottomNav() {
   const path = usePathname() ?? "";
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-center px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <nav className="app-chrome fixed inset-x-0 bottom-0 z-20 flex justify-center px-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <ul className="flex items-center gap-1 rounded-full bg-neutral-950 px-2 py-2 text-white shadow-lg dark:bg-neutral-800">
         {TABS.map((tab) => {
           const active = path.startsWith(tab.href);

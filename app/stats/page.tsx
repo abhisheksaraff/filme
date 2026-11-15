@@ -111,6 +111,9 @@ export default function StatsPage() {
                 <Tile label="Venues" value={stats.uniqueVenues > 0 ? String(stats.uniqueVenues) : "—"} />
                 <Tile label="Watchlist cleared" value={String(clearedHere.length)} />
                 <Tile label="Avg on Watchlist" value={waitDays === null ? "—" : waitText(waitDays)} />
+                {stats.episodes > 0 && <Tile label="Episodes" value={String(stats.episodes)} />}
+                {stats.episodes > 0 && <Tile label="Seasons" value={stats.seasons > 0 ? String(stats.seasons) : "—"} />}
+                {stats.shows > 0 && <Tile label="Shows" value={String(stats.shows)} />}
               </div>
 
               {year === null && !custom ? (

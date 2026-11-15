@@ -47,9 +47,10 @@ export interface CatalogHit extends CatalogMatch {
   releaseDate?: string | null;
   genreIds?: number[];
   language?: string | null;
+  voteAverage?: number | null;
 }
 
-/** A person from the catalogue with the titles they worked on, newest first. */
+/** A person from the catalogue with the titles they are best known for, most popular first. */
 export interface CatalogPerson {
   name: string;
   biography: string | null;
@@ -71,9 +72,33 @@ export interface EpisodeRef {
   episode: number;
 }
 
+/** One episode with what the episode page shows. */
+export interface EpisodeDetail extends EpisodeRef {
+  name: string | null;
+  overview: string | null;
+  /** YYYY-MM-DD; null while unannounced. */
+  airDate: string | null;
+  runtime: number | null;
+  stillPath: string | null;
+}
+
+/** One season and all its episodes. */
+export interface SeasonDetail {
+  season: number;
+  name: string | null;
+  overview: string | null;
+  airDate: string | null;
+  posterPath: string | null;
+  episodes: EpisodeDetail[];
+}
+
 /** How far a show has got: its seasons, and the latest and next episodes on air. */
 export interface ShowStatus {
-  seasons: { season: number; episodes: number }[];
+  /** TMDB's own word for it, such as "Returning Series" or "Ended". */
+  status: string | null;
+  /** False once the show has ended or been cancelled. */
+  running: boolean;
+  seasons: { season: number; episodes: number; name: string | null; posterPath: string | null }[];
   last: (EpisodeRef & { name: string | null; airDate: string | null }) | null;
   next: (EpisodeRef & { name: string | null; airDate: string | null }) | null;
 }
@@ -111,6 +136,8 @@ export interface Catalog {
   /** Titles the catalogue suggests for people who liked this one. */
   recommendations(match: CatalogMatch): Promise<Result<CatalogHit[]>>;
   person(tmdbId: number): Promise<Result<CatalogPerson>>;
+  /** Every movie and show a person is credited on, best known first, for the "See all" list. */
+  personCredits(tmdbId: number): Promise<Result<CatalogHit[]>>;
   /** The people credited most often alongside this person, from their best-known titles. */
   relatedPeople(tmdbId: number): Promise<Result<CatalogPersonHit[]>>;
   /** A few people whose name fits what has been typed. */
@@ -118,6 +145,8 @@ export interface Catalog {
   /** Every episode of one season, or of the whole show when season is null. */
   episodes(tmdbId: number, season: number | null): Promise<Result<EpisodeRef[]>>;
   showStatus(tmdbId: number): Promise<Result<ShowStatus>>;
+  /** A season's episodes with names, stills, runtimes and air dates. Kept for the rest of the session. */
+  season(tmdbId: number, season: number): Promise<Result<SeasonDetail>>;
   /** Poster and cover paths available for a title. */
   images(match: CatalogMatch): Promise<Result<{ posters: string[]; backdrops: string[] }>>;
   /** Films in cinemas now, or opening soon, in a country. */

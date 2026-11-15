@@ -1,6 +1,6 @@
 // lib/adapters/tmdb/EdgeCatalog.ts
 // Asks TMDB questions through the `tmdb` Edge Function so the key never reaches the phone.
-import type { BrowseSpec, Catalog, CatalogCredit, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch, CatalogPerson, CatalogPersonHit, EpisodeRef, ShowStatus } from "@/lib/ports/catalog";
+import type { BrowseSpec, Catalog, CatalogCredit, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch, CatalogPerson, CatalogPersonHit, EpisodeRef, SeasonDetail, ShowStatus } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { callFunction } from "../supabase/functions";
 import { tmdbImageUrl } from "./images";
@@ -11,6 +11,9 @@ interface Named {
 
 interface CreditRow extends SearchRow {
   media_type?: string;
+  character?: string;
+  vote_count?: number;
+  vote_average?: number;
 }
 
 /** Most cast members saved for one title. */
@@ -27,6 +30,7 @@ interface SearchRow {
   poster_path?: string | null;
   genre_ids?: number[];
   original_language?: string;
+  vote_average?: number;
 }
 
 function toHit(row: SearchRow, kind: CatalogKind): CatalogHit {
@@ -39,8 +43,43 @@ function toHit(row: SearchRow, kind: CatalogKind): CatalogHit {
     releaseDate: row.release_date ?? row.first_air_date ?? null,
     genreIds: row.genre_ids ?? [],
     language: row.original_language ?? null,
+    voteAverage: row.vote_average ?? null,
   };
 }
+
+/** TMDB genre ids for talk shows, news and reality TV: appearances rather than work. */
+const APPEARANCE_GENRES = [10767, 10763, 10764];
+
+/** True for credits where the person only appears as themselves, such as talk shows, award nights and archive clips. */
+function isAppearance(row: CreditRow): boolean {
+  if (row.genre_ids?.some((g) => APPEARANCE_GENRES.includes(g))) return true;
+  return /^\s*(self|himself|herself|themselves)\b|archive footage|uncredited/i.test(row.character ?? "");
+}
+
+type PersonCredits = { cast?: CreditRow[]; crew?: CreditRow[] };
+const creditsCache = new Map<number, Promise<Result<CreditRow[]>>>();
+
+/** Every movie and show credit of a person, once each, kept for the session. */
+function creditRows(tmdbId: number): Promise<Result<CreditRow[]>> {
+  const hit = creditsCache.get(tmdbId);
+  if (hit) return hit;
+  const value = callFunction<PersonCredits>("tmdb", { path: `/person/${tmdbId}/combined_credits` }).then((res): Result<CreditRow[]> => {
+    if (!res.ok) return fail(res.error);
+    const unique = new Map<string, CreditRow>();
+    for (const row of [...(res.value.cast ?? []), ...(res.value.crew ?? [])]) {
+      if (row.media_type !== "movie" && row.media_type !== "tv") continue;
+      const key = `${row.media_type}:${row.id}`;
+      // A person can be credited twice on a title; the acting credit keeps its character name.
+      if (!unique.has(key) || (row.character && !unique.get(key)?.character)) unique.set(key, row);
+    }
+    return ok([...unique.values()]);
+  });
+  creditsCache.set(tmdbId, value);
+  void value.then((res) => !res.ok && creditsCache.delete(tmdbId));
+  return value;
+}
+
+const byFame = (a: CreditRow, b: CreditRow) => (b.vote_count ?? 0) - (a.vote_count ?? 0);
 
 async function listHits(path: string, params: Record<string, string>, kind: CatalogKind): Promise<Result<CatalogHit[]>> {
   const res = await callFunction<{ results: SearchRow[] }>("tmdb", { path, params });
@@ -55,6 +94,9 @@ async function search(title: string, category: string): Promise<Result<CatalogHi
   const hits = await listHits(`/search/${isTv ? "tv" : "movie"}`, { query: title, include_adult: "false" }, category);
   return hits.ok ? ok(hits.value.slice(0, 6)) : hits;
 }
+
+/** Seasons already fetched this session; a season page and the progress bars share them. */
+const seasonCache = new Map<string, SeasonDetail>();
 
 export const edgeCatalog: Catalog = {
   search,
@@ -79,17 +121,18 @@ export const edgeCatalog: Catalog = {
   async person(tmdbId) {
     const [info, credits] = await Promise.all([
       callFunction<{ name: string; biography?: string; imdb_id?: string | null; profile_path?: string | null }>("tmdb", { path: `/person/${tmdbId}` }),
-      callFunction<{ cast?: CreditRow[]; crew?: CreditRow[] }>("tmdb", { path: `/person/${tmdbId}/combined_credits` }),
+      creditRows(tmdbId),
     ]);
     if (!info.ok) return fail(info.error);
-    const unique = new Map<string, CreditRow>();
-    for (const row of [...(credits.ok ? credits.value.cast ?? [] : []), ...(credits.ok ? credits.value.crew ?? [] : [])]) {
-      if (row.media_type !== "movie" && row.media_type !== "tv") continue;
-      unique.set(`${row.media_type}:${row.id}`, row);
-    }
-    const works = [...unique.values()]
-      .sort((a, b) => (b.release_date ?? b.first_air_date ?? "").localeCompare(a.release_date ?? a.first_air_date ?? ""))
-      .slice(0, 60)
+    const now = new Date().toISOString().slice(0, 10);
+    // Their known work: released, not just an appearance as themselves, and the most-voted-on first.
+    const works = (credits.ok ? credits.value : [])
+      .filter((row) => {
+        const date = row.release_date ?? row.first_air_date ?? "";
+        return date !== "" && date <= now && !isAppearance(row);
+      })
+      .sort(byFame)
+      .slice(0, 80)
       .map((row) => toHit(row, row.media_type === "tv" ? "TV Show" : "Movie"));
     const person: CatalogPerson = {
       name: info.value.name,
@@ -99,6 +142,12 @@ export const edgeCatalog: Catalog = {
       works,
     };
     return ok(person);
+  },
+
+  async personCredits(tmdbId) {
+    const credits = await creditRows(tmdbId);
+    if (!credits.ok) return fail(credits.error);
+    return ok([...credits.value].sort(byFame).map((row) => toHit(row, row.media_type === "tv" ? "TV Show" : "Movie")));
   },
 
   async relatedPeople(tmdbId) {
@@ -162,7 +211,9 @@ export const edgeCatalog: Catalog = {
   async showStatus(tmdbId) {
     type Ep = { season_number: number; episode_number: number; name?: string; air_date?: string } | null;
     const res = await callFunction<{
-      seasons?: { season_number: number; episode_count: number }[];
+      status?: string;
+      in_production?: boolean;
+      seasons?: { season_number: number; episode_count: number; name?: string; poster_path?: string | null }[];
       last_episode_to_air?: Ep;
       next_episode_to_air?: Ep;
     }>("tmdb", { path: `/tv/${tmdbId}` });
@@ -170,11 +221,47 @@ export const edgeCatalog: Catalog = {
     const ref = (e: Ep | undefined) =>
       e ? { season: e.season_number, episode: e.episode_number, name: e.name ?? null, airDate: e.air_date ?? null } : null;
     const status: ShowStatus = {
-      seasons: (res.value.seasons ?? []).filter((s) => s.season_number > 0).map((s) => ({ season: s.season_number, episodes: s.episode_count })),
+      status: res.value.status ?? null,
+      running: res.value.in_production ?? !["Ended", "Canceled"].includes(res.value.status ?? ""),
+      seasons: (res.value.seasons ?? [])
+        .filter((s) => s.season_number > 0)
+        .map((s) => ({ season: s.season_number, episodes: s.episode_count, name: s.name ?? null, posterPath: s.poster_path ?? null })),
       last: ref(res.value.last_episode_to_air),
       next: ref(res.value.next_episode_to_air),
     };
     return ok(status);
+  },
+
+  async season(tmdbId, season) {
+    const key = `${tmdbId}:${season}`;
+    const hit = seasonCache.get(key);
+    if (hit) return ok(hit);
+    const res = await callFunction<{
+      name?: string;
+      overview?: string;
+      air_date?: string | null;
+      poster_path?: string | null;
+      episodes?: { episode_number: number; name?: string; overview?: string; air_date?: string | null; runtime?: number | null; still_path?: string | null }[];
+    }>("tmdb", { path: `/tv/${tmdbId}/season/${season}` });
+    if (!res.ok) return fail(res.error);
+    const detail: SeasonDetail = {
+      season,
+      name: res.value.name ?? null,
+      overview: res.value.overview || null,
+      airDate: res.value.air_date ?? null,
+      posterPath: res.value.poster_path ?? null,
+      episodes: (res.value.episodes ?? []).map((e) => ({
+        season,
+        episode: e.episode_number,
+        name: e.name ?? null,
+        overview: e.overview || null,
+        airDate: e.air_date || null,
+        runtime: e.runtime ?? null,
+        stillPath: e.still_path ?? null,
+      })),
+    };
+    seasonCache.set(key, detail);
+    return ok(detail);
   },
 
   async images(match) {

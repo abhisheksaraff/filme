@@ -95,3 +95,8 @@ html:not(.dark) {
   80% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* The app's own back button and bottom bar step aside while a full-screen picture viewer is open. */
+html[data-viewer] .app-chrome {
+  display: none !important;
+}

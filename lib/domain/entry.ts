@@ -39,6 +39,10 @@ export const logEntrySchema = z.object({
   addons: z.array(formatAddonSchema),
   rating: ratingSchema.nullable(),
   notes: z.string().nullable(),
+  /** For shows: how many episodes, seasons and minutes the viewing covers, worked out when it is saved. */
+  episodesCovered: z.number().int().min(0).nullable().optional(),
+  seasonsCovered: z.number().int().min(0).nullable().optional(),
+  minutes: z.number().int().min(0).nullable().optional(),
   /** Null for titles TMDB does not have; they are saved as custom items. */
   media: entryMediaSchema.nullable(),
 });

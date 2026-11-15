@@ -171,6 +171,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           <Labeled label="Episode">
             <input className={field} inputMode="numeric" value={draft.episode} onChange={(e) => set("episode", e.target.value)} />
           </Labeled>
+          <p className="col-span-2 -mt-1 text-xs text-neutral-500">Leave both empty to log the whole series, or the episode empty to log the whole season.</p>
           <div className="col-span-2">
             <Labeled label="Episode title">
               <input className={field} value={draft.episodeTitle} onChange={(e) => set("episodeTitle", e.target.value)} />

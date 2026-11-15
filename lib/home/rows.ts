@@ -8,6 +8,9 @@ import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { CatalogHit, CatalogKind } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { services } from "@/lib/services";
+import { checkNewEpisodes, inProgress, withNewEpisodes } from "@/lib/shows";
+import { withShow } from "@/lib/domain/tv";
+import type { TrackedShow } from "@/lib/ports/follows";
 
 export interface RowItem {
   key: string;
@@ -187,13 +190,45 @@ async function wantRow(): Promise<Result<RowResult>> {
     const kind: CatalogKind = item.category === "TV Show" ? "TV Show" : "Movie";
     return {
       key: `want:${item.mediaId}`,
-      title: item.title,
+      title: withShow(item.title, item.season, item.episode),
       subtitle: null,
       posterUrl: tmdbImageUrl(item.posterPath, "w185"),
-      href: item.tmdbId === null ? `/title/?id=${item.mediaId}` : previewHref(kind, item.tmdbId),
+      href:
+        item.episode !== null
+          ? `/episode/?id=${item.mediaId}&s=${item.season ?? 1}&e=${item.episode}`
+          : item.season !== null
+            ? `/season/?id=${item.mediaId}&n=${item.season}`
+            : item.tmdbId === null
+              ? `/title/?id=${item.mediaId}`
+              : previewHref(kind, item.tmdbId),
     };
   });
   return ok({ title: "Watchlist", items, empty: "Nothing saved yet. Search for a title and tap the bookmark." });
+}
+
+/** Shows the user has watched or follows, with the latest aired episode from the daily check. */
+async function trackedShows(): Promise<Result<TrackedShow[]>> {
+  // The check runs once a day; waiting for it here means the first Home of the day is not a day behind.
+  await checkNewEpisodes();
+  return services.follows.tracked();
+}
+
+function showItem(show: TrackedShow, note: string): RowItem {
+  return { key: `show:${show.mediaId}`, title: show.title, subtitle: note, posterUrl: tmdbImageUrl(show.posterPath, "w342"), href: `/title/?id=${show.mediaId}` };
+}
+
+async function newEpisodesRow(): Promise<Result<RowResult>> {
+  const res = await trackedShows();
+  if (!res.ok) return res;
+  const items = withNewEpisodes(res.value).map((s) => showItem(s, `S${s.aired?.season} E${s.aired?.episode} · New`));
+  return ok({ title: "New episodes", items, empty: "Nothing new from the shows you follow." });
+}
+
+async function continueRow(): Promise<Result<RowResult>> {
+  const res = await trackedShows();
+  if (!res.ok) return res;
+  const items = inProgress(res.value).map((s) => showItem(s, `Up to S${s.aired?.season} E${s.aired?.episode}`));
+  return ok({ title: "Continue watching", items, empty: "You are caught up on everything you started." });
 }
 
 async function favouritesRow(): Promise<Result<RowResult>> {
@@ -360,6 +395,8 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
   return cached(`row:${id}`, () => {
     if (id === "like-movie") return likeRow("Movie");
     if (id === "like-tv") return likeRow("TV Show");
+    if (id === "new-episodes") return newEpisodesRow();
+    if (id === "continue") return continueRow();
     if (id === "want") return wantRow();
     if (id === "favourites") return favouritesRow();
     if (id === "theatres") return theatreRow("now");
@@ -370,5 +407,5 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id.startsWith("holiday:")) return holidayRow(id.slice("holiday:".length));
     if (id.startsWith("genre-")) return genreRow(Number(id.slice("genre-".length)));
     return Promise.resolve(fail("Unknown row."));
-  }, id === "want" ? 0 : Infinity);
+  }, id === "want" ? 0 : id === "new-episodes" || id === "continue" ? CACHE_MS : Infinity);
 }

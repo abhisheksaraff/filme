@@ -50,6 +50,8 @@ export const supabaseImageRepository: ImageRepository = {
       .select("id, kind, source, path, note, is_default, store")
       .eq(col, id)
       .in("kind", kinds)
+      // Only pictures you uploaded: a TMDB poster or cover is just a link the title holds, not one of your files.
+      .eq("source", "upload")
       .order("is_default", { ascending: false })
       .order("created_at");
     if (error) return fail("Could not load the images.");
@@ -144,14 +146,14 @@ export const supabaseImageRepository: ImageRepository = {
 
   async useTmdbCover(mediaId, kind, tmdbPath) {
     const db = getSupabase();
-    const existing = await db.from("images").select("id").eq("media_id", mediaId).eq("kind", kind).eq("source", "tmdb").eq("path", tmdbPath).maybeSingle();
-    let imageId = existing.data?.id as string | undefined;
-    if (!imageId) {
-      const inserted = await db.from("images").insert({ kind, source: "tmdb", path: tmdbPath, media_id: mediaId }).select("id").single();
-      if (inserted.error) return fail("Could not save the image.");
-      imageId = inserted.data.id as string;
-    }
-    return supabaseImageRepository.setDefault({ mediaId }, imageId);
+    // The title simply points at TMDB's picture; nothing is stored for it. An upload of yours is kept but stops being the main one.
+    const clear = await db.from("images").update({ is_default: false }).eq("media_id", mediaId).eq("kind", kind);
+    if (clear.error) return fail("Could not change the picture.");
+    // Earlier versions saved a row for every TMDB pick; those are no longer needed.
+    await db.from("images").delete().eq("media_id", mediaId).eq("kind", kind).eq("source", "tmdb");
+    const field = kind === "poster" ? "poster_path" : "backdrop_path";
+    const update = await db.from("media_items").update({ [field]: tmdbPath }).eq("id", mediaId);
+    return update.error ? fail("Could not change the picture.") : ok(undefined);
   },
 
   async avatar() {

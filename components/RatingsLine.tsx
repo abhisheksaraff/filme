@@ -30,7 +30,7 @@ export default function RatingsLine({ links, mine }: Props) {
       )}
       {hasRatings && (
         <span className="flex gap-3 text-neutral-500">
-          {shown !== null && <span>★ {num(shown)} IMDb</span>}
+          {shown !== null && <span>★ {num(shown)}</span>}
           {stand !== null && <span>★ {num(Math.round(stand * 10) / 10)} TMDB</span>}
           {mine !== null && <span>★ {num(mine)} yours</span>}
         </span>

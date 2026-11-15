@@ -4,6 +4,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Icon from "@/components/Icon";
 import PersonCircle from "@/components/PersonCircle";
@@ -115,13 +116,33 @@ function SearchView() {
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<StatRow[]>([]);
 
+  // "See all" on a person's page arrives with their TMDB id and name; the list is then their full credits.
+  const params = useSearchParams();
+  const idParam = Number(params.get("personId")) || null;
+  const nameParam = params.get("name");
+  useEffect(() => {
+    if (!idParam || !nameParam) return;
+    // Applied once per tap on "See all" (the person page clears the mark), so coming back from a title keeps the filters set since.
+    if (sessionStorage.getItem("filme_seeall") === String(idParam)) return;
+    sessionStorage.setItem("filme_seeall", String(idParam));
+    Promise.resolve().then(() => {
+      setFilter({ ...EMPTY_FILTER, person: nameParam });
+      setQuery("");
+      setAskOn(false);
+      setOrder("default");
+    });
+    // The setters come from usePageState and are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idParam, nameParam]);
+  const personTmdb = idParam && filter.person === nameParam ? idParam : null;
+
   const q = (askOn ? askText : query).trim();
   // Nothing is shown until something is typed or a filter is set, so opening Filters alone lists nothing.
   const active = q.length >= 2 || hasFilter(filter);
   // Venue, format, watch dates and rewatches exist only in your log, so TMDB has nothing to say about them.
   const logOnly = Boolean(filter.venue || filter.format || filter.dateFrom || filter.dateTo || filter.maxRating !== null || filter.rewatchesOnly);
   const kinds: CatalogKind[] = logOnly || filter.category === "Concert" || filter.category === "Live Event" ? [] : filter.category ? [filter.category] : ["Movie", "TV Show"];
-  const searchKey = JSON.stringify([q, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly]);
+  const searchKey = JSON.stringify([q, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly, personTmdb]);
 
   useEffect(() => {
     if (!ready) return;
@@ -158,7 +179,26 @@ function SearchView() {
 
       const personId = filter.person && tmdbPeople?.ok ? tmdbPeople.value[0]?.tmdbId : undefined;
       const gid = genreId(filter.genre);
-      const results = await Promise.all(kinds.map(async (kind) => {
+      // A person opened with "See all" lists their whole credit list; the filters narrow it here.
+      const credits = personTmdb !== null && kinds.length > 0 ? await services.catalog.personCredits(personTmdb) : null;
+      const creditResult = credits
+        ? credits.ok
+          ? {
+              ok: true as const,
+              value: credits.value.filter((h) => {
+                const year = Number(h.year);
+                if (!kinds.includes(h.kind)) return false;
+                if (gid !== undefined && h.genreIds && !h.genreIds.includes(gid)) return false;
+                if (filter.releaseFrom !== null && (!year || year < filter.releaseFrom)) return false;
+                if (filter.releaseTo !== null && (!year || year > filter.releaseTo)) return false;
+                if (filter.minRating !== null && (h.voteAverage ?? 0) < filter.minRating) return false;
+                if (q.length >= 2 && !normalize(h.title).includes(normalize(q))) return false;
+                return true;
+              }),
+            }
+          : credits
+        : null;
+      const results = creditResult ? [creditResult] : await Promise.all(kinds.map(async (kind) => {
         if (q.length >= 2) {
           // Typed titles come from TMDB's search, which has no filters, so they are narrowed here.
           const res = await services.catalog.search(q, kind);
@@ -384,7 +424,7 @@ function SearchView() {
 
       {items.length > 0 && (
         <ul className="flex flex-col gap-3">
-          {items.slice(0, 80).map((item) => <ResultRow key={item.key} item={item} />)}
+          {items.slice(0, personTmdb ? 400 : 80).map((item) => <ResultRow key={item.key} item={item} />)}
         </ul>
       )}
 

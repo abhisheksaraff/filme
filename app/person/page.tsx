@@ -8,7 +8,7 @@ import { Suspense, useEffect, useState } from "react";
 import Icon from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import { previewHref } from "@/lib/home/rows";
+import { previewHref, seenKey } from "@/lib/home/rows";
 import PersonCircle from "@/components/PersonCircle";
 import type { PersonDetail, PersonPick } from "@/lib/ports/browse";
 import type { CatalogPerson } from "@/lib/ports/catalog";
@@ -45,6 +45,17 @@ function PersonView() {
   const [other, setOther] = useState<CatalogPerson | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [related, setRelated] = useState<PersonPick[]>([]);
+  // Everything you have logged, so "More from" only offers what you have not seen.
+  const [everSeen, setEverSeen] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    services.log.seen().then((res) => !cancelled && res.ok && setEverSeen(new Set(res.value)));
+    return () => {
+      cancelled = true;
+    };
+  }, [ready]);
 
   useEffect(() => {
     if (!ready || (!id && !tmdbParam)) return;
@@ -84,8 +95,8 @@ function PersonView() {
   if (!id && !tmdbParam) return <main className="p-6 text-sm">No person selected.</main>;
 
   const seen = person?.works.filter((w) => w.seen) ?? [];
-  const logged = new Set(person?.works.map((w) => w.title));
-  const more = (other?.works ?? []).filter((w) => !logged.has(w.title)).slice(0, 24);
+  const more = (other?.works ?? []).filter((w) => !everSeen.has(seenKey(w.kind, w.tmdbId))).slice(0, 24);
+  const catalogId = person?.tmdbId ?? tmdbParam;
   const picture = tmdbImageUrl(person?.profilePath, "w342") ?? other?.profileUrl ?? null;
 
   return (
@@ -135,7 +146,14 @@ function PersonView() {
 
           {more.length > 0 && (
             <>
-              <h2 className="font-serif text-xl">More from {person.name}</h2>
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="font-serif text-xl">More from {person.name}</h2>
+                {catalogId !== null && (
+                  <Link href={`/search/?personId=${catalogId}&name=${encodeURIComponent(person.name)}`} onClick={() => sessionStorage.removeItem("filme_seeall")} className="shrink-0 text-sm text-neutral-500 underline">
+                    See all
+                  </Link>
+                )}
+              </div>
               <ul className="-mx-5 flex gap-3 overflow-x-auto px-5">
                 {more.map((hit) => (
                   <li key={`${hit.kind}-${hit.tmdbId}`} className="w-28 shrink-0">
