@@ -69,7 +69,7 @@ function LazyMap({ entry }: { entry: CardData & { venueLatitude: number; venueLo
 interface Props {
   entry: CardData;
   index?: number;
-  /** Where the card body goes; the default opens the title at this viewing. */
+  /** Where the card body goes; the default opens the title scrolled to this viewing. */
   href?: string;
   /** False on a title page, where the title is already the heading. */
   showTitle?: boolean;
@@ -92,7 +92,9 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
   const located = entry.venueId && entry.venueLatitude !== null && entry.venueLongitude !== null;
   const at = entry.venueId && entry.venue;
   const episode = entry.category === "TV Show" ? scopeLabel(entry.season, entry.episode) : null;
-  const open = href ?? `/title/?id=${entry.mediaId}`;
+  const titleHref = `/title/?id=${entry.mediaId}`;
+  // The card opens the title scrolled to this viewing; the title itself opens the top of the page.
+  const open = href ?? `${titleHref}&v=${entry.id}`;
 
   const posterEl = (
     <div className="relative aspect-square w-full overflow-hidden rounded-[20px] bg-neutral-200 dark:bg-neutral-800">
@@ -117,9 +119,9 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
         {at ? (
           <div className="flex w-1/2 flex-col gap-1">
             {located ? <LazyMap entry={entry as CardData & { venueLatitude: number; venueLongitude: number }} /> : (
-              <Link href={`/venue/?id=${entry.venueId}`} aria-label={`Open ${entry.venue}`} className="relative z-10 flex aspect-square w-full items-center justify-center rounded-[20px] bg-neutral-200 dark:bg-neutral-800"><Icon name={KIND_ICON[entry.category] ?? "film"} size={28} /></Link>
+              <Link href={`/map/?venue=${entry.venueId}`} aria-label={`Show ${entry.venue} on the map`} className="relative z-10 flex aspect-square w-full items-center justify-center rounded-[20px] bg-neutral-200 dark:bg-neutral-800"><Icon name={KIND_ICON[entry.category] ?? "film"} size={28} /></Link>
             )}
-            <Link href={`/venue/?id=${entry.venueId}`} className="relative z-10 line-clamp-2 px-2 pb-1 text-sm font-normal leading-tight text-neutral-500">{entry.venue}</Link>
+            <Link href={`/map/?venue=${entry.venueId}`} className="relative z-10 line-clamp-2 px-2 pb-1 text-sm font-normal leading-tight text-neutral-500">{entry.venue}</Link>
           </div>
         ) : null}
         <div className={`flex flex-col gap-1 ${at ? "w-1/2" : "mx-auto w-1/2"}`}>
@@ -128,7 +130,7 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
         </div>
       </div>
       <div className="mt-2 flex flex-col gap-2 px-3">
-        {showTitle && <span className="font-serif text-xl font-medium leading-tight">{entry.title}</span>}
+        {showTitle && <Link href={titleHref} className="relative z-10 self-start font-serif text-xl font-medium leading-tight">{entry.title}</Link>}
         {(episode || rating != null) && (
           <span className="flex items-baseline justify-between text-sm text-neutral-600 dark:text-neutral-400">
             <span>{episode}</span>

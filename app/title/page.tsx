@@ -10,7 +10,7 @@ import PicturesViewer from "@/components/PicturesViewer";
 import RatingsLine from "@/components/RatingsLine";
 import type { TitleLinks } from "@/lib/ports/ratings";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import TitleHero from "@/components/TitleHero";
 import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
@@ -42,6 +42,8 @@ function TitleView() {
   const router = useRouter();
   const params = useSearchParams();
   const id = params.get("id");
+  // A card links here with the viewing to show.
+  const viewingParam = params.get("v");
 
   const [detail, setDetail] = useState<TitleDetail | null>(null);
   const [credits, setCredits] = useState<TitleCredits | null>(null);
@@ -53,6 +55,16 @@ function TitleView() {
   const [viewer, setViewer] = useState<"poster" | "backdrop" | null>(null);
   const [menu, setMenu] = useState(false);
   const showData = useShowData(detail?.category === "TV Show" ? detail.tmdbId : null, ready);
+
+  // Arriving from a viewing card, bring that viewing into view once its card has been drawn.
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!viewingParam || !detail || scrolledTo.current === viewingParam) return;
+    const card = document.getElementById(`v-${viewingParam}`);
+    if (!card) return;
+    scrolledTo.current = viewingParam;
+    card.scrollIntoView({ block: "start" });
+  }, [viewingParam, detail]);
 
   useEffect(() => {
     if (!ready || !id) return;
@@ -235,7 +247,7 @@ function TitleView() {
                   index={i}
                   showTitle={false}
                   animate
-                  href={`/title/?id=${detail.mediaId}`}
+                  href={`/title/?id=${detail.mediaId}&v=${v.id}`}
                   label={ORDINAL(order.get(v.id) ?? 1)}
                   rating={v.rating}
                   notes={v.notes}

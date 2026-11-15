@@ -23,7 +23,11 @@ export interface PlaceHit {
 export interface Geocoder {
   /** Several matches for a name or address, for suggestions while typing. */
   search(query: string): Promise<Result<PlaceHit[]>>;
-  locate(query: string): Promise<Result<GeoPoint | null>>;
+  /**
+   * The position of a place. Given several phrasings, the first that finds something wins; a place
+   * picked earlier from the suggestions is remembered, so its exact position is used without a search.
+   */
+  locate(query: string | string[]): Promise<Result<GeoPoint | null>>;
   /** The city and country code at a position, for "Current location". */
   reverse(latitude: number, longitude: number): Promise<Result<{ city: string; region: string } | null>>;
 }

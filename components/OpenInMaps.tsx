@@ -37,7 +37,6 @@ export default function OpenInMaps({ name, address, latitude, longitude }: Props
       </button>
       {choosing && (
         <Popup title="Open in Maps" onClose={() => setChoosing(false)}>
-          <p className="text-[13px] text-white/70">{name}</p>
           <div className="flex flex-col">
             <a href={apple} onClick={() => setChoosing(false)} className={POPUP_OPTION}>Apple Maps</a>
             <a href={google} target="_blank" rel="noopener" onClick={() => setChoosing(false)} className={POPUP_OPTION}>Google Maps</a>

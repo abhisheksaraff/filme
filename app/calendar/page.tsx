@@ -56,7 +56,7 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
   const cells = Array.from({ length: Math.ceil((offset + days) / 7) * 7 }, (_, i) => (i >= offset && i < offset + days ? i - offset + 1 : null));
 
   return (
-    <div className="grid grid-cols-7 gap-1">
+    <div className="cal-grid grid grid-cols-7 gap-1" style={{ "--weeks": cells.length / 7 } as React.CSSProperties}>
       {WEEKDAYS.map((name) => (
         <div key={name} className="pb-1 text-center text-xs text-neutral-950 dark:text-white">{name}</div>
       ))}
@@ -74,7 +74,7 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
             type="button"
             disabled={list.length === 0}
             onClick={() => onPick(date)}
-            className={`relative aspect-[2/3] rounded-lg text-xs ${picked === date ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${list.length ? "" : "cursor-default"}`}
+            className={`cal-cell relative aspect-[2/3] rounded-lg text-xs ${picked === date ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${list.length ? "" : "cursor-default"}`}
           >
             {deck.map((group, n) => {
               const row = group[0];
@@ -275,7 +275,7 @@ export default function CalendarPage() {
         <div
           ref={strip}
           onScroll={onScroll}
-          className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="cal-strip -mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {Array.from({ length: PANELS }, (_, panel) => (
             <div key={first + panel} className="w-full shrink-0 snap-start px-4">

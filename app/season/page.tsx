@@ -252,7 +252,7 @@ function SeasonView() {
                         {watched && <span role="img" aria-label="Watched" className="shrink-0 text-neutral-950 dark:text-white">✓</span>}
                       </Link>
                     ) : (
-                      <div className={row}>{body}</div>
+                      <Link href={`/episode/?tmdb=${tmdbParam}&s=${n}&e=${e.episode}`} className={row}>{body}</Link>
                     )}
                   </li>
                 );
