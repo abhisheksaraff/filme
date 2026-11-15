@@ -1,15 +1,19 @@
-// components/StarringInput.tsx
-// Who stars in a title, as removable bubbles. Suggests people from your own log first, then the
-// catalogue; anything else can still be added by name and gets the default person icon.
+// components/PeopleInput.tsx
+// One row of people on a title (starring, director, ...), as removable bubbles in a single line that
+// scrolls sideways. Suggests people from your own log first, then the catalogue; anyone else can still
+// be added by name and gets the default person icon.
 "use client";
 
 import { useEffect, useState } from "react";
 import Icon from "@/components/Icon";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { StarringPick } from "@/lib/adapters/supabase/credits";
+import { samePick } from "@/components/entryDraft";
 import { services } from "@/lib/services";
 
 interface Props {
+  /** Shown above the row, such as "Director". */
+  label: string;
   people: StarringPick[];
   onChange: (next: StarringPick[]) => void;
   disabled?: boolean;
@@ -32,10 +36,7 @@ function Face({ path, size }: { path: string | null; size: number }) {
   );
 }
 
-const same = (a: StarringPick, b: StarringPick) =>
-  (a.personId && a.personId === b.personId) || (a.tmdbId !== null && a.tmdbId === b.tmdbId) || (!a.personId && a.tmdbId === null && !b.personId && b.tmdbId === null && a.name.toLowerCase() === b.name.toLowerCase());
-
-export default function StarringInput({ people, onChange, disabled }: Props) {
+export default function PeopleInput({ label, people, onChange, disabled }: Props) {
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<{ query: string; items: Suggestion[] }>({ query: "", items: [] });
 
@@ -52,7 +53,7 @@ export default function StarringInput({ people, onChange, disabled }: Props) {
       const more: Suggestion[] = tmdb.ok
         ? tmdb.value.filter((p) => !known.has(p.tmdbId)).map((p) => ({ personId: null, tmdbId: p.tmdbId, name: p.name, profilePath: p.profilePath, own: false }))
         : [];
-      setFound({ query: text, items: [...mine, ...more].filter((s) => !people.some((p) => same(p, s))) });
+      setFound({ query: text, items: [...mine, ...more].filter((s) => !people.some((p) => samePick(p, s))) });
     }, 400);
     return () => {
       stale = true;
@@ -61,7 +62,7 @@ export default function StarringInput({ people, onChange, disabled }: Props) {
   }, [query, people]);
 
   function add(pick: StarringPick) {
-    if (!people.some((p) => same(p, pick))) onChange([...people, { personId: pick.personId, tmdbId: pick.tmdbId, name: pick.name, profilePath: pick.profilePath }]);
+    if (!people.some((p) => samePick(p, pick))) onChange([...people, { personId: pick.personId, tmdbId: pick.tmdbId, name: pick.name, profilePath: pick.profilePath }]);
     setQuery("");
   }
 
@@ -71,15 +72,15 @@ export default function StarringInput({ people, onChange, disabled }: Props) {
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="px-1 text-xs text-neutral-500">Starring</span>
+      <span className="px-1 text-xs text-neutral-500">{label}</span>
 
       {people.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {people.map((p, index) => (
-            <span key={`${p.name}-${index}`} className="inline-flex items-center gap-2 rounded-full bg-neutral-900 py-1 pl-1 pr-3 text-sm text-white dark:bg-white dark:text-neutral-900">
+            <span key={`${p.name}-${index}`} className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-neutral-900 py-1 pl-1 pr-3 text-sm text-white dark:bg-white dark:text-neutral-900">
               <Face path={p.profilePath} size={24} />
               {p.name}
-              <button type="button" disabled={disabled} aria-label={`Remove ${p.name}`} onClick={() => onChange(people.filter((_, i) => i !== index))}>✕</button>
+              <button type="button" disabled={disabled} aria-label={`Remove ${p.name} from ${label}`} onClick={() => onChange(people.filter((_, i) => i !== index))}>✕</button>
             </span>
           ))}
         </div>
@@ -88,7 +89,7 @@ export default function StarringInput({ people, onChange, disabled }: Props) {
       <input
         value={query}
         disabled={disabled}
-        placeholder="Type a name"
+        placeholder={`Add to ${label.toLowerCase()}`}
         enterKeyHint="done"
         autoCorrect="off"
         onChange={(e) => setQuery(e.target.value)}

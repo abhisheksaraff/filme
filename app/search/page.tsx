@@ -1,5 +1,5 @@
 // app/search/page.tsx
-// Search your own log, your want-to-watch list and TMDB at once.
+// Search your own log, your watchlist and TMDB at once.
 "use client";
 
 import Link from "next/link";
@@ -259,7 +259,7 @@ function SearchView() {
 
       {mode === "search" && wantedMatches.length > 0 && (
         <section className="flex flex-col gap-2">
-          <h2 className="font-serif text-xl">Want to watch</h2>
+          <h2 className="font-serif text-xl">Watchlist</h2>
           <ul className="flex flex-col gap-3">
             {wantedMatches.map((item) => (
               <ResultRow
@@ -290,7 +290,7 @@ function SearchView() {
                   href={previewHref(hit.kind, hit.tmdbId)}
                   poster={hit.posterUrl}
                   title={hit.title}
-                  subtitle={[hit.year, seen.has(key) ? "Seen" : wantedKeys.has(key) ? "Want to watch" : null].filter(Boolean).join(" · ")}
+                  subtitle={[hit.year, seen.has(key) ? "Seen" : wantedKeys.has(key) ? "Watchlist" : null].filter(Boolean).join(" · ")}
                 />
               );
             })}

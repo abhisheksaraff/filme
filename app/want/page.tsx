@@ -1,5 +1,5 @@
 // app/want/page.tsx
-// Your want-to-watch list, with theatre alerts, release reminders and new episodes of shows you follow.
+// Your watchlist, with theatre alerts, release reminders and new episodes of shows you follow.
 "use client";
 
 import Link from "next/link";
@@ -110,7 +110,7 @@ export default function WantPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
-      <h1 className="font-serif text-3xl tracking-tight">Want to watch</h1>
+      <h1 className="font-serif text-3xl tracking-tight">Watchlist</h1>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
       {inTheatres.length > 0 && (
@@ -162,7 +162,7 @@ export default function WantPage() {
       )}
 
       {!wanted && <div className="skeleton h-40 rounded-2xl" />}
-      {wanted?.length === 0 && <p className="text-sm text-neutral-500">Nothing here yet. Open any title and tap “Want to watch”.</p>}
+      {wanted?.length === 0 && <p className="text-sm text-neutral-500">Nothing here yet. Open any title and tap the bookmark.</p>}
       <ul className="grid grid-cols-2 gap-4">
         {wanted?.map((item) => {
           const poster = tmdbImageUrl(item.posterPath, "w342");

@@ -1,5 +1,5 @@
 // lib/home/rows.ts
-// Builds each Home row from the log, the want-to-watch list and TMDB. Rows are kept until the app
+// Builds each Home row from the log, the watchlist and TMDB. Rows are kept until the app
 // is reopened or the user refreshes, so coming back to Home never reshuffles or spends TMDB calls.
 import { GENRES } from "@/lib/domain/home";
 import { THEMES } from "@/lib/domain/holidays";
@@ -183,7 +183,7 @@ async function wantRow(): Promise<Result<RowResult>> {
       href: item.tmdbId === null ? `/title/?id=${item.mediaId}` : previewHref(kind, item.tmdbId),
     };
   });
-  return ok({ title: "Want to watch", items, empty: "Nothing saved yet. Search for a title and tap Want to watch." });
+  return ok({ title: "Watchlist", items, empty: "Nothing saved yet. Search for a title and tap the bookmark." });
 }
 
 async function favouritesRow(): Promise<Result<RowResult>> {
@@ -331,7 +331,7 @@ async function theatreRow(when: "now" | "soon"): Promise<Result<RowResult>> {
   });
 }
 
-/** Films on the want-to-watch list that are in theatres or opening soon. */
+/** Films on the watchlist that are in theatres or opening soon. */
 async function arrivingRow(): Promise<Result<RowResult>> {
   const region = await regionCode();
   const [list, now, soon] = await Promise.all([services.wanted.list(), services.catalog.theatres("now", region), services.catalog.theatres("soon", region)]);
@@ -343,7 +343,7 @@ async function arrivingRow(): Promise<Result<RowResult>> {
 
 /** Loads one Home row by id. */
 export function loadRow(id: string): Promise<Result<RowResult>> {
-  // Rows are kept until the app reopens or Home is refreshed; the want list is always read fresh
+  // Rows are kept until the app reopens or Home is refreshed; the watchlist is always read fresh
   // so a title saved a moment ago shows up.
   return cached(`row:${id}`, () => {
     if (id === "like-movie") return likeRow("Movie");

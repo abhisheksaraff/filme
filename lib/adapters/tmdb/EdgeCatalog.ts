@@ -13,6 +13,9 @@ interface CreditRow extends SearchRow {
   media_type?: string;
 }
 
+/** Most cast members saved for one title. */
+const MAX_CAST = 60;
+
 const year = (date?: string) => (date ? parseInt(date.slice(0, 4), 10) || null : null);
 
 interface SearchRow {
@@ -181,7 +184,8 @@ export const edgeCatalog: Catalog = {
       (isMovie ? d.credits?.cast : d.aggregate_credits?.cast) ?? [];
 
     const credits: CatalogCredit[] = [
-      ...cast.slice(0, 15).map((p, i): CatalogCredit => ({
+      // The whole billed cast, up to a limit so a long-running show does not save hundreds of bit parts.
+      ...cast.slice(0, MAX_CAST).map((p, i): CatalogCredit => ({
         tmdbId: p.id,
         name: p.name,
         role: "actor",

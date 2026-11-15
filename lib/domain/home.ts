@@ -32,7 +32,7 @@ export interface HomeRowDef {
 export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "like-movie", label: "You might also like" },
   { id: "like-tv", label: "TV shows you might like" },
-  { id: "want", label: "Want to watch" },
+  { id: "want", label: "Watchlist" },
   { id: "favourites", label: "New from your favourites" },
   { id: "theatres", label: "In theatres near you" },
   { id: "soon", label: "Opening soon" },

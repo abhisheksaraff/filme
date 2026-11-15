@@ -10,6 +10,8 @@ export interface CreditPerson {
   role: string;
   character: string | null;
   profilePath: string | null;
+  /** Billing order; null for crew, and -1 for people added by hand. */
+  order: number | null;
 }
 
 /** A person offered while typing a name: from the user's own history or from the catalogue. */

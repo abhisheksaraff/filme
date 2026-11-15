@@ -13,9 +13,12 @@ import EntryForm from "@/components/EntryForm";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import {
   EMPTY_DRAFT,
+  changesFromMatch,
   draftFromExtraction,
   entryFromDraft,
   mediaFromCatalog,
+  peopleFromMatch,
+  withoutMatchPeople,
   type EntryDraft,
 } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -24,7 +27,7 @@ import Icon from "@/components/Icon";
 import { convertImage, PHOTO_PRESET, STUB_PRESET } from "@/lib/images/convert";
 import { takePrefill } from "@/lib/logPrefill";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
-import { addStarring, syncCredits } from "@/lib/credits";
+import { savePeople, syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
 
 const SEARCH_DELAY_MS = 500;
@@ -63,13 +66,21 @@ export default function ScanPage() {
     if (!found.ok) return setProblem(found.error);
     if (!found.value) return;
     const details = await services.catalog.details(found.value);
-    if (details.ok) setMatch(details.value);
+    if (details.ok) adopt(details.value);
     else setProblem(details.error);
+  }
+
+  /** Makes a TMDB title the match and fills the cast and crew rows from it. */
+  function adopt(details: CatalogDetails) {
+    setMatch(details);
+    setDraft((current) => ({ ...current, people: peopleFromMatch(current.people, details) }));
   }
 
   /** The user changed the title or type: drop the old match and search again after a short pause. */
   function onUserEdit(_field: "title" | "category", next: EntryDraft) {
     setMatch(null);
+    // The old match's people no longer apply; anyone added by hand stays.
+    setDraft((current) => ({ ...current, people: withoutMatchPeople(current.people) }));
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const round = ++searchRound.current;
 
@@ -87,7 +98,7 @@ export default function ScanPage() {
     setBusy(null);
     if (!details.ok) return setProblem(details.error);
     setMatch(details.value);
-    setDraft((current) => ({ ...current, title: details.value.title, category: hit.kind }));
+    setDraft((current) => ({ ...current, title: details.value.title, category: hit.kind, people: peopleFromMatch(current.people, details.value) }));
   }
 
   // Whenever a TMDB title is matched, offer its posters and covers.
@@ -146,7 +157,8 @@ export default function ScanPage() {
     return () => {
       cancelled = true;
     };
-    // autoMatch only uses setters and services, so it is safe to leave out.
+    // autoMatch and adopt only use state setters and services, so they are safe to leave out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, images]);
 
   // "Log another viewing" from a title page arrives here with the title already chosen.
@@ -160,7 +172,7 @@ export default function ScanPage() {
       if (prefill.tmdbId === null || (prefill.category !== "Movie" && prefill.category !== "TV Show")) return;
       setBusy("Finding on TMDB…");
       const details = await services.catalog.details({ tmdbId: prefill.tmdbId, kind: prefill.category });
-      if (details.ok) setMatch(details.value);
+      if (details.ok) adopt(details.value);
       else setProblem(details.error);
       setBusy(null);
     })();
@@ -193,12 +205,14 @@ export default function ScanPage() {
           if (added.ok) await services.images.setDefault({ mediaId: saved.value.mediaId }, added.value.id);
         }
       }
-      if (draft.starring.length > 0) await addStarring(saved.value.mediaId, draft.starring);
+      // People added by hand, and anyone taken out of a row, are applied before the usual credits refresh.
+      const changes = changesFromMatch(draft.people, match, draft.category);
+      if (changes.added.length > 0 || changes.removed.length > 0) await savePeople(saved.value.mediaId, changes.added, changes.removed);
       for (const photo of photos) await services.images.add({ sessionId: saved.value.sessionId }, "photo", photo.blob, null);
-      // Genres and cast are saved in the background; the log entry is already safe.
+      // Genres and the rest of the cast and crew are saved last; the log entry itself is already safe.
       const tmdbId = entry.value.media?.tmdbId;
       if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {
-        void syncCredits(saved.value.mediaId, entry.value.category, tmdbId);
+        await syncCredits(saved.value.mediaId, entry.value.category, tmdbId);
       }
       router.replace("/watchlist/");
     } catch (err) {

@@ -1,6 +1,7 @@
 // components/FlatMap.tsx
-// A flat map made of CARTO tiles with the app's own pins on top. One finger scrolls the page;
-// two fingers move and pinch-zoom the map (a mouse can drag, and ctrl + wheel zooms).
+// A flat map made of CARTO tiles with the app's own pins on top. Inline, one finger scrolls the page
+// and two fingers move and pinch-zoom the map; full screen, one finger drags the map too. A mouse can
+// drag, and ctrl + wheel zooms.
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -51,9 +52,11 @@ interface Props {
   points: VenuePoint[];
   onPick?: (point: VenuePoint, category: string | null) => void;
   className?: string;
+  /** Fills the screen behind the page chrome: one finger drags the map, and controls sit below the top bar. */
+  fullScreen?: boolean;
 }
 
-export default function FlatMap({ points, onPick, className = "h-[60vh]" }: Props) {
+export default function FlatMap({ points, onPick, className = "h-[60vh]", fullScreen = false }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [custom, setCustom] = useState<View | null>(null);
@@ -101,24 +104,27 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]" }: Prop
     if (!el) return;
     let last: { x: number; y: number; d: number } | null = null;
     const read = (e: TouchEvent) => {
-      const [a, b] = [e.touches[0], e.touches[1]];
+      const [a, b] = [e.touches[0], e.touches[1] ?? e.touches[0]];
       return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) };
     };
+    // Full screen has no page to scroll, so a single finger moves the map as well.
+    const need = fullScreen ? 1 : 2;
     const start = (e: TouchEvent) => {
-      last = e.touches.length >= 2 ? read(e) : null;
+      last = e.touches.length >= need ? read(e) : null;
     };
     const move = (e: TouchEvent) => {
       const v = viewRef.current;
       const s = sizeRef.current;
-      if (e.touches.length < 2 || !last || !v || !s) return;
+      if (e.touches.length < need || !last || !v || !s) return;
       e.preventDefault();
       const now = read(e);
       const rect = el.getBoundingClientRect();
-      setCustom(transform(v, s, { x: last.x - rect.left, y: last.y - rect.top }, { x: now.x - rect.left, y: now.y - rect.top }, now.d / (last.d || 1)));
+      const ratio = e.touches.length >= 2 ? now.d / (last.d || 1) : 1;
+      setCustom(transform(v, s, { x: last.x - rect.left, y: last.y - rect.top }, { x: now.x - rect.left, y: now.y - rect.top }, ratio));
       last = now;
     };
     const end = (e: TouchEvent) => {
-      last = e.touches.length >= 2 ? read(e) : null;
+      last = e.touches.length >= need ? read(e) : null;
     };
     const wheel = (e: WheelEvent) => {
       const v = viewRef.current;
@@ -140,7 +146,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]" }: Prop
       el.removeEventListener("touchend", end);
       el.removeEventListener("wheel", wheel);
     };
-  }, []);
+  }, [fullScreen]);
 
   const drag = useRef<{ x: number; y: number } | null>(null);
 
@@ -217,9 +223,9 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]" }: Prop
   return (
     <div
       ref={box}
-      className={`relative w-full select-none overflow-hidden rounded-3xl bg-neutral-200 dark:bg-neutral-800 ${className}`}
-      // One finger keeps scrolling the page vertically; two fingers are taken over above.
-      style={{ touchAction: "pan-y" }}
+      className={`relative w-full select-none overflow-hidden bg-neutral-200 dark:bg-neutral-800 ${fullScreen ? "" : "rounded-3xl"} ${className}`}
+      // Inline, one finger keeps scrolling the page and two fingers are taken over above.
+      style={{ touchAction: fullScreen ? "none" : "pan-y" }}
       onPointerDown={(e) => {
         if (e.pointerType === "mouse") drag.current = { x: e.clientX, y: e.clientY };
       }}
@@ -270,11 +276,11 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]" }: Prop
         </button>
       ))}
 
-      <div className="absolute right-3 top-3 flex flex-col gap-2">
+      <div className={`absolute right-3 flex flex-col gap-2 ${fullScreen ? "top-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)]" : "top-3"}`}>
         <RoundButton icon="plus" label="Zoom in" onClick={() => zoomBy(1)} />
         <RoundButton icon="minus" label="Zoom out" onClick={() => zoomBy(-1)} />
       </div>
-      <span className="pointer-events-none absolute bottom-1 left-2 rounded bg-white/70 px-1 text-[10px] text-neutral-700 dark:bg-black/50 dark:text-neutral-300">
+      <span className={`pointer-events-none absolute left-2 rounded bg-white/70 ${fullScreen ? "bottom-24" : "bottom-1"} px-1 text-[10px] text-neutral-700 dark:bg-black/50 dark:text-neutral-300`}>
         © OpenStreetMap © CARTO
       </span>
     </div>

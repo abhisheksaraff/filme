@@ -5,7 +5,7 @@ import type { ExtractedData } from "@/lib/domain/extraction";
 import type { FormatAddon, PrimaryFormat } from "@/lib/domain/formats";
 import type { MediaCategory } from "@/lib/domain/media";
 import type { CatalogDetails } from "@/lib/ports/catalog";
-import type { StarringPick } from "@/lib/adapters/supabase/credits";
+import type { PeopleChange, PersonRole, StarringPick } from "@/lib/adapters/supabase/credits";
 import { fail, ok, type Result } from "@/lib/ports/result";
 
 export interface DraftSeat {
@@ -31,8 +31,71 @@ export interface EntryDraft {
   seats: DraftSeat[];
   rating: string;
   notes: string;
-  /** Cast chosen by hand; saved with the title, not with this one viewing. */
-  starring: StarringPick[];
+  /** Cast and crew rows; saved with the title, not with this one viewing. */
+  people: PeopleDraft;
+}
+
+export const PERSON_ROLES: readonly PersonRole[] = ["actor", "director", "producer", "writer", "creator"];
+export type PeopleDraft = Record<PersonRole, StarringPick[]>;
+export const emptyPeople = (): PeopleDraft => ({ actor: [], director: [], producer: [], writer: [], creator: [] });
+
+export const ROLE_LABEL: Record<PersonRole, string> = { actor: "Starring", director: "Director", producer: "Producer", writer: "Writer", creator: "Creator" };
+
+/** The rows shown for a kind of title; concerts and live events list performers elsewhere. */
+export function rolesFor(category: string): PersonRole[] {
+  if (category === "Movie") return ["actor", "director", "producer", "writer"];
+  if (category === "TV Show") return ["actor", "director", "producer", "writer", "creator"];
+  return [];
+}
+
+/** True when two picks are the same person: same row, same catalogue id, or the same typed name. */
+export const samePick = (a: StarringPick, b: StarringPick) =>
+  (!!a.personId && a.personId === b.personId) ||
+  (a.tmdbId !== null && a.tmdbId === b.tmdbId) ||
+  (!a.personId && a.tmdbId === null && !b.personId && b.tmdbId === null && a.name.toLowerCase() === b.name.toLowerCase());
+
+/** Fills every row from a matched title, keeping anyone the user added by hand and replacing the previous match. */
+export function peopleFromMatch(current: PeopleDraft, details: CatalogDetails): PeopleDraft {
+  const next = emptyPeople();
+  for (const role of PERSON_ROLES) {
+    const fromMatch = [...new Map(details.credits.filter((c) => c.role === role).map((c) => [c.tmdbId, c])).values()]
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+      .map((c): StarringPick => ({ personId: null, tmdbId: c.tmdbId, name: c.name, profilePath: c.profilePath, order: c.order, character: c.character, fromMatch: true }));
+    const manual = current[role].filter((p) => !p.fromMatch && !fromMatch.some((m) => samePick(m, p)));
+    next[role] = [...fromMatch, ...manual];
+  }
+  return next;
+}
+
+/** Drops everyone a match filled in, when the user changes the title and the match no longer applies. */
+export function withoutMatchPeople(current: PeopleDraft): PeopleDraft {
+  const next = emptyPeople();
+  for (const role of PERSON_ROLES) next[role] = current[role].filter((p) => !p.fromMatch);
+  return next;
+}
+
+/**
+ * What to save for a new viewing: people added by hand are linked, and catalogue people the user
+ * took out of a row are removed (the catalogue fill itself is saved by the usual credits refresh).
+ */
+export function changesFromMatch(people: PeopleDraft, details: CatalogDetails | null, category: string): { added: PeopleChange[]; removed: PeopleChange[] } {
+  const roles = rolesFor(category);
+  const added = roles.flatMap((role) => people[role].filter((p) => !p.fromMatch).map((pick) => ({ role, pick })));
+  const removed = details
+    ? details.credits
+        .filter((c) => roles.includes(c.role) && !people[c.role].some((p) => p.tmdbId === c.tmdbId))
+        .map((c) => ({ role: c.role, pick: { personId: null, tmdbId: c.tmdbId, name: c.name, profilePath: c.profilePath } }))
+    : [];
+  return { added, removed };
+}
+
+/** What changed in the rows of a saved title, compared with what was loaded. */
+export function changesFromEdit(before: PeopleDraft, after: PeopleDraft, category: string): { added: PeopleChange[]; removed: PeopleChange[] } {
+  const roles = rolesFor(category);
+  return {
+    added: roles.flatMap((role) => after[role].filter((p) => !before[role].some((b) => samePick(b, p))).map((pick) => ({ role, pick }))),
+    removed: roles.flatMap((role) => before[role].filter((b) => !after[role].some((p) => samePick(b, p))).map((pick) => ({ role, pick }))),
+  };
 }
 
 export const EMPTY_DRAFT: EntryDraft = {
@@ -52,7 +115,7 @@ export const EMPTY_DRAFT: EntryDraft = {
   seats: [],
   rating: "",
   notes: "",
-  starring: [],
+  people: emptyPeople(),
 };
 
 const text = (value: string | null | undefined) => value ?? "";
@@ -173,6 +236,6 @@ export function draftFromEntry(entry: LogEntry): EntryDraft {
     seats: entry.seats.map((s) => ({ section: text(s.section), row: text(s.row), seat: text(s.seat) })),
     rating: numberText(entry.rating),
     notes: text(entry.notes),
-    starring: [],
+    people: emptyPeople(),
   };
 }

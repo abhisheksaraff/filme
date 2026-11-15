@@ -1,5 +1,5 @@
 // app/map/page.tsx
-// A flat map of every venue. Tap a pin for a black sheet listing what you watched there.
+// A full-screen map of every venue. Tap a pin for a black sheet listing what you watched there.
 "use client";
 
 import Link from "next/link";
@@ -97,15 +97,19 @@ export default function MapPage() {
   for (const v of open?.detail?.viewings ?? []) counts.set(v.category, (counts.get(v.category) ?? 0) + 1);
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-5 pt-2">
-      <h1 className="font-serif text-3xl tracking-tight">Where you watched</h1>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
-      <FlatMap points={points} onPick={pick} />
-      {points.length === 0 && !problem && <p className="px-1 text-sm text-neutral-500">Pins appear once your venues have an address or city.</p>}
-      {finding && <p className="px-1 text-xs text-neutral-500">Finding more venues on the map…</p>}
+    <main className="fixed inset-0 z-10">
+      <FlatMap points={points} onPick={pick} fullScreen className="h-full" />
+      {/* Sits beside the back button, which Shell floats at the top left of the column. */}
+      <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20">
+        <div className="mx-auto flex h-10 w-full max-w-md items-center gap-3 pl-[4.25rem] pr-4">
+          <h1 className="rounded-full bg-white/85 px-4 py-1.5 font-serif text-xl leading-tight tracking-tight text-neutral-950 shadow backdrop-blur dark:bg-black/70 dark:text-white">Map</h1>
+          {finding && <span className="rounded-full bg-white/85 px-3 py-1 text-xs text-neutral-700 shadow backdrop-blur dark:bg-black/70 dark:text-neutral-300">Finding venues…</span>}
+        </div>
+      </div>
+      {problem && <p role="alert" className="absolute inset-x-6 top-20 z-20 rounded-2xl bg-white/90 px-3 py-2 text-sm text-red-600 dark:bg-black/70">{problem}</p>}
 
       {open && (
-        <div className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-h-[75vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-3xl bg-black px-5 pb-8 pt-5 text-white shadow-2xl">
+        <div className="fixed inset-x-3 bottom-24 z-40 mx-auto flex max-h-[60vh] w-auto max-w-md flex-col gap-4 overflow-y-auto rounded-3xl bg-black px-5 pb-6 pt-5 text-white shadow-2xl">
           <div className="flex items-center gap-3">
             <Chip icon="close" label="Close" onClick={() => setOpen(null)} />
             <Link href={`/venue/?id=${open.point.id}`} className="min-w-0 flex-1 truncate font-serif text-xl">{open.point.name}</Link>

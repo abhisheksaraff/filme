@@ -12,8 +12,10 @@ import { recallScroll, saveScroll } from "@/lib/pageMemory";
 const NO_NAV = ["/", "/login/", "/story/"];
 /** No back button: Home is the end of the trail. */
 const NO_BACK = ["/", "/login/", "/home/", "/story/"];
-/** Pages that open on a cover photo: the same button floats over it instead of reserving a row. */
-const OVER_COVER = ["/title/", "/preview/"];
+/** Pages that open on a cover photo or fill the screen: the same button floats over it instead of reserving a row. */
+const OVER_COVER = ["/title/", "/preview/", "/map/"];
+/** The page fills the whole screen, so no space is kept free for the bottom bar. */
+const FULL_SCREEN = ["/map/"];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -22,6 +24,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const showNav = !NO_NAV.includes(path);
   const showBack = !NO_BACK.includes(path);
   const overCover = OVER_COVER.includes(path);
+  const fullScreen = FULL_SCREEN.includes(path);
 
   // Keeps each page's scroll position, and returns to it when the page is reached with Back.
   useEffect(() => {
@@ -66,7 +69,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       )}
       {children}
       {/* Keeps the last line of every page clear of the floating bar. */}
-      {showNav && <div aria-hidden className="h-28 shrink-0" />}
+      {showNav && !fullScreen && <div aria-hidden className="h-28 shrink-0" />}
       {showNav && <BottomNav />}
     </>
   );

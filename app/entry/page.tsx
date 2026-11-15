@@ -7,10 +7,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import EntryForm from "@/components/EntryForm";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { draftFromEntry, entryFromDraft, type EntryDraft } from "@/components/entryDraft";
+import { changesFromEdit, draftFromEntry, emptyPeople, entryFromDraft, PERSON_ROLES, type EntryDraft, type PeopleDraft } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { LogEntry } from "@/lib/domain/entry";
-import { syncCredits } from "@/lib/credits";
+import { savePeople, syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
 
 function EditView() {
@@ -21,6 +21,8 @@ function EditView() {
   const [mediaId, setMediaId] = useState<string | null>(null);
   const [original, setOriginal] = useState<LogEntry | null>(null);
   const [draft, setDraft] = useState<EntryDraft | null>(null);
+  /** The title's cast and crew as loaded, to work out what the user changed. */
+  const [loadedPeople, setLoadedPeople] = useState<PeopleDraft>(emptyPeople);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -32,6 +34,21 @@ function EditView() {
       if (res.ok) {
         setMediaId(res.value.mediaId);
         setOriginal(res.value.entry);
+        services.browse.titleCredits(res.value.mediaId).then((credits) => {
+          if (cancelled) return;
+          const people = emptyPeople();
+          if (credits.ok) {
+            // Billed cast first in billing order; people added by hand (order -1) and crew after.
+            const rank = (order: number | null) => (order === null || order < 0 ? 999 : order);
+            const ordered = [...credits.value.people].sort((a, b) => rank(a.order) - rank(b.order));
+            for (const p of ordered) {
+              const role = PERSON_ROLES.find((r) => r === p.role);
+              if (role) people[role].push({ personId: p.personId, tmdbId: p.tmdbId, name: p.name, profilePath: p.profilePath, character: p.character });
+            }
+          }
+          setLoadedPeople(people);
+          setDraft((current) => (current ? { ...current, people } : current));
+        });
         setDraft(draftFromEntry(res.value.entry));
       } else {
         setProblem(res.error);
@@ -59,6 +76,10 @@ function EditView() {
       setBusy(false);
       return;
     }
+    // Cast and crew edits apply to the title, so they only make sense against the title they were loaded from.
+    const sameTitle = saved.value.mediaId === mediaId;
+    const changes = changesFromEdit(sameTitle ? loadedPeople : emptyPeople(), draft.people, entry.value.category);
+    if (changes.added.length > 0 || changes.removed.length > 0) await savePeople(saved.value.mediaId, changes.added, changes.removed);
     // A changed title may be a new one that has no genres or cast yet.
     const tmdbId = entry.value.media?.tmdbId;
     if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {

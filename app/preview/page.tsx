@@ -1,5 +1,5 @@
 // app/preview/page.tsx
-// A catalogue title you have not logged (or have): details, plus add or remove from want to watch.
+// A catalogue title you have not logged (or have): details, plus add or remove from your watchlist.
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -89,7 +89,7 @@ function PreviewView() {
                 <RoundButton
                   icon="bookmark"
                   filled={status.wanted}
-                  label={status.wanted ? "Remove from want to watch" : "Add to want to watch"}
+                  label={status.wanted ? "Remove from watchlist" : "Add to watchlist"}
                   tone="dark"
                   size="lg"
                   disabled={busy}

@@ -7,9 +7,9 @@ import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } 
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
 import { services } from "@/lib/services";
 import Icon from "./Icon";
-import StarringInput from "./StarringInput";
+import PeopleInput from "./PeopleInput";
 import TagInput from "./TagInput";
-import { parseSeatTag, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
+import { parseSeatTag, rolesFor, ROLE_LABEL, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
 
 const field = "w-full rounded-2xl bg-neutral-100 px-4 py-3 text-base outline-none dark:bg-neutral-800";
 
@@ -151,7 +151,9 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           </Labeled>
           {titleExtra}
         </div>
-        <StarringInput people={draft.starring} onChange={(next) => set("starring", next)} disabled={disabled} />
+        {rolesFor(draft.category).map((role) => (
+          <PeopleInput key={role} label={ROLE_LABEL[role]} people={draft.people[role]} onChange={(next) => set("people", { ...draft.people, [role]: next })} disabled={disabled} />
+        ))}
         </>
       )}
 

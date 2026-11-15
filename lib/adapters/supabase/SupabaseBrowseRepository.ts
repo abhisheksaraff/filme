@@ -24,7 +24,7 @@ export const supabaseBrowseRepository: BrowseRepository = {
       people: people.data.flatMap((row) => {
         const p = one<{ id: string; tmdb_id: number | null; name: string; profile_path: string | null }>(row.person);
         return p
-          ? [{ personId: p.id, tmdbId: p.tmdb_id, name: p.name, role: row.role as string, character: row.character as string | null, profilePath: p.profile_path }]
+          ? [{ personId: p.id, tmdbId: p.tmdb_id, name: p.name, role: row.role as string, character: row.character as string | null, profilePath: p.profile_path, order: row.billing_order as number | null }]
           : [];
       }),
     });
