@@ -74,7 +74,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => onChange({ ...draft, [key]: value });
   // Rarely used fields stay tucked away unless they already hold something.
   const [more, setMore] = useState(
-    () => !!(draft.address || draft.auditorium || draft.time || draft.totalTickets || draft.notes || draft.seats.length || draft.addons.length),
+    () => !!(draft.address || draft.auditorium || draft.totalTickets || draft.notes || draft.seats.length || draft.addons.length),
   );
   const [suggest, setSuggest] = useState<{ field: "location" | "address"; items: VenueSuggestion[] } | null>(null);
   const [typed, setTyped] = useState<{ field: "location" | "address"; text: string } | null>(null);
@@ -238,6 +238,12 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           {Array.from({ length: thisYear - 1899 }, (_, i) => String(thisYear - i)).map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       )}
+      {/* The time of day goes right after the date, since the two belong together. */}
+      {shownWhen !== "none" && (
+        <Labeled label="Time">
+          <input className={field} value={draft.time} onChange={(e) => set("time", e.target.value)} />
+        </Labeled>
+      )}
       <Labeled label="Rating">
         <RatingSlider value={draft.rating === "" ? null : Number(draft.rating)} onChange={(v) => set("rating", v === null ? "" : String(v))} />
       </Labeled>
@@ -263,14 +269,9 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           <Labeled label="Screen or hall">
             <input className={field} value={draft.auditorium} onChange={(e) => void typeScreen(e.target.value)} />
           </Labeled>
-          <div className="grid grid-cols-2 gap-3">
-            <Labeled label="Time">
-              <input className={field} value={draft.time} onChange={(e) => set("time", e.target.value)} />
-            </Labeled>
-            <Labeled label="Tickets">
-              <input className={field} inputMode="numeric" value={draft.totalTickets} onChange={(e) => set("totalTickets", e.target.value)} />
-            </Labeled>
-          </div>
+          <Labeled label="Tickets">
+            <input className={field} inputMode="numeric" value={draft.totalTickets} onChange={(e) => set("totalTickets", e.target.value)} />
+          </Labeled>
           <TagInput
             label="Add-ons"
             tags={draft.addons}

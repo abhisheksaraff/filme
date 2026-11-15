@@ -350,7 +350,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
         <ConfirmPopup
           title="Delete this photo?"
           message={deleteMessage ?? "It is removed for good."}
-          confirmLabel="Delete"
+          confirmLabel="Delete" confirmIcon="trash"
          
           busy={busy}
           onConfirm={remove}

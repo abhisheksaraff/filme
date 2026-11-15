@@ -27,4 +27,6 @@ export interface ImageRepository {
   useTmdbCover(mediaId: string, kind: "poster" | "backdrop", tmdbPath: string): Promise<Result<void>>;
   avatar(): Promise<Result<string | null>>;
   setAvatar(blob: Blob): Promise<Result<string>>;
+  /** Deletes the uploaded profile picture, so the default shows again. */
+  removeAvatar(): Promise<Result<void>>;
 }

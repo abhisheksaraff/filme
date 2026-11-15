@@ -3,7 +3,7 @@
 "use client";
 
 import { useState } from "react";
-import Popup, { POPUP_PRIMARY, POPUP_SECONDARY } from "@/components/Popup";
+import Popup, { PopupAction } from "@/components/Popup";
 import Wheel from "@/components/Wheel";
 import { MONTH_NAMES } from "@/lib/domain/stats";
 
@@ -31,8 +31,8 @@ export default function MonthPicker({ month, year, onPick, onClose }: Props) {
       onClose={onClose}
       actions={
         <>
-          <button type="button" className={POPUP_SECONDARY} onClick={onClose}>Cancel</button>
-          <button type="button" className={POPUP_PRIMARY} onClick={() => onPick(from + pickedYear, pickedMonth)}>Go</button>
+          <PopupAction icon="close" label="Cancel" tone="cancel" onClick={onClose} />
+          <PopupAction icon="check" label="Go" onClick={() => onPick(from + pickedYear, pickedMonth)} />
         </>
       }
     >

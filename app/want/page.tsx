@@ -6,6 +6,8 @@ import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import RoundButton from "@/components/RoundButton";
+import SortButton from "@/components/SortButton";
+import { usePageState } from "@/lib/pageMemory";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { CatalogHit, ShowStatus } from "@/lib/ports/catalog";
@@ -14,6 +16,14 @@ import { buildIcs, downloadText } from "@/lib/ics";
 import { previewHref } from "@/lib/home/rows";
 import { withShow } from "@/lib/domain/tv";
 import { services } from "@/lib/services";
+
+type Sort = "release-new" | "release-old" | "added-new" | "added-old";
+const SORTS: { id: Sort; label: string }[] = [
+  { id: "release-new", label: "Release date, newest" },
+  { id: "release-old", label: "Release date, oldest" },
+  { id: "added-new", label: "Recently added" },
+  { id: "added-old", label: "Oldest added" },
+];
 
 interface FollowedShow {
   tmdbId: number;
@@ -34,6 +44,7 @@ export default function WantPage() {
   const [soon, setSoon] = useState<CatalogHit[]>([]);
   const [shows, setShows] = useState<FollowedShow[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
+  const [sort, setSort] = usePageState<Sort>("want.sort", "release-new");
 
   useEffect(() => {
     if (!ready) return;
@@ -75,6 +86,18 @@ export default function WantPage() {
 
   if (!ready) return null;
 
+  // The list arrives newest-added first. Titles with no release date always go last.
+  const shownWanted = (() => {
+    const list = wanted ?? [];
+    if (sort === "added-new") return list;
+    if (sort === "added-old") return [...list].reverse();
+    const sign = sort === "release-new" ? -1 : 1;
+    return [...list].sort((a, b) => {
+      if (!a.releaseDate || !b.releaseDate) return Number(!a.releaseDate) - Number(!b.releaseDate);
+      return a.releaseDate < b.releaseDate ? sign * -1 : a.releaseDate > b.releaseDate ? sign : 0;
+    });
+  })();
+
   const wantedIds = new Set((wanted ?? []).flatMap((w) => (w.tmdbId === null ? [] : [`${w.category}:${w.tmdbId}`])));
   const inTheatres = now.filter((hit) => wantedIds.has(`Movie:${hit.tmdbId}`));
   const opening = soon.filter((hit) => wantedIds.has(`Movie:${hit.tmdbId}`) && hit.releaseDate);
@@ -106,7 +129,10 @@ export default function WantPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
-      <h1 className="font-serif text-3xl tracking-tight">Watchlist</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-serif text-3xl tracking-tight">Watchlist</h1>
+        <SortButton value={sort} options={SORTS} onChange={setSort} />
+      </div>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       {inTheatres.length > 0 && (
@@ -160,7 +186,7 @@ export default function WantPage() {
       {!wanted && <div className="skeleton h-40 rounded-2xl" />}
       {wanted?.length === 0 && <p className="text-sm text-neutral-500">Nothing here yet.</p>}
       <ul className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-        {wanted?.map((item) => {
+        {wanted && shownWanted.map((item) => {
           const poster = tmdbImageUrl(item.posterPath, "w342");
           return (
             <li key={`${item.mediaId}:${item.season ?? ""}:${item.episode ?? ""}`} className="flex flex-col gap-2">

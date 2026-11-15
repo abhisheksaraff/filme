@@ -8,6 +8,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import ProblemPopup from "@/components/ProblemPopup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import StoryDesign from "@/components/StoryDesign";
 import StoryStickers, { memoriesFor, stickersFor, type Sticker } from "@/components/StoryStickers";
 import { ACCENTS } from "@/components/decor/art";
 import { CHARMS } from "@/components/decor/charms";
@@ -342,7 +343,7 @@ function StoryView() {
         if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
       }}
     >
-      <StoryStickers pool={pool} index={index} animate={animate} memories={isDebug && slide?.heading === "Checks" ? [] : memories} />
+      <StoryStickers pool={pool} index={index} animate={animate} memories={(isDebug && slide?.heading === "Checks") || slide?.design?.type === "busy" || slide?.design?.type === "tickets" ? [] : memories} />
       <div className="relative z-10 flex gap-1 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         {slides?.map((_, i) => (
           <div key={i} className="h-1 flex-1 overflow-hidden rounded-full bg-white/30">
@@ -385,7 +386,9 @@ function StoryView() {
         {slide && (
           <>
             <p className="text-sm uppercase tracking-widest text-white/60">{slide.heading}</p>
-            {poster && (
+            {slide.design ? (
+              <StoryDesign design={slide.design} animate={animate} memories={memories} />
+            ) : poster && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={poster} alt="" className="w-40 rounded-xl shadow-lg" />
             )}

@@ -165,6 +165,18 @@ export const supabaseImageRepository: ImageRepository = {
     return ok(urls.ok ? (urls.value.get(data.path as string) ?? null) : null);
   },
 
+  async removeAvatar() {
+    const db = getSupabase();
+    const rows = await db.from("images").select("id, path, store").eq("kind", "avatar");
+    if (rows.error) return fail("Could not remove your picture.");
+    if (!rows.data?.length) return ok(undefined);
+    // The record goes first, so a failure leaves the picture as it was rather than a record with no file.
+    const removed = await db.from("images").delete().in("id", rows.data.map((r) => r.id as string));
+    if (removed.error) return fail("Could not remove your picture.");
+    for (const row of rows.data) await storeFor(row.store).remove([row.path as string]);
+    return ok(undefined);
+  },
+
   async setAvatar(blob) {
     const db = getSupabase();
     const uid = await userId();

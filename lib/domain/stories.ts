@@ -5,6 +5,19 @@ import { MONTH_NAMES, computeStats, formatDuration, type StatRow } from "./stats
 
 export type StoryKind = "day" | "month" | "year";
 
+/** How a slide is laid out beyond its plain poster, heading and number. */
+export type SlideDesign =
+  /** The favourite title big, with the runners-up smaller behind it, marked #2 and #3. */
+  | { type: "podium"; ranked: { title: string; posterPath: string | null }[] }
+  /** A map of the venue, a mosaic of posters from there, and the other places in small text. */
+  | { type: "place"; name: string; posters: string[]; others: string[] }
+  /** Drawn symbols, with the other formats in small text. */
+  | { type: "format"; others: string[] }
+  /** A tilted, slowly scrolling grid of everything from a busy stretch. */
+  | { type: "busy"; posters: string[] }
+  /** Stubs and posters scattered in a spiral round the number. */
+  | { type: "tickets"; posters: string[] };
+
 export interface Slide {
   heading: string;
   big: string;
@@ -12,6 +25,7 @@ export interface Slide {
   posterPath: string | null;
   /** The viewings this slide talks about, so their ticket stubs and photos can decorate it. */
   sessionIds?: string[];
+  design?: SlideDesign;
   /** Small lines under the slide, used by the temporary debug story. */
   lines?: string[];
 }
@@ -44,6 +58,9 @@ export function storyTitle(kind: StoryKind, period: string): string {
   if (kind === "year") return `Your ${period}`;
   return `${MONTH_NAMES[Number(period.slice(5, 7)) - 1] ?? period} ${period.slice(0, 4)}`;
 }
+
+/** Poster paths of the given viewings, each once, at most `max`. */
+const postersOf = (rows: StatRow[], max: number): string[] => [...new Set(rows.map((r) => r.posterPath).filter((p): p is string => p !== null))].slice(0, max);
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -78,29 +95,68 @@ function periodSlides(all: StatRow[], kind: "month" | "year", period: string): S
       caption: `${plural(stats.titles, "title")} · ${formatDuration(stats.minutes)}`,
       posterPath: null,
       sessionIds: rows.map((row) => row.id),
+      // The most watched titles, if any have a poster; otherwise the slide stays plain.
+      design: stats.topTitles.some((t) => posterOf(t.label))
+        ? { type: "podium", ranked: stats.topTitles.slice(0, 3).map((t) => ({ title: t.label, posterPath: posterOf(t.label) })) }
+        : undefined,
     },
   ];
 
-  const best = rows.filter((row) => row.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))[0];
-  if (best) slides.push({ heading: "Your top rated", big: best.title, caption: `★ ${best.rating}`, posterPath: best.posterPath, sessionIds: [best.id] });
+  const rated = rows.filter((row) => row.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  const best = rated[0];
+  if (best) {
+    // The three best-rated titles, each once.
+    const ranked = rated.filter((row, i) => rated.findIndex((r) => r.title === row.title) === i).slice(0, 3);
+    slides.push({
+      heading: "Your top rated",
+      big: best.title,
+      caption: `★ ${best.rating}`,
+      posterPath: best.posterPath,
+      sessionIds: [best.id],
+      design: { type: "podium", ranked: ranked.map((row) => ({ title: row.title, posterPath: row.posterPath })) },
+    });
+  }
 
   const again = stats.topTitles[0];
   if (again && again.value > 1) {
-    slides.push({ heading: "Watched the most", big: again.label, caption: `${again.value} times`, posterPath: posterOf(again.label), sessionIds: rows.filter((row) => row.title === again.label).map((row) => row.id) });
+    slides.push({ heading: "Watched the most", big: again.label, caption: `${again.value} times`, posterPath: posterOf(again.label), sessionIds: rows.filter((row) => row.title === again.label).map((row) => row.id), design: { type: "podium", ranked: stats.topTitles.slice(0, 3).map((t) => ({ title: t.label, posterPath: posterOf(t.label) })) } });
   }
 
-  if (stats.venues[0]) slides.push({ heading: "Favourite place", big: stats.venues[0].label, caption: plural(stats.venues[0].value, "visit"), posterPath: null, sessionIds: rows.filter((row) => row.venue === stats.venues[0].label).map((row) => row.id) });
-  if (stats.formats[0]) slides.push({ heading: "Favourite format", big: stats.formats[0].label, caption: plural(stats.formats[0].value, "viewing"), posterPath: null, sessionIds: rows.filter((row) => row.format === stats.formats[0].label).map((row) => row.id) });
+  if (stats.venues[0]) {
+    const there = rows.filter((row) => row.venue === stats.venues[0].label);
+    slides.push({
+      heading: "Favourite place",
+      big: stats.venues[0].label,
+      caption: plural(stats.venues[0].value, "visit"),
+      posterPath: null,
+      sessionIds: there.map((row) => row.id),
+      design: { type: "place", name: stats.venues[0].label, posters: postersOf(there, 6), others: stats.venues.slice(1, 4).map((v) => v.label) },
+    });
+  }
+  if (stats.formats[0]) {
+    slides.push({
+      heading: "Favourite format",
+      big: stats.formats[0].label,
+      caption: plural(stats.formats[0].value, "viewing"),
+      posterPath: null,
+      sessionIds: rows.filter((row) => row.format === stats.formats[0].label).map((row) => row.id),
+      design: { type: "format", others: stats.formats.slice(1, 4).map((f) => f.label) },
+    });
+  }
 
   if (kind === "year") {
     const busiest = [...stats.months].sort((a, b) => b.value - a.value)[0];
     if (busiest && busiest.value > 0) {
       const name = MONTH_NAMES.find((m) => m.startsWith(busiest.label)) ?? busiest.label;
-      slides.push({ heading: "Busiest month", big: name, caption: plural(busiest.value, "viewing"), posterPath: null, sessionIds: rows.filter((row) => row.watchedOn?.slice(5, 7) === String(MONTH_NAMES.findIndex((m) => m === name) + 1).padStart(2, "0")).map((row) => row.id) });
+      const inMonth = rows.filter((row) => row.watchedOn?.slice(5, 7) === String(MONTH_NAMES.findIndex((m) => m === name) + 1).padStart(2, "0"));
+      slides.push({ heading: "Busiest month", big: name, caption: plural(busiest.value, "viewing"), posterPath: null, sessionIds: inMonth.map((row) => row.id), design: { type: "busy", posters: postersOf(inMonth, 12) } });
     }
   }
 
-  if (stats.tickets > 0) slides.push({ heading: "Tickets", big: String(stats.tickets), caption: "collected", posterPath: null, sessionIds: rows.filter((row) => (row.tickets ?? 0) > 0).map((row) => row.id) });
+  if (stats.tickets > 0) {
+    const withTickets = rows.filter((row) => (row.tickets ?? 0) > 0);
+    slides.push({ heading: "Tickets", big: String(stats.tickets), caption: "collected", posterPath: null, sessionIds: withTickets.map((row) => row.id), design: { type: "tickets", posters: postersOf(withTickets, 8) } });
+  }
   return slides;
 }
 

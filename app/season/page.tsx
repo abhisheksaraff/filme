@@ -6,7 +6,7 @@ import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import Popup, { POPUP_PRIMARY, POPUP_SECONDARY } from "@/components/Popup";
+import Popup, { PopupAction } from "@/components/Popup";
 import WhenPopup from "@/components/WhenPopup";
 import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
 import { toast } from "@/components/Toast";
@@ -284,8 +284,8 @@ function SeasonView() {
         <Popup title="Which day?" onClose={() => !busy && setPickWhen(null)}
           actions={
             <>
-              <button type="button" className={POPUP_SECONDARY} disabled={busy} onClick={() => setPickWhen(null)}>Cancel</button>
-              <button type="button" className={POPUP_PRIMARY} disabled={busy || !pickDate} onClick={() => logPicked(pickDate)}>Log</button>
+              <PopupAction icon="close" label="Cancel" tone="cancel" disabled={busy} onClick={() => setPickWhen(null)} />
+              <PopupAction icon="check" label="Log" disabled={busy || !pickDate} onClick={() => logPicked(pickDate)} />
             </>
           }>
           <input type="date" value={pickDate} max={today()} onChange={(e) => setPickDate(e.target.value)} className="w-full min-w-0 rounded-xl bg-white/10 px-3 py-2 text-base text-white outline-none" />

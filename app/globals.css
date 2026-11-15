@@ -211,3 +211,17 @@ h1, h2, h3, h4, h5, h6,
   from { width: 0; }
   to { width: 100%; }
 }
+
+/* The loading overlay's reels, turning like gears, and the film strip running between them. */
+@keyframes reel-turn { to { transform: rotate(360deg); } }
+@keyframes film-run { to { stroke-dashoffset: -9; } }
+.reel { transform-box: fill-box; transform-origin: center; animation: reel-turn linear infinite; will-change: transform; }
+.reel-back { animation-direction: reverse; }
+.film-run { animation: film-run 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .reel, .film-run { animation: none; } }
+
+/* Story slides: a grid scrolling in columns, and a ring or spiral turning slowly. */
+@keyframes story-col-up { to { transform: translateY(-50%); } }
+@keyframes story-col-down { from { transform: translateY(-50%); } to { transform: translateY(0); } }
+@keyframes story-spin { to { transform: rotate(360deg); } }
+.story-spin { animation: story-spin linear infinite; }

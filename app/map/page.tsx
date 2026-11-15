@@ -107,8 +107,8 @@ function MapView() {
       <FlatMap points={points} onPick={pick} fullScreen focus={focus} className="h-full" />
       {/* Same spot and size as the other pages' titles, just under the back button; no panel, only a shadow so it reads over the map. */}
       <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+4.75rem)] z-20">
-        <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-4">
-          <h1 className="px-1 font-serif text-3xl tracking-tight text-neutral-950 [text-shadow:0_1px_6px_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.25)] dark:text-white dark:[text-shadow:0_1px_6px_rgba(0,0,0,0.8)]">Map</h1>
+        <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-6 md:max-w-3xl lg:max-w-5xl">
+          <h1 className="font-serif text-3xl tracking-tight text-neutral-950 [text-shadow:0_1px_6px_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.25)] dark:text-white dark:[text-shadow:0_1px_6px_rgba(0,0,0,0.8)]">Map</h1>
           {finding && <span className="px-1 text-xs text-neutral-800 [text-shadow:0_1px_4px_rgba(255,255,255,0.9)] dark:text-neutral-200 dark:[text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">Finding venues…</span>}
         </div>
       </div>

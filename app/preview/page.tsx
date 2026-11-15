@@ -239,7 +239,7 @@ function PreviewView() {
         <ConfirmPopup
           title="Not interested in this?"
           message="It will be hidden from your Home recommendations. You can undo this under Profile, Not interested."
-          confirmLabel="Hide"
+          confirmLabel="Hide" confirmIcon="close"
           busy={busy}
           onConfirm={hideTitle}
           onCancel={() => setConfirmHide(false)}

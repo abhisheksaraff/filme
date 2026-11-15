@@ -130,7 +130,7 @@ function EditView() {
         </form>
       )}
       {confirmDelete && (
-        <ConfirmPopup title="Delete this viewing?" message="You can restore it from Watched for 24 hours." confirmLabel="Delete" busy={busy} onConfirm={onDelete} onCancel={() => setConfirmDelete(false)} />
+        <ConfirmPopup title="Delete this viewing?" message="You can restore it from Watched for 24 hours." confirmLabel="Delete" confirmIcon="trash" busy={busy} onConfirm={onDelete} onCancel={() => setConfirmDelete(false)} />
       )}
     </main>
   );

@@ -9,6 +9,8 @@ export interface WantedItem {
   category: string;
   title: string;
   posterPath: string | null;
+  /** When the title came out (a full date or just a year), if known. */
+  releaseDate: string | null;
   /** Set when only a season (or one episode of it) is saved; both null means the whole title. */
   season: number | null;
   episode: number | null;

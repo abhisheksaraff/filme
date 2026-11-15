@@ -56,6 +56,9 @@ export default function ProfilePage() {
   const [avatarKey, setAvatarKey] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
   const [confirmOut, setConfirmOut] = useState(false);
+  const [hasAvatar, setHasAvatar] = useState(false);
+  const [confirmAvatar, setConfirmAvatar] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -75,6 +78,27 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, [ready, avatarKey]);
+
+  // Whether an uploaded picture exists, so the remove button shows only then.
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    services.images.avatar().then((res) => {
+      if (!cancelled) setHasAvatar(res.ok && res.value !== null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, avatarKey]);
+
+  async function removeAvatar() {
+    setRemoving(true);
+    const res = await services.images.removeAvatar();
+    setRemoving(false);
+    setConfirmAvatar(false);
+    if (res.ok) setAvatarKey((n) => n + 1);
+    else setProblem(res.error);
+  }
 
   async function saveAvatar(blob: Blob) {
     setCrop(null);
@@ -101,6 +125,7 @@ export default function ProfilePage() {
         <Avatar key={avatarKey} size={72} />
         <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { setCrop(e.target.files?.[0] ?? null); e.target.value = ""; }} />
         <RoundButton icon="edit" label="Change picture" onClick={() => input.current?.click()} />
+        {hasAvatar && <RoundButton icon="trash" label="Remove picture" tone="danger" onClick={() => setConfirmAvatar(true)} />}
       </div>
 
       <section className="flex flex-col gap-1 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900">
@@ -130,6 +155,9 @@ export default function ProfilePage() {
       </ul>
       <DataSync />
 
+      {confirmAvatar && (
+        <ConfirmPopup title="Remove your picture?" message="The default picture shows again." confirmLabel="Remove" confirmIcon="trash" busy={removing} onConfirm={removeAvatar} onCancel={() => setConfirmAvatar(false)} />
+      )}
       {confirmOut && (
         <ConfirmPopup title="Sign out?" message="You will need to sign in again to see your log on this device." confirmLabel="Sign out" confirmIcon="logout" onConfirm={onSignOut} onCancel={() => setConfirmOut(false)} />
       )}

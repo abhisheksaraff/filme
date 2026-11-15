@@ -8,9 +8,17 @@ import { useEffect, useState } from "react";
 import WatchedCard from "@/components/WatchedCard";
 import Icon from "@/components/Icon";
 import RoundButton from "@/components/RoundButton";
+import SortButton from "@/components/SortButton";
+import { usePageState } from "@/lib/pageMemory";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { DeletedEntry, RecentEntry } from "@/lib/ports/log";
 import { services } from "@/lib/services";
+
+type Sort = "new" | "old";
+const SORTS: { id: Sort; label: string }[] = [
+  { id: "new", label: "Newest watched" },
+  { id: "old", label: "Oldest watched" },
+];
 
 export default function WatchlistPage() {
   const ready = useRequireSession();
@@ -19,11 +27,12 @@ export default function WatchlistPage() {
   const [problem, setProblem] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [sort, setSort] = usePageState<Sort>("watched.sort", "new");
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
-    Promise.all([services.log.recent(20), services.log.deleted(10)]).then(([recentRes, deletedRes]) => {
+    Promise.all([services.log.recent(60), services.log.deleted(10)]).then(([recentRes, deletedRes]) => {
       if (cancelled) return;
       if (recentRes.ok) setRecent(recentRes.value);
       else setProblem(recentRes.error);
@@ -44,12 +53,19 @@ export default function WatchlistPage() {
 
   if (!ready) return null;
 
-  // Viewings with no date come after the dated ones.
-  const ordered = [...recent].sort((a, b) => Number(a.watchedOn === null) - Number(b.watchedOn === null));
+  // By the day watched; viewings with no date always come after the dated ones. A month or a year alone sorts by its start.
+  const sign = sort === "new" ? -1 : 1;
+  const ordered = [...recent].sort((a, b) => {
+    if (a.watchedOn === null || b.watchedOn === null) return Number(a.watchedOn === null) - Number(b.watchedOn === null);
+    return a.watchedOn < b.watchedOn ? sign * -1 : a.watchedOn > b.watchedOn ? sign : 0;
+  });
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
-      <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
+        <SortButton value={sort} options={SORTS} onChange={setSort} />
+      </div>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 

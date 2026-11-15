@@ -3,7 +3,7 @@
 "use client";
 
 import { useState } from "react";
-import Popup, { POPUP_OPTION, POPUP_SECONDARY } from "@/components/Popup";
+import Popup, { POPUP_OPTION, PopupAction } from "@/components/Popup";
 
 interface Props {
   name: string;
@@ -41,7 +41,7 @@ export default function OpenInMaps({ name, address, latitude, longitude }: Props
             <a href={apple} onClick={() => setChoosing(false)} className={POPUP_OPTION}>Apple Maps</a>
             <a href={google} target="_blank" rel="noopener" onClick={() => setChoosing(false)} className={POPUP_OPTION}>Google Maps</a>
           </div>
-          <div className="flex justify-center"><button type="button" className={POPUP_SECONDARY} onClick={() => setChoosing(false)}>Close</button></div>
+          <div className="flex justify-center"><PopupAction icon="close" label="Close" tone="cancel" onClick={() => setChoosing(false)} /></div>
         </Popup>
       )}
     </>

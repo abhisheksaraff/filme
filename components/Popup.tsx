@@ -1,12 +1,12 @@
 // components/Popup.tsx
 // The one popup used across the app: a black card with white text that floats above a dimmed page.
-// ConfirmPopup asks a question with Cancel and an action; NoticePopup tells something with OK.
+// ConfirmPopup asks a question with a cancel and an action; NoticePopup tells something. Every action is a round icon.
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
 import Portal from "@/components/Portal";
 import { pushOverlay } from "@/lib/overlayStack";
-import { type IconName } from "@/components/Icon";
+import Icon, { type IconName } from "@/components/Icon";
 
 interface PopupProps {
   title: string;
@@ -18,11 +18,24 @@ interface PopupProps {
   actions?: ReactNode;
 }
 
-const ACTION = "py-1 text-sm font-medium disabled:opacity-40";
-/** The main action: plain white text on the right of the row. */
-export const POPUP_PRIMARY = `${ACTION} text-white`;
-/** The way out: plain red text on the left of the row, always labelled Cancel. */
-export const POPUP_SECONDARY = `${ACTION} text-red-400`;
+/**
+ * A popup's action as a round icon: white for the main action, a soft red-on-grey circle for the way out. The label is
+ * spoken and shown as a tooltip, not drawn.
+ */
+export function PopupAction({ icon, label, tone = "primary", onClick, disabled }: { icon: IconName; label: string; tone?: "primary" | "cancel"; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex h-11 w-11 items-center justify-center rounded-full disabled:opacity-40 ${tone === "primary" ? "bg-white text-neutral-950" : "bg-white/10 text-red-400"}`}
+    >
+      <Icon name={icon} size={20} />
+    </button>
+  );
+}
 /** One choice in a list of choices: white text in a row, with a hairline between rows. */
 export const POPUP_OPTION = "flex w-full items-center justify-between border-t border-white/10 py-3 text-left text-sm text-white first:border-t-0 disabled:opacity-40";
 
@@ -64,9 +77,9 @@ interface ConfirmProps {
   title: string;
   message: string;
   confirmLabel: string;
-  /** The way out; it is "Cancel" everywhere so the second choice is never a surprise. */
+  /** The way out's spoken name; it is "Cancel" everywhere so the second choice is never a surprise. */
   cancelLabel?: string;
-  /** Kept so existing callers compile; popups no longer show an icon. */
+  /** The icon on the main action; a tick when left out. */
   confirmIcon?: IconName;
   icon?: IconName;
   busy?: boolean;
@@ -74,15 +87,15 @@ interface ConfirmProps {
   onCancel: () => void;
 }
 
-export function ConfirmPopup({ title, message, confirmLabel, cancelLabel = "Cancel", busy, onConfirm, onCancel }: ConfirmProps) {
+export function ConfirmPopup({ title, message, confirmLabel, cancelLabel = "Cancel", confirmIcon = "check", busy, onConfirm, onCancel }: ConfirmProps) {
   return (
     <Popup
       title={title}
       onClose={() => !busy && onCancel()}
       actions={
         <>
-          <button type="button" className={POPUP_SECONDARY} onClick={onCancel} disabled={busy}>{cancelLabel}</button>
-          <button type="button" className={POPUP_PRIMARY} onClick={onConfirm} disabled={busy}>{confirmLabel}</button>
+          <PopupAction icon="close" label={cancelLabel} tone="cancel" onClick={onCancel} disabled={busy} />
+          <PopupAction icon={confirmIcon} label={confirmLabel} onClick={onConfirm} disabled={busy} />
         </>
       }
     >
@@ -107,8 +120,8 @@ export function NoticePopup({ title, message, extra, onClose }: NoticeProps) {
       onClose={onClose}
       actions={
         <>
-          {extra && <button type="button" className={POPUP_SECONDARY} onClick={onClose}>Cancel</button>}
-          <button type="button" className={POPUP_PRIMARY} onClick={extra ? extra.onClick : onClose}>{extra ? extra.label : "OK"}</button>
+          {extra && <PopupAction icon="close" label="Cancel" tone="cancel" onClick={onClose} />}
+          <PopupAction icon={extra ? (extra.icon ?? "open") : "check"} label={extra ? extra.label : "OK"} onClick={extra ? extra.onClick : onClose} />
         </>
       }
     >

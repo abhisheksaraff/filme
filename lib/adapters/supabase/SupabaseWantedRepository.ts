@@ -13,6 +13,7 @@ interface MediaRow {
   category: string;
   tmdb_id: number | null;
   poster_path: string | null;
+  release_date: string | null;
 }
 
 const WHOLE: WantScope = { season: null, episode: null };
@@ -27,7 +28,7 @@ export const supabaseWantedRepository: WantedRepository = {
   async list() {
     const { data, error } = await getSupabase()
       .from("want_to_watch")
-      .select("media_id, season_number, episode_number, media:media_items(title, category, tmdb_id, poster_path)")
+      .select("media_id, season_number, episode_number, media:media_items(title, category, tmdb_id, poster_path, release_date)")
       .is("cleared_at", null)
       .order("added_at", { ascending: false });
     if (error) return fail("Could not load your want-to-watch list.");
@@ -40,6 +41,7 @@ export const supabaseWantedRepository: WantedRepository = {
         category: media?.category ?? "Movie",
         title: media?.title ?? "Untitled",
         posterPath: media?.poster_path ?? null,
+        releaseDate: media?.release_date ?? null,
         season: (row.season_number as number | null) ?? null,
         episode: (row.episode_number as number | null) ?? null,
       };
