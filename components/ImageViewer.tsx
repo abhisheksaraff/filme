@@ -3,12 +3,13 @@
 // download, upload, make default, note and delete.
 "use client";
 
+import Portal from "@/components/Portal";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { ConfirmPopup } from "@/components/Popup";
 import RoundButton from "@/components/RoundButton";
 import { downloadBlob } from "@/lib/ics";
-import { hideAppChrome } from "@/lib/viewerChrome";
+import { absorbStrayTap } from "@/lib/viewerChrome";
 
 export interface ViewerImage {
   id?: string;
@@ -37,6 +38,7 @@ const MAX_ZOOM = 5;
 /** Dots shown at once; with more pictures than this the row slides along. */
 const DOTS = 7;
 const DOT_SLOT = 12;
+const onTouchApple = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const distance = (a: React.Touch, b: React.Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 const CIRCLE = "bg-white/15 text-white dark:bg-white/15 dark:text-white";
 
@@ -65,7 +67,7 @@ function Dots({ count, index }: { count: number; index: number }) {
   );
 }
 
-export default function ImageViewer({ images, start, onClose, onAdd, onSetDefault, onNote, onDelete, deleteMessage }: Props) {
+function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote, onDelete, deleteMessage }: Props) {
   const [index, setIndex] = useState(Math.min(start, Math.max(0, images.length - 1)));
   const [zoom, setZoom] = useState(1);
   const [editing, setEditing] = useState(false);
@@ -79,8 +81,8 @@ export default function ImageViewer({ images, start, onClose, onAdd, onSetDefaul
   const at = Math.min(index, Math.max(0, images.length - 1));
   const image = images[at];
 
-  // The app's own back button and bottom bar step aside while the viewer is open.
-  useEffect(() => hideAppChrome(), []);
+  // A late tap on close lands on a clear sheet instead of the button underneath.
+  useEffect(() => absorbStrayTap(), []);
 
   // Puts the strip on the current picture when it opens and whenever pictures are added or removed.
   useLayoutEffect(() => {
@@ -106,11 +108,22 @@ export default function ImageViewer({ images, start, onClose, onAdd, onSetDefaul
     if (el) el.scrollTo({ left: Math.min(images.length - 1, Math.max(0, at + by)) * el.clientWidth, behavior: "smooth" });
   }
 
+  /** iPhone and iPad: the share sheet, which offers Save Image (Photos) and Save to Files. Elsewhere the file downloads. */
   async function save() {
     if (!image) return;
     try {
       const blob = await (await fetch(image.url)).blob();
-      downloadBlob(`filme-${image.id ?? at + 1}.${blob.type.split("/")[1] ?? "jpg"}`, blob);
+      const name = `filme-${image.id ?? at + 1}.${blob.type.split("/")[1] ?? "jpg"}`;
+      const file = new File([blob], name, { type: blob.type });
+      if (onTouchApple() && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+        } catch {
+          // Closing the share sheet is not an error.
+        }
+        return;
+      }
+      downloadBlob(name, blob);
     } catch {
       window.open(image.url, "_blank");
     }
@@ -127,10 +140,13 @@ export default function ImageViewer({ images, start, onClose, onAdd, onSetDefaul
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white backdrop-blur-xl" role="dialog" aria-modal="true" aria-label="Image viewer">
-      <div className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
-        <RoundButton icon="close" label="Close" onClick={onClose} className={CIRCLE} />
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+        <RoundButton icon="close" label="Close" onClick={onClose} className={`justify-self-start ${CIRCLE}`} />
         {images.length > 1 ? <Dots count={images.length} index={at} /> : <span />}
-        {onAdd ? <RoundButton icon="upload" label="Upload a picture" onClick={onAdd} className={CIRCLE} /> : <span className="h-10 w-10" />}
+        <div className="flex justify-end gap-2">
+          {image && <RoundButton icon="download" label="Save or share" onClick={save} className={CIRCLE} />}
+          {onAdd && <RoundButton icon="upload" label="Upload a picture" onClick={onAdd} className={CIRCLE} />}
+        </div>
       </div>
 
       {/* One long strip of pictures: it follows your finger and settles on the nearest one, like the calendar's months. */}
@@ -156,13 +172,16 @@ export default function ImageViewer({ images, start, onClose, onAdd, onSetDefaul
           <div key={img.id ?? img.url} className="flex h-full w-full shrink-0 snap-center items-center justify-center px-3">
             {/* Only the pictures next to the current one are loaded, so a long list stays light. */}
             {Math.abs(i - at) <= 1 && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={img.url}
-                alt={img.note ?? "Picture"}
-                style={i === at ? { transform: `scale(${zoom})` } : undefined}
-                className="max-h-full max-w-full rounded-2xl object-contain shadow-2xl transition-transform"
-              />
+              <div className="relative inline-flex max-h-full max-w-full transition-transform" style={i === at ? { transform: `scale(${zoom})` } : undefined}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img.url} alt={img.note ?? "Picture"} className="max-h-full max-w-full rounded-2xl object-contain shadow-2xl" />
+                {/* The main picture wears a star on its corner. */}
+                {img.isDefault && onSetDefault && (
+                  <span role="img" aria-label="Main picture" className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black text-white shadow-lg ring-1 ring-white/30">
+                    <Icon name="star" size={16} filled />
+                  </span>
+                )}
+              </div>
             )}
           </div>
         ))}
@@ -178,32 +197,28 @@ export default function ImageViewer({ images, start, onClose, onAdd, onSetDefaul
         )}
         {image && (
           <>
+            {/* Arrows sit right under the picture, away from the buttons that change things. */}
             <div className="flex items-center gap-3">
               {images.length > 1 && <RoundButton icon="left" label="Previous" disabled={at === 0} onClick={() => go(-1)} size="lg" className={CIRCLE} />}
-              <RoundButton icon="download" label="Download" onClick={save} size="lg" className={CIRCLE} />
               {onNote && image.id && <RoundButton icon="note" label="Note" onClick={() => { setDraft(image.note ?? ""); setEditing(true); }} size="lg" className={CIRCLE} />}
               {images.length > 1 && <RoundButton icon="right" label="Next" disabled={at === images.length - 1} onClick={() => go(1)} size="lg" className={CIRCLE} />}
             </div>
 
-            {/* The main picture carries a star; every other one offers to become it. */}
-            {onSetDefault && (image.id || image.tmdbPath) && (
-              image.isDefault ? (
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-5 py-2.5 font-medium">
-                  <Icon name="star" size={16} filled />
-                  Main
-                </span>
-              ) : (
-                <button type="button" onClick={() => onSetDefault(image)} className="rounded-full bg-white px-5 py-2.5 font-medium text-neutral-950">
-                  Make default
-                </button>
-              )
-            )}
-
-            {onDelete && image.id && (
-              <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 rounded-full bg-white/15 px-5 py-2.5 font-medium text-red-300">
-                <Icon name="trash" size={16} />
-                Delete photo
-              </button>
+            {/* Choices that change what is kept sit lower, with room above them so they are not hit by accident. */}
+            {((onSetDefault && (image.id || image.tmdbPath) && !image.isDefault) || (onDelete && image.id)) && (
+              <div className="mt-6 flex items-center gap-3">
+                {onSetDefault && (image.id || image.tmdbPath) && !image.isDefault && (
+                  <button type="button" onClick={() => onSetDefault(image)} className="rounded-full bg-white px-5 py-2.5 font-medium text-neutral-950">
+                    Make default
+                  </button>
+                )}
+                {onDelete && image.id && (
+                  <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 rounded-full bg-white/15 px-5 py-2.5 font-medium text-red-300">
+                    <Icon name="trash" size={16} />
+                    Delete photo
+                  </button>
+                )}
+              </div>
             )}
           </>
         )}
@@ -220,5 +235,14 @@ export default function ImageViewer({ images, start, onClose, onAdd, onSetDefaul
         />
       )}
     </div>
+  );
+}
+
+/** Drawn above the whole app, so the back button and bottom bar sit dimmed behind it. */
+export default function ImageViewer(props: Props) {
+  return (
+    <Portal>
+      <ImageViewerInner {...props} />
+    </Portal>
   );
 }

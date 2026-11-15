@@ -16,6 +16,8 @@ export interface StatRow {
   releaseYear: number | null;
   venue: string | null;
   format: string | null;
+  /** Extras such as IMAX or D-BOX. */
+  addons: string[];
   rating: number | null;
   tickets: number | null;
   language: string | null;

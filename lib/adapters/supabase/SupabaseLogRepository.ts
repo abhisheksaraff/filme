@@ -217,7 +217,7 @@ export const supabaseLogRepository: LogRepository = {
   async recent(limit) {
     const { data, error } = await getSupabase()
       .from("watch_sessions")
-      .select("id, media_id, watched_on, primary_format, created_at, media:media_items(title, category, poster_path)")
+      .select("id, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, scope, season_number, episode_number, created_at, media:media_items(title, category, poster_path), venue:venues(id, name, latitude, longitude)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -227,6 +227,7 @@ export const supabaseLogRepository: LogRepository = {
       const media = (Array.isArray(row.media) ? row.media[0] : row.media) as
         | { title: string; category: string; poster_path: string | null }
         | null;
+      const venue = one<{ id: string; name: string; latitude: number | null; longitude: number | null }>(row.venue);
       return {
         id: row.id,
         mediaId: row.media_id as string,
@@ -234,7 +235,19 @@ export const supabaseLogRepository: LogRepository = {
         category: media?.category ?? "Movie",
         posterPath: media?.poster_path ?? null,
         watchedOn: row.watched_on,
+        watchedAt: row.watched_at,
         primaryFormat: row.primary_format,
+        addons: row.addons ?? [],
+        venueId: venue?.id ?? null,
+        venue: venue?.name ?? null,
+        venueLatitude: venue?.latitude ?? null,
+        venueLongitude: venue?.longitude ?? null,
+        auditorium: row.auditorium,
+        seats: row.seats ?? [],
+        totalTickets: row.total_tickets,
+        scope: (row.scope as RecentEntry["scope"]) ?? "show",
+        season: row.season_number ?? null,
+        episode: row.episode_number ?? null,
       };
     });
     return ok(rows);
@@ -247,7 +260,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const sessions = await db
       .from("watch_sessions")
-      .select("id, watched_on, watched_at, auditorium, primary_format, seats, total_tickets, rating, notes, scope, season_number, episode_number, venue:venues(id, name)")
+      .select("id, watched_on, watched_at, auditorium, primary_format, addons, seats, total_tickets, rating, notes, scope, season_number, episode_number, venue:venues(id, name)")
       .eq("media_id", mediaId)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false })
@@ -282,6 +295,7 @@ export const supabaseLogRepository: LogRepository = {
       venueId: one<{ id: string }>(row.venue)?.id ?? null,
       auditorium: row.auditorium,
       primaryFormat: row.primary_format,
+      addons: row.addons ?? [],
       seats: row.seats ?? [],
       totalTickets: row.total_tickets,
       rating: row.rating === null ? null : Number(row.rating),
@@ -503,7 +517,7 @@ export const supabaseLogRepository: LogRepository = {
       const { data, error } = await db
         .from("watch_sessions")
         .select(
-          "id, media_id, watched_on, primary_format, rating, total_tickets, notes, scope, season_number, episode_number, episodes_covered, seasons_covered, minutes, media:media_items(title, category, runtime, original_language, poster_path, release_date), venue:venues(name)",
+          "id, media_id, watched_on, primary_format, addons, rating, total_tickets, notes, scope, season_number, episode_number, episodes_covered, seasons_covered, minutes, media:media_items(title, category, runtime, original_language, poster_path, release_date), venue:venues(name)",
         )
         .is("deleted_at", null)
         .order("created_at")
@@ -524,6 +538,7 @@ export const supabaseLogRepository: LogRepository = {
           releaseYear: media?.release_date ? Number(String(media.release_date).slice(0, 4)) || null : null,
           venue: one<{ name: string }>(row.venue)?.name ?? null,
           format: row.primary_format,
+          addons: row.addons ?? [],
           rating: row.rating === null ? null : Number(row.rating),
           tickets: row.total_tickets,
           language: media?.original_language ?? null,

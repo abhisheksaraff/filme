@@ -1,4 +1,5 @@
 // lib/ports/browse.ts
+import type { SeatDetail } from "@/lib/domain/sessions";
 import type { GeoPoint } from "./geo";
 import type { Result } from "./result";
 
@@ -56,6 +57,12 @@ export interface VenueViewing {
   rating: number | null;
   /** Movie, TV Show, Concert or Live Event. */
   category: string;
+  watchedAt: string | null;
+  auditorium: string | null;
+  seats: SeatDetail[];
+  totalTickets: number | null;
+  primaryFormat: string | null;
+  addons: string[];
 }
 
 export interface VenueDetail {

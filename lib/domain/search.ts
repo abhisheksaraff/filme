@@ -50,6 +50,7 @@ export function applyFilter(rows: StatRow[], filter: LogFilter): StatRow[] {
     if (filter.minRating !== null && (row.rating ?? 0) < filter.minRating) return false;
     if (filter.maxRating !== null && (row.rating === null || row.rating > filter.maxRating)) return false;
     if (filter.format && !sameFold(row.format, filter.format)) return false;
+    if (filter.extra && !row.addons.some((a) => sameFold(a, filter.extra as string))) return false;
     if (filter.venue && !sameFold(row.venue, filter.venue)) return false;
     if (filter.genre && !row.genres.some((g) => sameFold(g, filter.genre as string))) return false;
     if (filter.person && ![...row.directors, ...row.actors, ...row.performers].some((p) => fuzzyMatches(filter.person as string, p))) return false;
@@ -90,6 +91,7 @@ export function describeFilter(filter: LogFilter): string[] {
     filter.person && `with ${filter.person}`,
     filter.venue && `at ${filter.venue}`,
     filter.format,
+    filter.extra,
     filter.minRating !== null && `★ ${filter.minRating}+`,
     filter.maxRating !== null && `★ up to ${filter.maxRating}`,
     (filter.releaseFrom !== null || filter.releaseTo !== null) && (filter.releaseFrom === filter.releaseTo ? `${filter.releaseFrom}` : `${filter.releaseFrom ?? "…"}–${filter.releaseTo ?? "…"}`),

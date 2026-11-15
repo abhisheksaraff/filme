@@ -14,7 +14,19 @@ export interface RecentEntry {
   category: string;
   posterPath: string | null;
   watchedOn: string | null;
+  watchedAt: string | null;
   primaryFormat: string | null;
+  addons: string[];
+  venueId: string | null;
+  venue: string | null;
+  venueLatitude: number | null;
+  venueLongitude: number | null;
+  auditorium: string | null;
+  seats: SeatDetail[];
+  totalTickets: number | null;
+  scope: "show" | "season" | "episode";
+  season: number | null;
+  episode: number | null;
 }
 
 /** One viewing on a title page, with signed links to its ticket stubs. */
@@ -26,6 +38,7 @@ export interface ViewingSummary {
   venueId: string | null;
   auditorium: string | null;
   primaryFormat: string | null;
+  addons: string[];
   seats: SeatDetail[];
   totalTickets: number | null;
   rating: number | null;

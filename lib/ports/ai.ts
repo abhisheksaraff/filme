@@ -1,5 +1,6 @@
 // lib/ports/ai.ts
 import type { ExtractedData } from "@/lib/domain/extraction";
+import type { AskPlan } from "@/lib/domain/askPlan";
 import type { LogFilter } from "@/lib/domain/askLog";
 import type { MovingDates } from "@/lib/domain/holidays";
 import type { Result } from "./result";
@@ -11,5 +12,5 @@ export interface AiProvider {
   /** The dates of the holidays that move, for one year. Each date is checked before it is returned. */
   holidayDates(year: number, slugs: string[]): Promise<Result<MovingDates>>;
   /** Turns a plain-language question about the log into filters. */
-  askLog(question: string): Promise<Result<LogFilter>>;
+  askLog(question: string): Promise<Result<{ filter: LogFilter; plan: AskPlan }>>;
 }

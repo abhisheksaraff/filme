@@ -115,6 +115,12 @@ export const edgeCatalog: Catalog = {
     if (spec.yearFrom !== undefined) params[`${dateKey}.gte`] = `${spec.yearFrom}-01-01`;
     if (spec.yearTo !== undefined) params[`${dateKey}.lte`] = `${spec.yearTo}-12-31`;
     if (spec.personId !== undefined && spec.kind === "Movie") params.with_people = String(spec.personId);
+    // "," means all of them, "|" means any of them.
+    if (spec.castAll?.length) params.with_cast = spec.castAll.join(",");
+    if (spec.castAny?.length) params.with_cast = spec.castAny.join("|");
+    if (spec.crewAny?.length) params.with_crew = spec.crewAny.join("|");
+    if (spec.keywordIds?.length) params.with_keywords = spec.keywordIds.join("|");
+    if (spec.country) params.with_origin_country = spec.country;
     return listHits(`/discover/${spec.kind === "TV Show" ? "tv" : "movie"}`, params, spec.kind);
   },
 
@@ -180,6 +186,12 @@ export const edgeCatalog: Catalog = {
     }
     // Someone who appears alongside them only once is a coincidence, not a regular.
     return ok([...counts.values()].filter((c) => c.n >= 2).sort((a, b) => b.n - a.n || a.hit.name.localeCompare(b.hit.name)).slice(0, 14).map((c) => c.hit));
+  },
+
+  async findKeyword(name) {
+    const res = await callFunction<{ results: { id: number; name: string }[] }>("tmdb", { path: "/search/keyword", params: { query: name } });
+    if (!res.ok) return fail(res.error);
+    return ok(res.value.results[0]?.id ?? null);
   },
 
   async searchPeople(query) {

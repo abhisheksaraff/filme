@@ -114,7 +114,7 @@ export interface BrowseSpec {
   genreId?: number;
   /** Original language, as a two-letter code. */
   language?: string;
-  sortBy: "popularity.desc" | "vote_average.desc";
+  sortBy: "popularity.desc" | "vote_average.desc" | "primary_release_date.desc" | "primary_release_date.asc";
   minVotes?: number;
   minRating?: number;
   /** Release years, inclusive. */
@@ -122,6 +122,16 @@ export interface BrowseSpec {
   yearTo?: number;
   /** A person who worked on the title (movies only; TMDB cannot filter shows this way). */
   personId?: number;
+  /** Actors who must all be in the film (movies only). */
+  castAll?: number[];
+  /** Actors of whom any one will do (movies only). */
+  castAny?: number[];
+  /** Directors or writers (movies only). */
+  crewAny?: number[];
+  /** TMDB keyword ids (themes, moods); any one will do. */
+  keywordIds?: number[];
+  /** Country of origin, two letters. */
+  country?: string;
   page?: number;
 }
 
@@ -140,6 +150,8 @@ export interface Catalog {
   personCredits(tmdbId: number): Promise<Result<CatalogHit[]>>;
   /** The people credited most often alongside this person, from their best-known titles. */
   relatedPeople(tmdbId: number): Promise<Result<CatalogPersonHit[]>>;
+  /** The best-matching TMDB keyword for a theme or mood, or null. */
+  findKeyword(name: string): Promise<Result<number | null>>;
   /** A few people whose name fits what has been typed. */
   searchPeople(query: string): Promise<Result<CatalogPersonHit[]>>;
   /** Every episode of one season, or of the whole show when season is null. */

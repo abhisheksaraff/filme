@@ -1,5 +1,6 @@
 // lib/adapters/ai/EdgeAIProvider.ts
 // Sends ticket text to the `ai` Edge Function, which holds the keys and picks the model.
+import { normalizePlan } from "@/lib/domain/askPlan";
 import { normalizeFilter } from "@/lib/domain/askLog";
 import type { MovingDates } from "@/lib/domain/holidays";
 import { DEFAULT_EXTRACTED_DATA, normalizeExtraction, type ExtractedData } from "@/lib/domain/extraction";
@@ -50,6 +51,8 @@ export const edgeAiProvider: AiProvider = {
   async askLog(question) {
     const res = await callFunction<{ data: unknown }>("ai", { task: "ask", question, today: new Date().toISOString() });
     // SECURITY: model output again, so it is validated into a filter before the app uses it.
-    return res.ok ? ok(normalizeFilter(res.value.data)) : fail(res.error);
+    if (!res.ok) return fail(res.error);
+    const plan = normalizePlan((res.value.data as { plan?: unknown } | null)?.plan);
+    return ok({ filter: normalizeFilter(res.value.data), plan });
   },
 };

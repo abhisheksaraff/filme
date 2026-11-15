@@ -56,16 +56,27 @@ with one entry for each of these slugs: ${slugs.map((s) => JSON.stringify(s)).jo
 }
 
 export const ASK_SYSTEM = `
-You turn a question about a personal film, TV and concert viewing log into search filters.
-Never answer the question yourself; only fill in filters that narrow the log to the answer.
-Resolve relative dates ("last summer", "this year") using the current date given. Leave a filter null if the
-question does not mention it. "text" is for words that should appear in a title or note.
-dateFrom and dateTo are for when the person WATCHED something. For when a film or show CAME OUT ("from the 50s",
-"released in 1999", "90s movies") use releaseFrom and releaseTo, as years: the 50s is 1950 to 1959.
+You turn a question about films, TV and a personal viewing log into structured search instructions.
+Never answer the question yourself. Resolve relative dates ("last summer", "this year") using the current date given.
+Leave anything the question does not mention null (or an empty list). Ignore filler such as "I want to watch", "show me", "some", "full".
+
+Two kinds of fields:
+1. Log filters, for questions about what the person already watched: text (words that should appear in a title or note),
+   category, dateFrom/dateTo (when they WATCHED something), format, extra (such as IMAX or D-BOX), venue, rewatchesOnly,
+   minRating/maxRating, sort. For when something CAME OUT ("the 50s", "released in 1999") use releaseFrom/releaseTo as years.
+2. A "plan" for finding things to watch: people (each with a role: "cast" for actors, "director", "writer", or "any" if unclear),
+   titles (named films or shows), genres (one to three, in English), languages (two-letter ISO 639-1 codes; "Indian movies" or
+   "Bollywood" means hi, and may add ta, te, ml, kn when the question says Indian generally), countries (two-letter ISO 3166 codes),
+   keywords (themes or moods such as "heist" or "feel-good"), like (titles the person wants more of), sortBy ("popular", "newest",
+   "oldest" or "rating"; "best" means rating), seen ("not-seen" for things they have not watched yet, "seen" for ones they have,
+   otherwise "either").
+Put people ONLY in plan.people, never in text. Put title words in text only for searching titles that were typed as such.
 `;
 
 export const ASK_SHAPE = `
-Reply with ONLY a JSON object with exactly these keys, using null for anything not mentioned:
+Reply with ONLY a JSON object with exactly these keys, using null (or [] for lists) for anything not mentioned:
 text (string), category ("Movie", "TV Show", "Concert" or "Live Event"), dateFrom (YYYY-MM-DD), dateTo (YYYY-MM-DD),
-releaseFrom (year, integer), releaseTo (year, integer), minRating (number 1-10), maxRating (number 1-10), format (string), venue (string), genre (string),
-person (string), rewatchesOnly (boolean), sort ("newest", "oldest" or "rating").`;
+releaseFrom (year, integer), releaseTo (year, integer), minRating (number 1-10), maxRating (number 1-10), format (string), extra (string), venue (string),
+genre (string), person (string), rewatchesOnly (boolean), sort ("newest", "oldest" or "rating"),
+plan: { people: [{ name: string, role: "cast" | "director" | "writer" | "any" }], titles: [string], genres: [string], languages: [string],
+countries: [string], keywords: [string], like: [string], sortBy ("popular", "newest", "oldest", "rating" or null), seen ("not-seen", "seen" or "either") }.`;

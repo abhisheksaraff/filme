@@ -3,6 +3,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Portal from "@/components/Portal";
 import CropDialog from "@/components/CropDialog";
 import ImageViewer, { type ViewerImage } from "@/components/ImageViewer";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -57,7 +58,11 @@ export default function PicturesViewer({ mediaId, tmdbId, category, kind, curren
   }, [tmdbId, category, kind]);
 
   if (!mine || !theirs) {
-    return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 text-sm text-white/70" role="status">Loading pictures…</div>;
+    return (
+      <Portal>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 text-sm text-white/70" role="status">Loading pictures…</div>
+      </Portal>
+    );
   }
 
   const ownMain = mine.some((image) => image.isDefault);
@@ -138,14 +143,14 @@ export default function PicturesViewer({ mediaId, tmdbId, category, kind, curren
         }}
       />
       {problem && (
-        <p role="alert" className="fixed inset-x-4 top-20 z-[55] rounded-2xl bg-red-600 px-4 py-2 text-center text-sm text-white" onClick={() => setProblem(null)}>
-          {problem}
-        </p>
+        <Portal>
+          <p role="alert" className="fixed inset-x-4 top-20 z-[55] rounded-2xl bg-red-600 px-4 py-2 text-center text-sm text-white" onClick={() => setProblem(null)}>
+            {problem}
+          </p>
+        </Portal>
       )}
       {crop && (
-        <div className="relative z-[56]">
-          <CropDialog file={crop} aspect={kind === "poster" ? 2 / 3 : 16 / 9} maxEdge={kind === "poster" ? 1500 : 1920} title={`Frame your ${word.toLowerCase()}`} onCancel={() => setCrop(null)} onDone={saveUpload} />
-        </div>
+        <CropDialog file={crop} aspect={kind === "poster" ? 2 / 3 : 16 / 9} maxEdge={kind === "poster" ? 1500 : 1920} title={`Frame your ${word.toLowerCase()}`} onCancel={() => setCrop(null)} onDone={saveUpload} />
       )}
     </>
   );

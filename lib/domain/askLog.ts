@@ -13,6 +13,8 @@ export const logFilterSchema = z.object({
   minRating: z.number().min(1).max(10).nullable(),
   maxRating: z.number().min(1).max(10).nullable(),
   format: z.string().nullable(),
+  /** A format extra such as IMAX or D-BOX. */
+  extra: z.string().nullable(),
   venue: z.string().nullable(),
   genre: z.string().nullable(),
   person: z.string().nullable(),
@@ -31,6 +33,7 @@ export const EMPTY_FILTER: LogFilter = {
   minRating: null,
   maxRating: null,
   format: null,
+  extra: null,
   venue: null,
   genre: null,
   person: null,

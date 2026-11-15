@@ -3,11 +3,10 @@
 "use client";
 
 import { toast } from "@/components/Toast";
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import WatchedCard from "@/components/WatchedCard";
 import RoundButton from "@/components/RoundButton";
 import { useRequireSession } from "@/hooks/useRequireSession";
-import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { DeletedEntry, RecentEntry } from "@/lib/ports/log";
 import { services } from "@/lib/services";
 
@@ -50,25 +49,9 @@ export default function WatchlistPage() {
 
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
-      <ul className="grid grid-cols-2 gap-4">
-        {recent.map((entry) => {
-          const poster = tmdbImageUrl(entry.posterPath, "w342");
-          return (
-            <li key={entry.id}>
-              <Link href={`/title/?id=${entry.mediaId}`} className="flex flex-col gap-1">
-                {poster ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-2xl object-cover" />
-                ) : (
-                  <div className="aspect-[2/3] w-full rounded-2xl bg-neutral-200 dark:bg-neutral-800" />
-                )}
-                <span className="font-serif text-base leading-tight">{entry.title}</span>
-                <span className="text-xs text-neutral-500">{[entry.watchedOn, entry.primaryFormat].filter(Boolean).join(" · ")}</span>
-              </Link>
-            </li>
-          );
-        })}
-        {recent.length === 0 && !problem && <li className="col-span-2 text-sm text-neutral-500">Nothing logged yet.</li>}
+      <ul className="flex flex-col gap-5">
+        {recent.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} />)}
+        {recent.length === 0 && !problem && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}
       </ul>
 
       {deleted.length > 0 && (

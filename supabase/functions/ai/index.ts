@@ -103,6 +103,28 @@ const ASK_SCHEMA = {
     person: { type: "STRING", nullable: true },
     rewatchesOnly: { type: "BOOLEAN", nullable: true },
     sort: { type: "STRING", enum: ["newest", "oldest", "rating"], nullable: true },
+    extra: { type: "STRING", nullable: true },
+    plan: {
+      type: "OBJECT",
+      properties: {
+        people: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: { name: { type: "STRING" }, role: { type: "STRING", enum: ["cast", "director", "writer", "any"] } },
+            required: ["name", "role"],
+          },
+        },
+        titles: { type: "ARRAY", items: { type: "STRING" } },
+        genres: { type: "ARRAY", items: { type: "STRING" } },
+        languages: { type: "ARRAY", items: { type: "STRING" } },
+        countries: { type: "ARRAY", items: { type: "STRING" } },
+        keywords: { type: "ARRAY", items: { type: "STRING" } },
+        like: { type: "ARRAY", items: { type: "STRING" } },
+        sortBy: { type: "STRING", enum: ["popular", "newest", "oldest", "rating"], nullable: true },
+        seen: { type: "STRING", enum: ["not-seen", "seen", "either"] },
+      },
+    },
   },
 };
 
@@ -128,6 +150,33 @@ function validateHolidays(data: unknown, year: number, slugs: string[]): unknown
   return { holidays: out };
 }
 
+/** SECURITY: every list the model returns is capped and trimmed; names are only ever sent on as search text. */
+function validatePlan(value: unknown): unknown {
+  const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const list = (v: unknown, max: number, pattern?: RegExp): string[] =>
+    (Array.isArray(v) ? v : [])
+      .filter((x): x is string => typeof x === "string")
+      .map((x) => x.trim().slice(0, 80))
+      .filter((x) => x && (!pattern || pattern.test(x)))
+      .slice(0, max);
+  const people = (Array.isArray(raw.people) ? raw.people : [])
+    .map((p) => (p ?? {}) as Record<string, unknown>)
+    .filter((p) => typeof p.name === "string" && p.name.trim())
+    .slice(0, 5)
+    .map((p) => ({ name: (p.name as string).trim().slice(0, 80), role: ["cast", "director", "writer", "any"].includes(p.role as string) ? p.role : "any" }));
+  return {
+    people,
+    titles: list(raw.titles, 5),
+    genres: list(raw.genres, 3),
+    languages: list(raw.languages, 6, /^[a-z]{2}$/i).map((x) => x.toLowerCase()),
+    countries: list(raw.countries, 3, /^[a-z]{2}$/i).map((x) => x.toUpperCase()),
+    keywords: list(raw.keywords, 3),
+    like: list(raw.like, 2),
+    sortBy: ["popular", "newest", "oldest", "rating"].includes(raw.sortBy as string) ? raw.sortBy : null,
+    seen: ["not-seen", "seen"].includes(raw.seen as string) ? raw.seen : "either",
+  };
+}
+
 function validateAsk(data: unknown): unknown {
   if (!data || typeof data !== "object") throw new ModelError("reply was not an object");
   const raw = data as Record<string, unknown>;
@@ -144,6 +193,8 @@ function validateAsk(data: unknown): unknown {
     minRating: rating(raw.minRating),
     maxRating: rating(raw.maxRating),
     format: text(raw.format),
+    extra: text(raw.extra),
+    plan: validatePlan(raw.plan),
     venue: text(raw.venue),
     genre: text(raw.genre),
     person: text(raw.person),

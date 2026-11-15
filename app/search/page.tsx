@@ -11,6 +11,8 @@ import PersonCircle from "@/components/PersonCircle";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { EMPTY_FILTER, hasFilter, type LogFilter } from "@/lib/domain/askLog";
+import { discover } from "@/lib/ask/discover";
+import { EMPTY_PLAN, hasPlan, LANGUAGE_NAMES, type AskPlan } from "@/lib/domain/askPlan";
 import { GENRES } from "@/lib/domain/home";
 import { applyFilter, describeFilter, normalize } from "@/lib/domain/search";
 import type { StatRow } from "@/lib/domain/stats";
@@ -55,6 +57,8 @@ interface PersonItem {
 
 interface Found {
   key: string;
+  /** What the AI's plan resolved to: people found, names not found, and a note when it was loosened. */
+  plan?: { people: { name: string; tmdbId: number }[]; missing: string[]; notice: string | null };
   hits: CatalogHit[];
   people: PersonItem[];
   problem: string | null;
@@ -109,6 +113,8 @@ function SearchView() {
   const [question, setQuestion] = usePageState("search.question", "");
   // Any title words the AI pulled out of the question; they stand in for typed text while asking.
   const [askText, setAskText] = usePageState("search.askText", "");
+  // What the AI understood beyond the log filters; each part shows as a chip that can be removed.
+  const [plan, setPlan] = usePageState<AskPlan>("search.plan", EMPTY_PLAN);
   const [asking, setAsking] = useState(false);
   const [askProblem, setAskProblem] = useState<string | null>(null);
   const [found, setFound] = useState<Found | null>(null);
@@ -134,15 +140,33 @@ function SearchView() {
     // The setters come from usePageState and are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idParam, nameParam]);
+  // A format or extra tapped on a viewing opens the search with only that set. `at` makes each tap count once.
+  const formatParam = params.get("format");
+  const extraParam = params.get("extra");
+  const tapStamp = params.get("at");
+  useEffect(() => {
+    if ((!formatParam && !extraParam) || !tapStamp) return;
+    if (sessionStorage.getItem("filme_tap") === tapStamp) return;
+    sessionStorage.setItem("filme_tap", tapStamp);
+    Promise.resolve().then(() => {
+      setFilter({ ...EMPTY_FILTER, format: formatParam, extra: extraParam });
+      setQuery("");
+      setAskOn(false);
+      setOrder("default");
+    });
+    // The setters come from usePageState and are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formatParam, extraParam, tapStamp]);
   const personTmdb = idParam && filter.person === nameParam ? idParam : null;
 
   const q = (askOn ? askText : query).trim();
+  const planOn = askOn && hasPlan(plan);
   // Nothing is shown until something is typed or a filter is set, so opening Filters alone lists nothing.
-  const active = q.length >= 2 || hasFilter(filter);
+  const active = q.length >= 2 || hasFilter(filter) || planOn;
   // Venue, format, watch dates and rewatches exist only in your log, so TMDB has nothing to say about them.
-  const logOnly = Boolean(filter.venue || filter.format || filter.dateFrom || filter.dateTo || filter.maxRating !== null || filter.rewatchesOnly);
+  const logOnly = Boolean(filter.venue || filter.format || filter.extra || filter.dateFrom || filter.dateTo || filter.maxRating !== null || filter.rewatchesOnly);
   const kinds: CatalogKind[] = logOnly || filter.category === "Concert" || filter.category === "Live Event" ? [] : filter.category ? [filter.category] : ["Movie", "TV Show"];
-  const searchKey = JSON.stringify([q, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly, personTmdb]);
+  const searchKey = JSON.stringify([planOn ? plan : null, filter.sort, q, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly, personTmdb]);
 
   useEffect(() => {
     if (!ready) return;
@@ -198,6 +222,24 @@ function SearchView() {
             }
           : credits
         : null;
+      // An AI plan looks people, themes and titles up first, then lists what fits.
+      if (planOn && !creditResult) {
+        const out = await discover({
+          plan, filter, kinds, catalog: services.catalog, genreId,
+          lookupPerson: async (name) => {
+            const own = await services.browse.searchPeople(name);
+            const mine = own.ok ? own.value.find((p) => p.tmdbId !== null) : undefined;
+            if (mine && mine.tmdbId !== null) return { tmdbId: mine.tmdbId, name: mine.name };
+            const res = await services.catalog.searchPeople(name);
+            const top = res.ok ? res.value[0] : undefined;
+            return top ? { tmdbId: top.tmdbId, name: top.name } : null;
+          },
+          isSeen: (h) => seen.has(seenKey(h.kind, h.tmdbId)),
+        });
+        if (cancelled) return;
+        setFound({ key: searchKey, hits: out.hits, people: [], plan: { people: out.people, missing: out.missing, notice: out.notice }, problem: null });
+        return;
+      }
       const results = creditResult ? [creditResult] : await Promise.all(kinds.map(async (kind) => {
         if (q.length >= 2) {
           // Typed titles come from TMDB's search, which has no filters, so they are narrowed here.
@@ -248,11 +290,19 @@ function SearchView() {
     setAskProblem(null);
     const res = await services.ai.askLog(text);
     if (res.ok) {
-      // The question becomes ordinary filters; they show as chips, and Filters stays closed unless you open it.
-      setAskText(res.value.text ?? "");
-      setFilter({ ...res.value, text: null });
-      setOrder(res.value.sort === "newest" ? "newest" : res.value.sort === "oldest" ? "oldest" : res.value.sort === "rating" ? "rating" : "default");
-    } else setAskProblem(res.error);
+      // The question becomes ordinary filters and a plan; they show as chips, and Filters stays closed unless you open it.
+      const { filter: f, plan: p } = res.value;
+      setAskText(f.text ?? "");
+      setFilter({ ...f, text: null });
+      setPlan(p);
+      setOrder(f.sort === "newest" ? "newest" : f.sort === "oldest" ? "oldest" : f.sort === "rating" ? "rating" : "default");
+      if (!hasFilter(f) && !hasPlan(p) && !f.text) setAskProblem("Couldn't understand that — try rephrasing.");
+    } else {
+      // The typed words still search as they are; only a missing AI key keeps its own explanation.
+      setAskText(text);
+      setPlan(EMPTY_PLAN);
+      setAskProblem(/key/i.test(res.error) ? res.error : "Couldn't understand that — try rephrasing.");
+    }
     setAsking(false);
   }
 
@@ -263,7 +313,9 @@ function SearchView() {
     const out = new Map<string, Item>();
 
     // Your log: one entry per title, however many times it was watched.
-    for (const row of applyFilter(rows, { ...filter, text: q.length >= 2 ? q : null })) {
+    // With only an AI plan (no log filter or typed words) the list is what TMDB found, not your whole log.
+    const logPart = !planOn || hasFilter(filter) || q.length >= 2;
+    for (const row of logPart ? applyFilter(rows, { ...filter, text: q.length >= 2 ? q : null }) : []) {
       if (out.has(row.mediaId)) continue;
       out.set(row.mediaId, {
         key: row.mediaId,
@@ -330,13 +382,28 @@ function SearchView() {
     else if (order === "az") list.sort((a, b) => a.title.localeCompare(b.title));
     else list.sort((a, b) => mine(a) - mine(b));
     return list;
-  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly]);
+  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn]);
 
   if (!ready) return null;
 
   const current = found?.key === searchKey ? found : null;
   const loading = active && kinds.length > 0 && !current;
   const chips = describeFilter({ ...filter, text: null });
+  const drop = (patch: Partial<AskPlan>) => setPlan({ ...plan, ...patch });
+  const personLink = (name: string) => {
+    const hit = current?.plan?.people.find((p) => normalize(p.name) === normalize(name));
+    return hit ? `/person/?tmdb=${hit.tmdbId}` : undefined;
+  };
+  const planChips: { key: string; label: string; href?: string; remove: () => void }[] = !planOn ? [] : [
+    ...plan.people.map((p) => ({ key: `p:${p.name}`, label: p.role === "director" ? `Directed by ${p.name}` : p.role === "writer" ? `Written by ${p.name}` : p.name, href: personLink(p.name), remove: () => drop({ people: plan.people.filter((x) => x !== p) }) })),
+    ...plan.titles.map((t) => ({ key: `t:${t}`, label: t, remove: () => drop({ titles: plan.titles.filter((x) => x !== t) }) })),
+    ...plan.like.map((t) => ({ key: `l:${t}`, label: `Like ${t}`, remove: () => drop({ like: plan.like.filter((x) => x !== t) }) })),
+    ...plan.genres.map((g) => ({ key: `g:${g}`, label: g, remove: () => drop({ genres: plan.genres.filter((x) => x !== g) }) })),
+    ...plan.languages.map((l) => ({ key: `lang:${l}`, label: LANGUAGE_NAMES[l] ?? l.toUpperCase(), remove: () => drop({ languages: plan.languages.filter((x) => x !== l) }) })),
+    ...plan.countries.map((c) => ({ key: `c:${c}`, label: new Intl.DisplayNames(["en"], { type: "region" }).of(c) ?? c, remove: () => drop({ countries: plan.countries.filter((x) => x !== c) }) })),
+    ...plan.keywords.map((k) => ({ key: `k:${k}`, label: k, remove: () => drop({ keywords: plan.keywords.filter((x) => x !== k) }) })),
+    ...(plan.seen === "not-seen" ? [{ key: "seen", label: "Not seen yet", remove: () => drop({ seen: "either" }) }] : plan.seen === "seen" ? [{ key: "seen", label: "Seen", remove: () => drop({ seen: "either" }) }] : []),
+  ];
   const set = (patch: Partial<LogFilter>) => setFilter({ ...filter, ...patch });
   const num = (v: string) => (v.trim() === "" ? null : Number(v) || null);
 
@@ -372,8 +439,8 @@ function SearchView() {
           className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 ${askOn ? "border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-neutral-950" : "border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"}`}>
           <Icon name="sparkle" size={16} />Ask AI
         </button>
-        {hasFilter(filter) && (
-          <button type="button" onClick={() => { setFilter(EMPTY_FILTER); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500 underline">Clear filters</button>
+        {(hasFilter(filter) || planOn) && (
+          <button type="button" onClick={() => { setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500 underline">Clear filters</button>
         )}
       </div>
       {askProblem && <p role="alert" className="text-sm text-red-600">{askProblem}</p>}
@@ -406,11 +473,20 @@ function SearchView() {
         </div>
       )}
 
-      {chips.length > 0 && (
+      {(chips.length > 0 || planChips.length > 0 || (current?.plan?.missing.length ?? 0) > 0) && (
         <ul className="flex flex-wrap gap-2 text-xs">
           {chips.map((chip) => <li key={chip} className="rounded-full bg-neutral-100 px-3 py-1 dark:bg-neutral-800">{chip}</li>)}
+          {/* Each part of the plan can be taken out; the list then updates without asking the AI again. */}
+          {planChips.map((c) => (
+            <li key={c.key} className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-white dark:bg-white dark:text-neutral-950">
+              {c.href ? <Link href={c.href}>{c.label}</Link> : <span>{c.label}</span>}
+              <button type="button" aria-label={`Remove ${c.label}`} onClick={c.remove} className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 dark:bg-black/15"><Icon name="close" size={11} /></button>
+            </li>
+          ))}
+          {current?.plan?.missing.map((m) => <li key={`missing-${m}`} className="rounded-full bg-neutral-100 px-3 py-1 text-neutral-500 dark:bg-neutral-800">Couldn&apos;t find {m}</li>)}
         </ul>
       )}
+      {current?.plan?.notice && <p className="text-sm text-neutral-500">{current.plan.notice}</p>}
 
       {!active && <p className="text-sm text-neutral-500">{askOn ? "Ask a question and press Return." : "Type a title or person, set a filter, or turn on Ask AI."}</p>}
 

@@ -59,6 +59,8 @@ function SessionView() {
   const [problem, setProblem] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Taps on a format or extra carry a new stamp each visit so Search applies them every time.
+  const [stamp] = useState(() => Date.now());
   const [deleting, setDeleting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const stubInput = useRef<HTMLInputElement>(null);
@@ -136,7 +138,7 @@ function SessionView() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 pb-4">
       {problem && <p role="alert" className="px-5 text-sm text-red-600">{problem}</p>}
       {viewing && v && (
-        <>
+        <div className="reveal flex flex-col gap-5">
           <TitleHero
             backdropUrl={tmdbImageUrl(viewing.backdropPath, "w780") ?? tmdbImageUrl(viewing.posterPath, "w780")}
             posterUrl={tmdbImageUrl(viewing.posterPath, "w342")}
@@ -146,13 +148,61 @@ function SessionView() {
           />
 
           <div className="flex flex-col gap-5 px-5">
-            {(v.seats.length > 0 || v.primaryFormat) && (
-              <div className="flex flex-wrap gap-2">
-                {v.seats.map((seat, i) => <span key={i} className="rounded-full bg-neutral-950 px-3 py-0.5 text-sm text-white dark:bg-white dark:text-neutral-950">{seatLabel(seat)}</span>)}
-                {v.primaryFormat && <span className="rounded-full border border-neutral-400 px-3 py-0.5 text-sm dark:border-neutral-600">{v.primaryFormat}</span>}
+            {v.venueId && v.venue && (
+              <section className="flex flex-col gap-2">
+                {venuePoint && (
+                  <div className="relative h-44 overflow-hidden rounded-3xl bg-neutral-200 dark:bg-neutral-800">
+                    <FlatMap points={[venuePoint]} focus={{ lon: venuePoint.longitude, lat: venuePoint.latitude, zoom: 14 }} still pinIcon={pinIcon} className="h-44" />
+                    {/* The whole tile opens the map on this venue. */}
+                    <Link href={`/map/?venue=${venuePoint.id}`} aria-label={`Show ${v.venue} on the map`} className="absolute inset-0 z-30" />
+                  </div>
+                )}
+                <Link href={`/venue/?id=${v.venueId}`} className="font-serif text-lg leading-tight">
+                  {[v.venue, v.auditorium].filter(Boolean).join(" · ")}
+                </Link>
+              </section>
+            )}
+
+            {(v.seats.length > 0 || v.totalTickets || v.primaryFormat || v.addons.length > 0) && (
+              <div className="flex flex-col gap-2">
+                {v.seats.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {v.seats.map((seat, i) => <span key={i} className="rounded-full bg-neutral-950 px-3 py-0.5 text-sm text-white dark:bg-white dark:text-neutral-950">{seatLabel(seat)}</span>)}
+                  </div>
+                ) : v.totalTickets ? (
+                  <p className="text-sm">{v.totalTickets} {v.totalTickets === 1 ? "ticket" : "tickets"}</p>
+                ) : null}
+                {(v.primaryFormat || v.addons.length > 0) && (
+                  <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                    {/* Each opens Search with just that format or extra. `at` lets the same tap count again later. */}
+                    {v.primaryFormat && <Link href={`/search/?format=${encodeURIComponent(v.primaryFormat)}&at=${stamp}`} className="underline decoration-neutral-300 underline-offset-4">{v.primaryFormat}</Link>}
+                    {v.addons.map((extra) => <Link key={extra} href={`/search/?extra=${encodeURIComponent(extra)}&at=${stamp}`} className="underline decoration-neutral-300 underline-offset-4">{extra}</Link>)}
+                  </p>
+                )}
               </div>
             )}
+
             {v.notes && <p className="text-sm">{v.notes}</p>}
+
+            {/* Photos are small circles; the last is a plus. */}
+            <section aria-label="Photos" className="flex flex-col gap-2">
+              <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setCrop({ file: f, kind: "photo" }); e.target.value = ""; }} />
+              <ul className="flex flex-wrap gap-2">
+                {photos.map((image, i) => (
+                  <li key={image.id}>
+                    <button type="button" onClick={() => setGallery({ kind: "photo", start: i })} aria-label={image.note ?? `Photo ${i + 1}`} className="block h-14 w-14 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={image.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    </button>
+                  </li>
+                ))}
+                <li>
+                  <button type="button" aria-label="Add a photo" title="Add a photo" onClick={() => input.current?.click()} className="flex h-14 w-14 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950">
+                    <Icon name="plus" size={20} />
+                  </button>
+                </li>
+              </ul>
+            </section>
 
             <section className="flex flex-col gap-2">
               <h2 className="font-serif text-xl">Ticket stubs</h2>
@@ -170,46 +220,15 @@ function SessionView() {
               </ul>
             </section>
 
-            <section className="flex flex-col gap-2">
-              <h2 className="font-serif text-xl">Photos</h2>
-              <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setCrop({ file: f, kind: "photo" }); e.target.value = ""; }} />
-              <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 py-1">
-                {photos.map((image, i) => (
-                  <li key={image.id} className="shrink-0">
-                    <button type="button" onClick={() => setGallery({ kind: "photo", start: i })} className="block">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={image.url} alt={image.note ?? "Photo"} loading="lazy" className="h-32 w-32 rounded-lg object-cover" />
-                    </button>
-                  </li>
-                ))}
-                <li className="shrink-0"><AddTile label="Add a photo" className="h-32 w-32" onClick={() => input.current?.click()} /></li>
-              </ul>
-            </section>
-
-            <div className="flex items-center gap-3">
-              <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${id}`} size="lg" />
-              <RoundButton icon="trash" label="Delete viewing" tone="danger" size="lg" onClick={() => setConfirmDelete(true)} />
+            <div className="flex items-center justify-end gap-3">
               {viewing.season !== null && viewing.episode !== null && viewing.tmdbId !== null && viewing.category === "TV Show" && (
                 <WatchButton watch={{ tmdbId: viewing.tmdbId, kind: "TV Show", title: viewing.title, year: viewing.year, season: viewing.season, episode: viewing.episode }} />
               )}
+              <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${id}`} size="lg" className="!bg-black !text-white" />
+              <RoundButton icon="trash" label="Delete viewing" size="lg" onClick={() => setConfirmDelete(true)} className="!bg-black !text-red-500" />
             </div>
-
-            {v.venueId && v.venue && (
-              <section className="flex flex-col gap-2">
-                <h2 className="font-serif text-xl">Where you watched</h2>
-                <div className="relative h-44 overflow-hidden rounded-3xl bg-neutral-200 dark:bg-neutral-800">
-                  {venuePoint && <FlatMap points={[venuePoint]} focus={{ lon: venuePoint.longitude, lat: venuePoint.latitude, zoom: 14 }} still pinIcon={pinIcon} className="h-44" />}
-                  {/* The whole tile is one link; without a position it opens the venue's page instead of the map. */}
-                  <Link href={venuePoint ? `/map/?venue=${venuePoint.id}` : `/venue/?id=${v.venueId}`} aria-label={`Open ${v.venue}`} className="absolute inset-0 z-30 flex flex-col justify-end bg-gradient-to-t from-black/75 via-black/20 to-transparent p-4 text-white">
-                    {!venuePoint && <span className="absolute inset-0 flex items-center justify-center"><Icon name={pinIcon} size={36} /></span>}
-                    <span className="relative font-serif text-lg leading-tight">{v.venue}</span>
-                    {v.auditorium && <span className="relative text-sm text-white/80">{v.auditorium}</span>}
-                  </Link>
-                </div>
-              </section>
-            )}
           </div>
-        </>
+        </div>
       )}
 
       {confirmDelete && (

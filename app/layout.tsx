@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import Decorations from "@/components/Decorations";
 import Shell from "@/components/Shell";
+import RevealImages from "@/components/RevealImages";
 import ToastHost from "@/components/Toast";
 import ThemeApplier from "@/components/ThemeApplier";
 import "./globals.css";
@@ -75,7 +76,8 @@ export default function RootLayout({
         <ThemeApplier />
         <Decorations />
         <Shell>{children}</Shell>
-        <ToastHost />
+        <RevealImages />
+          <ToastHost />
       </body>
     </html>
   );

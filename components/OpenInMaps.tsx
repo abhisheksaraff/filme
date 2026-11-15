@@ -1,0 +1,51 @@
+// components/OpenInMaps.tsx
+// An address that opens a map at the place (not directions). Apple devices offer Apple Maps or Google Maps; others go to Google Maps.
+"use client";
+
+import { useState } from "react";
+import Popup, { POPUP_PRIMARY, POPUP_SECONDARY } from "@/components/Popup";
+
+interface Props {
+  name: string;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+const onApple = () => /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+export default function OpenInMaps({ name, address, latitude, longitude }: Props) {
+  const [choosing, setChoosing] = useState(false);
+  // Coordinates pin the exact spot; without them the name and address are searched.
+  const place = latitude !== null && longitude !== null ? `${latitude},${longitude}` : [name, address].join(", ");
+  const google = latitude !== null && longitude !== null
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${latitude},${longitude}`)}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
+  const apple = latitude !== null && longitude !== null
+    ? `https://maps.apple.com/?ll=${latitude},${longitude}&q=${encodeURIComponent(name)}`
+    : `https://maps.apple.com/?q=${encodeURIComponent(place)}`;
+
+  function open() {
+    if (onApple() && navigator.maxTouchPoints > 0) setChoosing(true);
+    else window.open(google, "_blank", "noopener");
+  }
+
+  return (
+    <>
+      <button type="button" onClick={open} className="text-left text-sm text-neutral-600 underline decoration-neutral-300 underline-offset-4 dark:text-neutral-400">
+        {address}
+      </button>
+      {choosing && (
+        <Popup title="Open in Maps" onClose={() => setChoosing(false)}
+          actions={
+            <>
+              <a href={apple} onClick={() => setChoosing(false)} className={POPUP_PRIMARY}>Apple Maps</a>
+              <a href={google} target="_blank" rel="noopener" onClick={() => setChoosing(false)} className={POPUP_SECONDARY}>Google Maps</a>
+            </>
+          }>
+          <p className="text-sm">{name}</p>
+        </Popup>
+      )}
+    </>
+  );
+}

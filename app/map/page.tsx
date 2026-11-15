@@ -7,37 +7,27 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePageState } from "@/lib/pageMemory";
 import FlatMap, { KIND_ICON } from "@/components/FlatMap";
-import Icon, { type IconName } from "@/components/Icon";
+import Icon from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { VenueDetail, VenuePoint } from "@/lib/ports/browse";
 import { services } from "@/lib/services";
 
 type Sort = "new" | "old" | "high" | "low";
-const SORTS: { id: Sort; icon: IconName; label: string }[] = [
-  { id: "new", icon: "sortNew", label: "Newest first" },
-  { id: "old", icon: "sortOld", label: "Oldest first" },
-  { id: "high", icon: "sortHigh", label: "Highest rated" },
-  { id: "low", icon: "sortLow", label: "Lowest rated" },
+const SORTS: { id: Sort; label: string }[] = [
+  { id: "new", label: "Newest" },
+  { id: "old", label: "Oldest" },
+  { id: "high", label: "Highest rated" },
+  { id: "low", label: "Lowest rated" },
 ];
-const TABS: { id: string; icon: IconName; label: string }[] = [
-  { id: "all", icon: "layers", label: "All" },
-  { id: "Movie", icon: "film", label: "Movies" },
-  { id: "TV Show", icon: "tv", label: "TV shows" },
-  { id: "Concert", icon: "mic", label: "Concerts" },
-  { id: "Live Event", icon: "masks", label: "Live events" },
+/** Text tabs; one only shows when something of that kind was seen at the venue. */
+const TABS: { id: string; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "Movie", label: "Movies" },
+  { id: "TV Show", label: "TV shows" },
+  { id: "Concert", label: "Concerts" },
+  { id: "Live Event", label: "Live events" },
 ];
-
-/** A round control for the black sheet: white when selected, translucent otherwise. */
-function Chip({ icon, label, on, onClick, count }: { icon: IconName; label: string; on?: boolean; onClick: () => void; count?: number }) {
-  return (
-    <button type="button" aria-label={label} title={label} aria-pressed={on} onClick={onClick}
-      className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${on ? "bg-white text-black" : "bg-white/15 text-white"}`}>
-      <Icon name={icon} size={18} />
-      {count !== undefined && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[10px] font-semibold text-black ring-1 ring-black">{count}</span>}
-    </button>
-  );
-}
 
 function MapView() {
   const ready = useRequireSession();
@@ -94,11 +84,13 @@ function MapView() {
     const viewings = open?.detail?.viewings ?? [];
     const list = open && open.tab !== "all" ? viewings.filter((v) => v.category === open.tab) : viewings;
     const rate = (r: number | null, missing: number) => r ?? missing;
+    // Viewings with no date go last in either date order.
+    const byDate = (a: string | null, b: string | null, dir: 1 | -1) => (a === null ? (b === null ? 0 : 1) : b === null ? -1 : dir * a.localeCompare(b));
     return [...list].sort((a, b) =>
-      sort === "old" ? (a.watchedOn ?? "").localeCompare(b.watchedOn ?? "")
+      sort === "old" ? byDate(a.watchedOn, b.watchedOn, 1)
       : sort === "high" ? rate(b.rating, -1) - rate(a.rating, -1)
       : sort === "low" ? rate(a.rating, 11) - rate(b.rating, 11)
-      : (b.watchedOn ?? "").localeCompare(a.watchedOn ?? ""));
+      : byDate(a.watchedOn, b.watchedOn, -1));
   }, [open, sort]);
 
   if (!ready) return null;
@@ -119,21 +111,31 @@ function MapView() {
       {problem && <p role="alert" className="absolute inset-x-6 top-40 z-20 rounded-2xl bg-white/90 px-3 py-2 text-sm text-red-600 dark:bg-black/70">{problem}</p>}
 
       {open && (
-        <div className="fixed inset-x-3 bottom-24 z-40 mx-auto flex max-h-[60vh] w-auto max-w-md flex-col gap-4 overflow-y-auto rounded-3xl bg-black px-5 pb-6 pt-5 text-white shadow-2xl">
+        // Tall, lifted clear of the bottom bar, with a soft shadow so it reads as the thing in front.
+        <div className="fixed inset-x-3 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex h-[60vh] w-auto max-w-md flex-col gap-3 overflow-y-auto rounded-3xl bg-black px-5 pb-6 pt-5 text-white shadow-[0_20px_50px_-10px_rgba(0,0,0,0.6),0_6px_16px_rgba(0,0,0,0.35)]">
           <div className="flex items-center gap-3">
-            <Chip icon="close" label="Close" onClick={() => setOpen(null)} />
+            <button type="button" aria-label="Close" onClick={() => setOpen(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15"><Icon name="close" size={18} /></button>
             <Link href={`/venue/?id=${open.point.id}`} className="min-w-0 flex-1 truncate font-serif text-xl">{open.point.name}</Link>
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-white/70">
+              Sort
+              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full bg-white/15 px-3 py-1.5 text-sm text-white outline-none">
+                {SORTS.map((s) => <option key={s.id} value={s.id} className="text-black">{s.label}</option>)}
+              </select>
+            </label>
+          </div>
+          {/* A single kind needs no tabs. */}
+          {counts.size > 1 && (
+            <div className="flex gap-4 overflow-x-auto text-sm" role="tablist">
               {TABS.filter((t) => t.id === "all" || counts.has(t.id)).map((t) => (
-                <Chip key={t.id} icon={t.icon} label={t.label} on={open.tab === t.id} count={t.id === "all" ? open.detail?.viewings.length : counts.get(t.id)} onClick={() => setOpen({ ...open, tab: t.id })} />
+                <button key={t.id} type="button" role="tab" aria-selected={open.tab === t.id} onClick={() => setOpen({ ...open, tab: t.id })}
+                  className={`shrink-0 border-b-2 pb-1 ${open.tab === t.id ? "border-white text-white" : "border-transparent text-white/60"}`}>
+                  {t.label} <span className="text-xs">{t.id === "all" ? open.detail?.viewings.length : counts.get(t.id)}</span>
+                </button>
               ))}
             </div>
-            <div className="flex gap-2">
-              {SORTS.map((s) => <Chip key={s.id} icon={s.icon} label={s.label} on={sort === s.id} onClick={() => setSort(s.id)} />)}
-            </div>
-          </div>
+          )}
           {!open.detail && <div className="skeleton h-40 rounded-2xl" />}
           <ul className="grid grid-cols-3 gap-3">
             {shown.map((v) => (

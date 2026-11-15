@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import FlatMap from "@/components/FlatMap";
-import Icon from "@/components/Icon";
+import OpenInMaps from "@/components/OpenInMaps";
+import ViewingDetails from "@/components/ViewingDetails";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { VenueDetail } from "@/lib/ports/browse";
@@ -54,34 +55,36 @@ function VenueView() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
       {venue && (
-        <>
-          <div>
-            <h1 className="font-serif text-3xl tracking-tight">{venue.name}</h1>
-            <p className="text-sm text-neutral-500">{[venue.address, venue.city, venue.country].filter(Boolean).join(" · ") || venue.type}</p>
-          </div>
+        <div className="reveal flex flex-col gap-5">
           {point.length > 0 && <FlatMap points={point} className="h-56" />}
-          <Link href="/map/" className="flex items-center gap-2 self-start rounded-full bg-neutral-950 px-4 py-2 text-sm text-white dark:bg-white dark:text-neutral-950">
-            <Icon name="map" size={16} /> All venues
-          </Link>
+          <div className="flex flex-col gap-1">
+            <h1 className="font-serif text-3xl tracking-tight">{venue.name}</h1>
+            {venue.address ? (
+              <OpenInMaps name={venue.name} address={[venue.address, venue.city, venue.country].filter(Boolean).join(", ")} latitude={venue.latitude} longitude={venue.longitude} />
+            ) : (
+              <p className="text-sm text-neutral-500">{[venue.city, venue.country].filter(Boolean).join(" · ") || venue.type}</p>
+            )}
+          </div>
 
           <h2 className="font-serif text-xl">{venue.viewings.length} {venue.viewings.length === 1 ? "visit" : "visits"}</h2>
-          <ul className="grid grid-cols-3 gap-3">
+          {/* Two to a row so each tile has room for its details; equal heights keep the grid tidy. */}
+          <ul className="grid grid-cols-2 items-stretch gap-3">
             {venue.viewings.map((v) => (
-              <li key={v.sessionId}>
-                <Link href={`/session/?id=${v.sessionId}`} className="flex flex-col gap-1 text-xs">
+              <li key={v.sessionId} className="flex">
+                <Link href={`/session/?id=${v.sessionId}`} className="flex w-full flex-col gap-2 rounded-2xl bg-white p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_6px_16px_-6px_rgba(0,0,0,0.18)] dark:bg-neutral-900">
                   {v.posterPath ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={tmdbImageUrl(v.posterPath, "w185") ?? ""} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-lg object-cover" />
                   ) : (
                     <div className="aspect-[2/3] rounded-lg bg-neutral-200 dark:bg-neutral-800" />
                   )}
-                  <span className="line-clamp-2 font-medium">{v.title}</span>
-                  <span className="text-neutral-500">{v.watchedOn ?? ""}{v.rating !== null ? ` · ★ ${v.rating}` : ""}</span>
+                  <span className="line-clamp-2 text-sm font-medium leading-tight">{v.title}</span>
+                  <ViewingDetails compact auditorium={v.auditorium} seats={v.seats} totalTickets={v.totalTickets} format={v.primaryFormat} addons={v.addons} watchedOn={v.watchedOn} watchedAt={v.watchedAt} />
                 </Link>
               </li>
             ))}
           </ul>
-        </>
+        </div>
       )}
     </main>
   );

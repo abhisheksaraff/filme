@@ -3,7 +3,9 @@
 // ConfirmPopup asks a question with Cancel and an action; NoticePopup tells something with OK.
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import Portal from "@/components/Portal";
+import { pushOverlay } from "@/lib/overlayStack";
 import Icon, { type IconName } from "@/components/Icon";
 
 interface PopupProps {
@@ -23,14 +25,21 @@ export const POPUP_PRIMARY = `${BUTTON} bg-white text-neutral-950`;
 export const POPUP_SECONDARY = `${BUTTON} bg-white/15 text-white`;
 
 export default function Popup({ title, icon, onClose, children, actions }: PopupProps) {
+  // Escape closes only the popup on top, not the ones underneath it.
+  const top = useRef<ReturnType<typeof pushOverlay> | null>(null);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    top.current = pushOverlay();
+    return () => top.current?.remove();
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && top.current?.isTop() && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
-    // Tapping the dimmed area outside the card closes it.
+    // Tapping the dimmed area outside the card closes it. It is drawn above the whole app, back button and bottom bar included.
+    <Portal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6 backdrop-blur-sm" onClick={onClose}>
       <div
         role="dialog"
@@ -52,6 +61,7 @@ export default function Popup({ title, icon, onClose, children, actions }: Popup
         {actions && <div className="flex gap-3">{actions}</div>}
       </div>
     </div>
+    </Portal>
   );
 }
 

@@ -2,12 +2,14 @@
 // A full-screen film reel that blocks the page while something is being fetched or saved.
 "use client";
 
+import Portal from "@/components/Portal";
+
 const HOLES = [0, 1, 2, 3, 4].map((i) => {
   const angle = ((i * 72 - 90) * Math.PI) / 180;
   return { x: 50 + 27 * Math.cos(angle), y: 50 + 27 * Math.sin(angle) };
 });
 
-export default function LoadingOverlay({ label }: { label: string }) {
+function LoadingOverlayInner({ label }: { label: string }) {
   return (
     <div
       role="status"
@@ -30,5 +32,13 @@ export default function LoadingOverlay({ label }: { label: string }) {
       </svg>
       <p className="text-base font-medium text-white">{label}</p>
     </div>
+  );
+}
+
+export default function LoadingOverlay({ label }: { label: string }) {
+  return (
+    <Portal>
+      <LoadingOverlayInner label={label} />
+    </Portal>
   );
 }

@@ -2,6 +2,7 @@
 // Drag and zoom a picture inside a frame, then keep what the frame shows.
 "use client";
 
+import Portal from "@/components/Portal";
 import { useEffect, useRef, useState } from "react";
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
 
 const FRAME = 300;
 
-export default function CropDialog({ file, aspect, maxEdge, title, onCancel, onDone }: Props) {
+function CropDialogInner({ file, aspect, maxEdge, title, onCancel, onDone }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -109,5 +110,14 @@ export default function CropDialog({ file, aspect, maxEdge, title, onCancel, onD
         <button type="button" onClick={finish} disabled={busy || !size} className="rounded-xl bg-white px-5 py-2 text-neutral-900 disabled:opacity-50">{busy ? "Saving…" : "Use this"}</button>
       </div>
     </div>
+  );
+}
+
+/** Drawn above the whole app, so the back button and bottom bar sit dimmed behind it. */
+export default function CropDialog(props: Props) {
+  return (
+    <Portal>
+      <CropDialogInner {...props} />
+    </Portal>
   );
 }

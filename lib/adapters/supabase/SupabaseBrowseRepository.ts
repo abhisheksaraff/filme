@@ -1,6 +1,6 @@
 // lib/adapters/supabase/SupabaseBrowseRepository.ts
 // Reads people, venues and credits for the pages that link between them.
-import type { BrowseRepository, PersonPick, PersonWork } from "@/lib/ports/browse";
+import type { BrowseRepository, PersonPick, PersonWork, VenueViewing } from "@/lib/ports/browse";
 import { fail, ok } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 import { lastHomeVenue, literal } from "./venues";
@@ -131,7 +131,7 @@ export const supabaseBrowseRepository: BrowseRepository = {
     if (venue.error || !venue.data) return fail("Could not find that venue.");
     const sessions = await db
       .from("watch_sessions")
-      .select("id, media_id, watched_on, rating, media:media_items(title, poster_path, category)")
+      .select("id, media_id, watched_on, watched_at, rating, auditorium, seats, total_tickets, primary_format, addons, media:media_items(title, poster_path, category)")
       .eq("venue_id", id)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false });
@@ -156,6 +156,12 @@ export const supabaseBrowseRepository: BrowseRepository = {
           watchedOn: s.watched_on as string | null,
           rating: s.rating === null ? null : Number(s.rating),
           category: m?.category ?? "Movie",
+          watchedAt: s.watched_at as string | null,
+          auditorium: s.auditorium as string | null,
+          seats: (s.seats ?? []) as VenueViewing["seats"],
+          totalTickets: s.total_tickets as number | null,
+          primaryFormat: s.primary_format as string | null,
+          addons: (s.addons ?? []) as string[],
         };
       }),
     });
