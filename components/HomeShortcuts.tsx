@@ -1,5 +1,5 @@
 // components/HomeShortcuts.tsx
-// One row of icon circles under the search pill: new-episode alerts, the map, then Your day, Your month and
+// One row of icon circles under the search pill: new-episode alerts, then Your day, Your month and
 // Your year. A new recap shows as a red dot on its circle rather than a circle of its own.
 "use client";
 
@@ -106,7 +106,6 @@ export default function HomeShortcuts({ nonce }: { nonce: number }) {
   const episodes = notes.filter((n) => n.kind === "new-episode");
   const unread = episodes.filter((n) => !n.readAt).map(toEpisode);
   const read = episodes.filter((n) => n.readAt).map(toEpisode);
-  const map: Item = { key: "map", href: "/map/", icon: "map", label: "Map" };
   const recaps: Item[] = stories.map((st) => ({
     ...st,
     unread: st.recap ? notes.some((n) => n.kind === `report-${st.recap}` && !n.readAt) : false,
@@ -115,7 +114,7 @@ export default function HomeShortcuts({ nonce }: { nonce: number }) {
 
   return (
     <ul className="-mx-1 flex gap-2 overflow-x-auto px-1">
-      {[...unread, map, ...recaps, ...read].map((item) => <Circle key={item.key} item={item} />)}
+      {[...unread, ...recaps, ...read].map((item) => <Circle key={item.key} item={item} />)}
     </ul>
   );
 }

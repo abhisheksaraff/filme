@@ -96,7 +96,7 @@ export async function importCsv(file: File, onProgress: (done: number, total: nu
     const entry = logEntrySchema.safeParse({
       category: kind, title: details.value.title, season: item.season, episode: item.episode, episodeTitle: null,
       location: null, address: null, auditorium: null, date: item.date, time: null, seats: [], totalTickets: null,
-      primaryFormat: "Standard", addons: [], rating: item.rating, notes: null, media: mediaFromCatalog(details.value),
+      primaryFormat: null, addons: [], rating: item.rating, notes: null, media: mediaFromCatalog(details.value),
     });
     if (!entry.success) { skipped++; continue; }
     const res = await services.log.saveEntry(entry.data, []);

@@ -5,12 +5,13 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import FlatMap, { KIND_ICON } from "@/components/FlatMap";
-import Icon from "@/components/Icon";
+import Icon, { type IconName } from "@/components/Icon";
 import RoundButton from "@/components/RoundButton";
 import ViewingDetails from "@/components/ViewingDetails";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { scopeLabel } from "@/lib/domain/tv";
 import type { SeatDetail } from "@/lib/domain/sessions";
+import type { VenuePoint } from "@/lib/ports/browse";
 import type { ReactNode } from "react";
 
 /** What a card needs; a Watched row and a viewing on a title page both fit it. */
@@ -35,8 +36,14 @@ export interface CardData {
   episode: number | null;
 }
 
-/** Builds the map only once its tile scrolls into view, so a long list does not load twenty maps at once. */
-function LazyMap({ entry }: { entry: CardData & { venueLatitude: number; venueLongitude: number } }) {
+/** Where a viewing with no venue is drawn: the CN Tower, with a pin that says there is no location. */
+const CN_TOWER: VenuePoint = { id: "none", name: "No location", type: "other", city: null, country: null, latitude: 43.6426, longitude: -79.3871, count: 1, kinds: [] };
+
+/**
+ * A small still map that only builds once its tile scrolls into view, so a long list does not load twenty maps at once.
+ * Tapping it goes to `href`: the full map on the venue, or the title itself when there is no location.
+ */
+function LazyMap({ point, icon, href, label }: { point: VenuePoint; icon: IconName; href: string; label: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [seen, setSeen] = useState(false);
   useEffect(() => {
@@ -52,16 +59,10 @@ function LazyMap({ entry }: { entry: CardData & { venueLatitude: number; venueLo
     return () => watcher.disconnect();
   }, [seen]);
 
-  const icon = KIND_ICON[entry.category] ?? "film";
-  const point = {
-    id: entry.venueId as string, name: entry.venue ?? "", type: "cinema", city: null, country: null,
-    latitude: entry.venueLatitude, longitude: entry.venueLongitude, count: 1, kinds: [{ category: entry.category, count: 1 }],
-  };
   return (
     <div ref={box} className="relative aspect-square w-full overflow-hidden rounded-[20px] bg-neutral-200 dark:bg-neutral-800">
       {seen && <FlatMap points={[point]} focus={{ lon: point.longitude, lat: point.latitude, zoom: 14 }} still pinIcon={icon} className="h-full" />}
-      {/* Tapping the map opens the full map on this theatre. */}
-      <Link href={`/map/?venue=${entry.venueId}`} aria-label={`Show ${entry.venue} on the map`} className="absolute inset-0 z-30" />
+      <Link href={href} aria-label={label} className="absolute inset-0 z-30" />
     </div>
   );
 }
@@ -81,13 +82,11 @@ interface Props {
   footer?: ReactNode;
   /** A small black pencil in the bottom-right corner. */
   editHref?: string;
-  /** Extra round buttons beside the pencil, such as Watch. */
-  actions?: ReactNode;
   /** Rises into place as the page opens; only the title page does this. */
   animate?: boolean;
 }
 
-export default function WatchedCard({ entry, index = 0, href, showTitle = true, label, rating, notes, footer, editHref, actions, animate = false }: Props) {
+export default function WatchedCard({ entry, index = 0, href, showTitle = true, label, rating, notes, footer, editHref, animate = false }: Props) {
   const poster = tmdbImageUrl(entry.posterPath, "w342");
   const located = entry.venueId && entry.venueLatitude !== null && entry.venueLongitude !== null;
   const at = entry.venueId && entry.venue;
@@ -116,18 +115,25 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
       <Link href={open} aria-label={`Open ${entry.title}`} className="absolute inset-0 z-0 rounded-3xl" />
       {label && <span className="mb-1 block px-3 pt-2 text-xs uppercase tracking-wide text-neutral-500">{label}</span>}
       <div className="flex gap-1">
-        {at ? (
-          <div className="flex w-1/2 flex-col gap-1">
-            {located ? <LazyMap entry={entry as CardData & { venueLatitude: number; venueLongitude: number }} /> : (
+        <div className="flex w-1/2 flex-col gap-1">
+          {at ? (
+            located ? (
+              <LazyMap
+                point={{ id: entry.venueId as string, name: entry.venue ?? "", type: "cinema", city: null, country: null, latitude: entry.venueLatitude as number, longitude: entry.venueLongitude as number, count: 1, kinds: [{ category: entry.category, count: 1 }] }}
+                icon={KIND_ICON[entry.category] ?? "film"}
+                href={`/map/?venue=${entry.venueId}`}
+                label={`Show ${entry.venue} on the map`}
+              />
+            ) : (
               <Link href={`/map/?venue=${entry.venueId}`} aria-label={`Show ${entry.venue} on the map`} className="relative z-10 flex aspect-square w-full items-center justify-center rounded-[20px] bg-neutral-200 dark:bg-neutral-800"><Icon name={KIND_ICON[entry.category] ?? "film"} size={28} /></Link>
-            )}
-            <Link href={`/map/?venue=${entry.venueId}`} className="relative z-10 line-clamp-2 px-2 pb-1 text-sm font-normal leading-tight text-neutral-500">{entry.venue}</Link>
-          </div>
-        ) : null}
-        <div className={`flex flex-col gap-1 ${at ? "w-1/2" : "mx-auto w-1/2"}`}>
-          {posterEl}
-          {!at && <span className="text-center text-xs text-neutral-500">Watched at home</span>}
+            )
+          ) : (
+            // No venue: a map of the CN Tower with a "none" pin; a tap opens the title like the rest of the card.
+            <LazyMap point={CN_TOWER} icon="none" href={open} label={`Open ${entry.title}`} />
+          )}
+          {at && <Link href={`/map/?venue=${entry.venueId}`} className="relative z-10 line-clamp-2 px-2 pb-1 text-sm font-normal leading-tight text-neutral-500">{entry.venue}</Link>}
         </div>
+        <div className="flex w-1/2 flex-col gap-1">{posterEl}</div>
       </div>
       <div className="mt-2 flex flex-col gap-2 px-3">
         {showTitle && <Link href={titleHref} className="relative z-10 self-start font-serif text-xl font-medium leading-tight">{entry.title}</Link>}
@@ -144,9 +150,8 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
         {notes && <p className="text-sm">{notes}</p>}
       </div>
       {footer && <div className="relative z-10 px-3 pb-2">{footer}</div>}
-      {(editHref || actions) && (
+      {editHref && (
         <div className="relative z-10 mt-3 flex items-center justify-end gap-2 px-2 pb-2">
-          {actions}
           {editHref && <RoundButton icon="edit" label="Edit viewing" href={editHref} size="sm" className="!bg-black !text-white" />}
         </div>
       )}

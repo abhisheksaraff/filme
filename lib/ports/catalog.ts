@@ -82,6 +82,17 @@ export interface EpisodeDetail extends EpisodeRef {
   stillPath: string | null;
 }
 
+/** Someone on an episode's cast or crew, under the heading they belong to. */
+export interface EpisodePerson {
+  tmdbId: number;
+  name: string;
+  profilePath: string | null;
+  /** "Cast", "Guest stars", "Director" or "Writer". */
+  group: string;
+  /** The character they play, for cast. */
+  note: string | null;
+}
+
 /** One season and all its episodes. */
 export interface SeasonDetail {
   season: number;
@@ -165,6 +176,8 @@ export interface Catalog {
   showStatus(tmdbId: number): Promise<Result<ShowStatus>>;
   /** A season's episodes with names, stills, runtimes and air dates. Kept for the rest of the session. */
   season(tmdbId: number, season: number): Promise<Result<SeasonDetail>>;
+  /** The cast, guest stars, directors and writers of one episode. */
+  episodePeople(tmdbId: number, season: number, episode: number): Promise<Result<EpisodePerson[]>>;
   /** Poster and cover paths available for a title. */
   images(match: CatalogMatch): Promise<Result<{ posters: string[]; backdrops: string[] }>>;
   /** Films in cinemas now, or opening soon, in a country. */

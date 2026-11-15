@@ -74,7 +74,7 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
             type="button"
             disabled={list.length === 0}
             onClick={() => onPick(date)}
-            className={`cal-cell relative aspect-[2/3] rounded-lg text-xs ${picked === date ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${list.length ? "" : "cursor-default"}`}
+            className={`relative aspect-[2/3] rounded-lg text-xs ${picked === date ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${list.length ? "" : "cursor-default"}`}
           >
             {deck.map((group, n) => {
               const row = group[0];
@@ -275,7 +275,7 @@ export default function CalendarPage() {
         <div
           ref={strip}
           onScroll={onScroll}
-          className="cal-strip -mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {Array.from({ length: PANELS }, (_, panel) => (
             <div key={first + panel} className="w-full shrink-0 snap-start px-4">

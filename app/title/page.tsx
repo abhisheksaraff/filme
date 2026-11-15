@@ -16,7 +16,6 @@ import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
 import ViewingPictures from "@/components/ViewingPictures";
-import WatchButton from "@/components/WatchButton";
 import WatchedCard from "@/components/WatchedCard";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -253,9 +252,6 @@ function TitleView() {
                   notes={v.notes}
                   editHref={`/entry/?id=${v.id}`}
                   footer={<ViewingPictures sessionId={v.id} />}
-                  actions={v.season !== null && v.episode !== null && detail.tmdbId !== null && isShow ? (
-                    <WatchButton watch={{ tmdbId: detail.tmdbId, kind: "TV Show", title: detail.title, year: detail.releaseDate?.slice(0, 4) ?? null, season: v.season, episode: v.episode }} />
-                  ) : undefined}
                   entry={{
                     id: v.id, mediaId: detail.mediaId, title: detail.title, category: detail.category, posterPath: detail.posterPath,
                     watchedOn: v.watchedOn, watchedAt: v.watchedAt, primaryFormat: v.primaryFormat, addons: v.addons,

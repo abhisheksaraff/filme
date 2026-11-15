@@ -26,7 +26,7 @@ export interface EntryDraft {
   date: string;
   time: string;
   totalTickets: string;
-  primaryFormat: PrimaryFormat;
+  primaryFormat: PrimaryFormat | null;
   addons: FormatAddon[];
   seats: DraftSeat[];
   rating: string;
@@ -110,7 +110,7 @@ export const EMPTY_DRAFT: EntryDraft = {
   date: "",
   time: "",
   totalTickets: "1",
-  primaryFormat: "Standard",
+  primaryFormat: null,
   addons: [],
   seats: [],
   rating: "",

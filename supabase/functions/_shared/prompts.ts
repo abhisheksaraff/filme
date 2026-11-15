@@ -23,7 +23,7 @@ Once you have resolved the true identity of the venue/theater name, use your int
 CRITICAL FORMAT INSTRUCTION:
 Do not confuse theater branding with the movie's specific screening format.
 - "location" should store the full official name of the venue.
-- "primaryFormat" must reflect the actual screening format of the movie (e.g., "Standard", "Regular", "IMAX", "UltraAVX"). If the venue name contains "VIP" or "Cinemas", but the specific movie ticket does not explicitly indicate a VIP auditorium/experience, classify the movie format as "Regular" or "Standard".
+- "primaryFormat" must reflect the actual screening format of the movie (e.g., "Standard", "Regular", "IMAX", "UltraAVX"), or null when the ticket shows none. If the venue name contains "VIP" or "Cinemas", but the specific movie ticket does not explicitly indicate a VIP auditorium/experience, leave "primaryFormat" null; never guess a format the ticket does not show.
 
 Select primaryFormat and addons exclusively from the allowed enum values when matching traits are identified.
 `;

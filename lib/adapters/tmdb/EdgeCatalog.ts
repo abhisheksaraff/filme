@@ -1,6 +1,6 @@
 // lib/adapters/tmdb/EdgeCatalog.ts
 // Asks TMDB questions through the `tmdb` Edge Function so the key never reaches the phone.
-import type { BrowseSpec, Catalog, CatalogCredit, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch, CatalogPerson, CatalogPersonHit, EpisodeRef, SeasonDetail, ShowStatus } from "@/lib/ports/catalog";
+import type { BrowseSpec, Catalog, CatalogCredit, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch, CatalogPerson, CatalogPersonHit, EpisodePerson, EpisodeRef, SeasonDetail, ShowStatus } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { callFunction } from "../supabase/functions";
 import { readStored, writeStored } from "@/lib/persistentCache";
@@ -98,6 +98,7 @@ async function search(title: string, category: string, limit = 6): Promise<Resul
 
 /** Seasons already fetched this session; a season page and the progress bars share them. */
 const seasonCache = new Map<string, SeasonDetail>();
+const episodePeopleCache = new Map<string, EpisodePerson[]>();
 
 const rawCatalog: Catalog = {
   search,
@@ -282,6 +283,32 @@ const rawCatalog: Catalog = {
     };
     seasonCache.set(key, detail);
     return ok(detail);
+  },
+
+  async episodePeople(tmdbId, season, episode) {
+    const key = `${tmdbId}:${season}:${episode}`;
+    const hit = episodePeopleCache.get(key);
+    if (hit) return ok(hit);
+    type Row = { id: number; name: string; profile_path?: string | null; character?: string | null; job?: string };
+    type Body = { cast?: Row[]; guest_stars?: Row[]; crew?: Row[] };
+    const base = `/tv/${tmdbId}/season/${season}/episode/${episode}`;
+    // The credits path has the regular cast too; the plain episode path (always allowed) has guest stars and crew only.
+    let res = await callFunction<Body>("tmdb", { path: `${base}/credits` });
+    if (!res.ok) res = await callFunction<Body>("tmdb", { path: base });
+    if (!res.ok) return fail(res.error);
+    const person = (r: Row, group: string): EpisodePerson => ({ tmdbId: r.id, name: r.name, profilePath: r.profile_path ?? null, group, note: r.character || null });
+    const crew = res.value.crew ?? [];
+    const people: EpisodePerson[] = [
+      ...(res.value.cast ?? []).slice(0, 12).map((r) => person(r, "Cast")),
+      ...(res.value.guest_stars ?? []).slice(0, 12).map((r) => person(r, "Guest stars")),
+      ...crew.filter((r) => r.job === "Director").map((r) => person(r, "Director")),
+      ...crew.filter((r) => r.job === "Writer" || r.job === "Teleplay" || r.job === "Story" || r.job === "Screenplay").map((r) => person(r, "Writer")),
+    ];
+    // Someone who wrote and directed appears under each heading, but never twice under the same one.
+    const seen = new Set<string>();
+    const unique = people.filter((p) => (seen.has(`${p.group}:${p.tmdbId}`) ? false : (seen.add(`${p.group}:${p.tmdbId}`), true)));
+    episodePeopleCache.set(key, unique);
+    return ok(unique);
   },
 
   async images(match) {

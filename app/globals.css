@@ -186,20 +186,14 @@ h1, h2, h3, h4, h5, h6,
   user-select: text;
 }
 
-/* Calendar on a wide, landscape screen (iPad on its side, a laptop): the month is fitted to the screen height
-   so it needs no scrolling; the rows share the space and the posters fill their squares. Phones and portrait are untouched. */
+/* Calendar on a wide, landscape screen (iPad on its side, a laptop): the month is sized to the screen height so it
+   needs no scrolling. The poster tiles keep their 2:3 shape, so it is the whole grid that gets narrower and sits in the
+   middle. Phones and portrait are untouched. */
 @media (min-width: 768px) and (orientation: landscape) {
-  .cal-strip {
-    height: calc(100dvh - 19rem);
-    min-height: 16rem;
-  }
   .cal-grid {
-    height: 100%;
-    grid-template-rows: auto repeat(var(--weeks), minmax(0, 1fr));
-  }
-  .cal-cell {
-    aspect-ratio: auto !important;
-    min-height: 0;
+    --cal-room: calc(100dvh - 19rem - 1.5rem - var(--weeks) * 0.25rem);
+    width: min(100%, max(18rem, calc(7 * var(--cal-room) / (var(--weeks) * 1.5) + 1.5rem)));
+    margin-inline: auto;
   }
 }
 

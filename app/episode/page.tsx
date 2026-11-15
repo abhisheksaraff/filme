@@ -10,6 +10,8 @@ import { Suspense, useEffect, useState } from "react";
 import { toast } from "@/components/Toast";
 import WhenPopup from "@/components/WhenPopup";
 import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
+import Icon from "@/components/Icon";
+import PersonCircle from "@/components/PersonCircle";
 import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -17,7 +19,7 @@ import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { isCovered, scopeLabel } from "@/lib/domain/tv";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { logShowNow } from "@/lib/logShow";
-import type { SeasonDetail } from "@/lib/ports/catalog";
+import type { EpisodePerson, SeasonDetail } from "@/lib/ports/catalog";
 import type { ViewingSummary } from "@/lib/ports/log";
 import { services } from "@/lib/services";
 
@@ -44,6 +46,7 @@ function EpisodeView() {
 
   const [detail, setDetail] = useState<ShowInfo | null>(null);
   const [season, setSeason] = useState<SeasonDetail | null>(null);
+  const [people, setPeople] = useState<EpisodePerson[]>([]);
   const [wanted, setWanted] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,6 +77,10 @@ function EpisodeView() {
       if (cancelled) return;
       if (season.ok) setSeason(season.value);
       else setProblem(season.error);
+      // The cast and crew arrive on their own, so the page does not wait for them.
+      services.catalog.episodePeople(info.tmdbId, s, e).then((res) => {
+        if (!cancelled && res.ok) setPeople((prev) => keepIfSame(prev, res.value));
+      });
       if (w.ok) {
         setWanted(w.value.wanted);
         if (w.value.mediaId) setDetail((d) => (d && !d.mediaId ? { ...d, mediaId: w.value.mediaId } : d));
@@ -144,7 +151,7 @@ function EpisodeView() {
         loading={!detail && !problem}
       />
 
-      <div className="flex flex-col gap-5 px-5 pb-8">
+      <div className="flex flex-col gap-5 px-5 pb-24">
         <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
         {detail && (
@@ -161,10 +168,18 @@ function EpisodeView() {
             {episode?.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{episode.overview}</p>}
             {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}
 
-            <nav className="flex justify-between gap-3 text-sm">
-              {previous ? <Link href={`/episode/?${showQuery}&s=${s}&e=${previous.episode}`} className="rounded-full border border-neutral-300 px-4 py-2 dark:border-neutral-700">← E{previous.episode}</Link> : <span />}
-              {next && <Link href={`/episode/?${showQuery}&s=${s}&e=${next.episode}`} className="rounded-full border border-neutral-300 px-4 py-2 dark:border-neutral-700">E{next.episode} →</Link>}
-            </nav>
+            {/* The cast and crew, one row per heading; headings with nobody are left out. */}
+            {["Cast", "Guest stars", "Director", "Writer"].map((group) => {
+              const list = people.filter((p) => p.group === group);
+              return list.length === 0 ? null : (
+                <section key={group} className="flex flex-col gap-2">
+                  <h2 className="font-serif text-lg">{group}</h2>
+                  <ul className="-mx-5 flex gap-3 overflow-x-auto px-5">
+                    {list.map((p) => <PersonCircle key={`${group}-${p.tmdbId}`} href={`/person/?tmdb=${p.tmdbId}`} name={p.name} profilePath={p.profilePath} note={p.note} />)}
+                  </ul>
+                </section>
+              );
+            })}
 
             {covering.length > 0 && (
               <section className="flex flex-col gap-2">
@@ -184,6 +199,19 @@ function EpisodeView() {
           </>
         )}
       </div>
+
+      {/* Plain arrows pinned just above the bottom bar, so they stay put from one episode to the next. They replace the page in
+          history instead of adding to it, which keeps Back going straight to the season. */}
+      <nav aria-label="Episodes" className="pointer-events-none fixed inset-x-0 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-20">
+        <div className="mx-auto flex w-full max-w-md items-center justify-between px-4 md:max-w-3xl lg:max-w-5xl">
+          {previous ? (
+            <Link replace href={`/episode/?${showQuery}&s=${s}&e=${previous.episode}`} aria-label="Previous episode" className="pointer-events-auto flex h-12 w-12 items-center justify-center text-neutral-950 dark:text-white"><Icon name="left" size={30} /></Link>
+          ) : <span className="h-12 w-12" />}
+          {next ? (
+            <Link replace href={`/episode/?${showQuery}&s=${s}&e=${next.episode}`} aria-label="Next episode" className="pointer-events-auto flex h-12 w-12 items-center justify-center text-neutral-950 dark:text-white"><Icon name="right" size={30} /></Link>
+          ) : <span className="h-12 w-12" />}
+        </div>
+      </nav>
 
       {when && <WhenPopup what={`S${s} E${e}`} busy={busy} onToday={() => logNow()} onForm={logWithForm} onUndated={() => logNow(null)} onClose={() => setWhen(false)} />}
     </main>

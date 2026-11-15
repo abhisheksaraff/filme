@@ -24,7 +24,7 @@ export const extractedDataSchema = z.object({
   time: z.string().nullable(),
   seats: z.array(seatSchema),
   totalTickets: z.number().int(),
-  primaryFormat: z.enum(PRIMARY_FORMATS),
+  primaryFormat: z.enum(PRIMARY_FORMATS).nullable(),
   addons: z.array(z.enum(FORMAT_ADDONS)),
 });
 
@@ -43,7 +43,7 @@ export const DEFAULT_EXTRACTED_DATA: ExtractedData = {
   time: null,
   seats: [],
   totalTickets: 1,
-  primaryFormat: "Standard" as PrimaryFormat,
+  primaryFormat: null,
   addons: [],
 };
 
@@ -78,7 +78,7 @@ export function normalizeExtraction(raw: unknown): ExtractedData {
   const formatText = cleanText(obj.primaryFormat);
   const primaryFormat = (PRIMARY_FORMATS as readonly string[]).includes(formatText ?? "")
     ? (formatText as PrimaryFormat)
-    : DEFAULT_EXTRACTED_DATA.primaryFormat;
+    : null;
 
   const addons = (Array.isArray(obj.addons) ? obj.addons : []).filter(
     (a): a is FormatAddon => typeof a === "string" && (FORMAT_ADDONS as readonly string[]).includes(a),

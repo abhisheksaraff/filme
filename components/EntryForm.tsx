@@ -243,7 +243,9 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       </Labeled>
 
       <Labeled label="Format">
-        <select className={field} value={draft.primaryFormat} onChange={(e) => set("primaryFormat", e.target.value as PrimaryFormat)}>
+        <select className={field} value={draft.primaryFormat ?? ""} onChange={(e) => set("primaryFormat", e.target.value === "" ? null : (e.target.value as PrimaryFormat))}>
+          {/* Left empty unless a format is chosen or a ticket shows one. */}
+          <option value=""></option>
           {FORMATS_SORTED.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
       </Labeled>

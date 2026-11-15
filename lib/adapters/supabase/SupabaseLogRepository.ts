@@ -349,7 +349,7 @@ export const supabaseLogRepository: LogRepository = {
       time: data.watched_at,
       seats: data.seats ?? [],
       totalTickets: data.total_tickets,
-      primaryFormat: data.primary_format ?? "Standard",
+      primaryFormat: data.primary_format ?? null,
       addons: data.addons ?? [],
       rating: data.rating === null ? null : Number(data.rating),
       notes: data.notes,

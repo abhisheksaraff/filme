@@ -35,7 +35,7 @@ export const logEntrySchema = z.object({
   time: z.string().nullable(),
   seats: z.array(seatDetailSchema),
   totalTickets: z.number().int().min(0).nullable(),
-  primaryFormat: primaryFormatSchema,
+  primaryFormat: primaryFormatSchema.nullable(),
   addons: z.array(formatAddonSchema),
   rating: ratingSchema.nullable(),
   notes: z.string().nullable(),

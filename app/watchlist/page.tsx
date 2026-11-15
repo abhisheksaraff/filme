@@ -49,10 +49,7 @@ export default function WatchlistPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
-      <div className="flex items-center justify-between">
-        <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
-        <RoundButton icon="map" label="Map" href="/map/" />
-      </div>
+      <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
