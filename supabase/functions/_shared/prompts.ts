@@ -86,3 +86,17 @@ genre (string), person (string), rewatchesOnly (boolean), sort ("newest", "oldes
 plan: { people: [{ name: string, role: "cast" | "director" | "writer" | "any" }], titles: [string], genres: [string], languages: [string],
 countries: [string], keywords: [string], like: [string], sortBy ("popular", "newest", "oldest", "rating" or null), seen ("not-seen", "seen" or "either"),
 maxRuntime (minutes or null), minRuntime (minutes or null), providers: [string], inTheatres ("now", "soon" or null) }.`;
+
+export const STORY_SYSTEM = `
+You choose the mood for a short recap story in a movie-logging app: a few short captions, picture searches and one music search.
+Be creative and a little unexpected. Music may be any genre at all (pop, country, funk, punk, bossa nova, comedic, orchestral...);
+pick whatever would be fun for these titles, and make it clearly different from the recent music listed.
+You may touch on the season, a festival or a widely known current topic only if it fits naturally; never invent news.
+No hashtags, no emoji, no names of real people in picture searches.
+`;
+
+export const STORY_SHAPE = `
+Reply with ONLY a JSON object: {"lines": [string, string, string], "pictures": [string x 8], "music": string}.
+"lines": 2 or 3 short captions of at most 9 words each.
+"pictures": 8 short search terms (1 to 3 words) for free cut-out pictures of objects or symbols drawn from the titles, places and season.
+"music": ONE short search term for a single track, any genre, different from the recent music.`;

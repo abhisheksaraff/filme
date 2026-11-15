@@ -38,7 +38,7 @@ export const MEMORY_SLOTS = [
 export function memoriesFor(memories: Memory[], index: number): { memory: Memory; slot: (typeof MEMORY_SLOTS)[number] }[] {
   if (memories.length === 0) return [];
   const count = Math.min(memories.length, MEMORY_SLOTS.length);
-  return Array.from({ length: count }, (_, k) => ({ memory: memories[(index + k) % memories.length], slot: MEMORY_SLOTS[(k + index) % MEMORY_SLOTS.length] }));
+  return Array.from({ length: count }, (_, k) => ({ memory: memories[(index * MEMORY_SLOTS.length + k) % memories.length], slot: MEMORY_SLOTS[(k + index) % MEMORY_SLOTS.length] }));
 }
 
 export default function StoryStickers({ pool, index, animate, memories = [] }: { pool: Sticker[]; index: number; animate: boolean; memories?: Memory[] }) {

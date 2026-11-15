@@ -205,3 +205,9 @@ h1, h2, h3, h4, h5, h6,
 .sticker-drift {
   animation: sticker-drift 6s ease-in-out infinite;
 }
+
+/* The story's progress bar filling over one slide's time. */
+@keyframes story-fill {
+  from { width: 0; }
+  to { width: 100%; }
+}

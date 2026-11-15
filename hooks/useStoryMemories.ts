@@ -16,6 +16,12 @@ const known = new Map<string, Memory[]>();
 /** A slide about hundreds of viewings does not ask about all of them. */
 const MAX_VIEWINGS = 8;
 
+/** Up to `max` ids spread evenly along the list, so the picks come from all through the period and not just its start. */
+function spread(ids: string[], max: number): string[] {
+  if (ids.length <= max) return ids;
+  return Array.from({ length: max }, (_, i) => ids[Math.floor((i * ids.length) / max)]);
+}
+
 async function load(sessionId: string): Promise<Memory[]> {
   const hit = known.get(sessionId);
   if (hit) return hit;
@@ -31,7 +37,7 @@ async function load(sessionId: string): Promise<Memory[]> {
 /** Stubs and photos for the given viewings, stubs first; empty until they have loaded. */
 export function useStoryMemories(sessionIds: string[] | undefined, label: string): Memory[] {
   const [memories, setMemories] = useState<Memory[]>([]);
-  const key = (sessionIds ?? []).slice(0, MAX_VIEWINGS).join(",");
+  const key = spread(sessionIds ?? [], MAX_VIEWINGS).join(",");
 
   useEffect(() => {
     let cancelled = false;

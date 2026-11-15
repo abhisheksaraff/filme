@@ -35,6 +35,33 @@ interface Props {
 }
 
 const MAX_ZOOM = 5;
+const DOUBLE_TAP_ZOOM = 2.5;
+
+/** How the picture is shown: a scale, and how far it has been moved from the middle in px. */
+interface View { s: number; x: number; y: number }
+const REST: View = { s: 1, x: 0, y: 0 };
+/** Keeps a zoomed picture's edges from being dragged past the edges of its box. */
+function clampView(v: View, w: number, h: number): View {
+  const mx = ((v.s - 1) * w) / 2;
+  const my = ((v.s - 1) * h) / 2;
+  return { s: v.s, x: Math.min(mx, Math.max(-mx, v.x)), y: Math.min(my, Math.max(-my, v.y)) };
+}
+const css = (v: View) => `translate(${v.x}px, ${v.y}px) scale(${v.s})`;
+const mid = (a: React.Touch, b: React.Touch) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+
+/** One touch gesture on the zoomed picture; lives in a ref so moving the picture never re-draws the viewer. */
+interface Gesture {
+  mode: "none" | "pinch" | "pan";
+  /** Centre and size of the picture's box, which the picture scales about. */
+  cx: number; cy: number; w: number; h: number;
+  startDist: number;
+  /** The view when the gesture began, the point of the picture under the fingers then, and the view as drawn now. */
+  base: View; ux: number; uy: number; live: View;
+  startX: number; startY: number;
+  moved: number;
+  lastTap: { t: number; x: number; y: number } | null;
+  lastTouchAt: number;
+}
 /** Dots shown at once; with more pictures than this the row slides along. */
 const DOTS = 7;
 const DOT_SLOT = 12;
@@ -69,14 +96,15 @@ function Dots({ count, index }: { count: number; index: number }) {
 
 function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote, onDelete, deleteMessage }: Props) {
   const [index, setIndex] = useState(Math.min(start, Math.max(0, images.length - 1)));
-  const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState<View>(REST);
+  const zoom = view.s;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
-  // While two fingers are down the picture is scaled directly (no re-drawing, no easing) from a smoothed value; the zoom is committed when they lift.
-  const pinch = useRef<{ start: number | null; base: number; live: number }>({ start: null, base: 1, live: 1 });
+  // While fingers are down the picture is moved directly (no re-drawing, no easing) from a smoothed value; the view is committed when they lift.
+  const gesture = useRef<Gesture>({ mode: "none", cx: 0, cy: 0, w: 1, h: 1, startDist: 1, base: REST, ux: 0, uy: 0, live: REST, startX: 0, startY: 0, moved: 0, lastTap: null, lastTouchAt: 0 });
   const zoomEl = useRef<HTMLDivElement | null>(null);
 
   // The picture in view, kept inside the list when pictures are removed.
@@ -112,9 +140,20 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
     const next = Math.round(el.scrollLeft / el.clientWidth);
     if (next !== index) {
       setIndex(next);
-      setZoom(1);
+      setView(REST);
       setEditing(false);
     }
+  }
+
+  /** Zooms in on the spot that was tapped, or back out when already zoomed. */
+  function toggleZoomAt(clientX: number, clientY: number) {
+    const box = zoomEl.current?.parentElement;
+    if (!box) return;
+    if (view.s > 1) return setView(REST);
+    const r = box.getBoundingClientRect();
+    const px = clientX - (r.left + r.width / 2);
+    const py = clientY - (r.top + r.height / 2);
+    setView(clampView({ s: DOUBLE_TAP_ZOOM, x: -px * (DOUBLE_TAP_ZOOM - 1), y: -py * (DOUBLE_TAP_ZOOM - 1) }, r.width, r.height));
   }
 
   function go(by: number) {
@@ -168,35 +207,86 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
         ref={strip}
         onScroll={onScroll}
         // While zoomed in, the strip stays put so the zoomed picture is not dragged away.
-        className={`flex min-h-0 flex-1 touch-pan-x snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${zoom > 1 ? "overflow-x-hidden" : "overflow-x-auto"}`}
+        className={`flex min-h-0 flex-1 snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${zoom > 1 ? "touch-none overflow-x-hidden" : "touch-pan-x overflow-x-auto"}`}
         onTouchStart={(e) => {
+          const g = gesture.current;
+          const box = zoomEl.current?.parentElement;
+          if (!box || !zoomEl.current) return;
+          const r = box.getBoundingClientRect();
+          g.cx = r.left + r.width / 2; g.cy = r.top + r.height / 2; g.w = r.width; g.h = r.height;
+          g.base = view; g.live = view; g.moved = 0;
           if (e.touches.length === 2) {
-            pinch.current = { start: distance(e.touches[0], e.touches[1]), base: zoom, live: zoom };
-            if (zoomEl.current) zoomEl.current.style.transition = "none";
+            // The point of the picture between the fingers is the one that has to stay between them.
+            const m = mid(e.touches[0], e.touches[1]);
+            g.mode = "pinch";
+            g.startDist = distance(e.touches[0], e.touches[1]);
+            g.ux = (m.x - g.cx - view.x) / view.s;
+            g.uy = (m.y - g.cy - view.y) / view.s;
+            zoomEl.current.style.transition = "none";
+          } else if (e.touches.length === 1) {
+            g.startX = e.touches[0].clientX; g.startY = e.touches[0].clientY;
+            if (view.s > 1) {
+              g.mode = "pan";
+              zoomEl.current.style.transition = "none";
+            } else g.mode = "none";
           }
         }}
         onTouchMove={(e) => {
-          const p = pinch.current;
-          if (e.touches.length !== 2 || !p.start || !zoomEl.current) return;
-          const target = Math.min(MAX_ZOOM, Math.max(1, (p.base * distance(e.touches[0], e.touches[1])) / p.start));
-          // Fingers drift a little even when held still; changes under 1% are ignored and the rest is followed part of the way.
-          if (Math.abs(target - p.live) / p.live < 0.01) return;
-          p.live += (target - p.live) * 0.4;
-          zoomEl.current.style.transform = `scale(${p.live})`;
+          const g = gesture.current;
+          const el = zoomEl.current;
+          if (!el) return;
+          if (g.mode === "pinch" && e.touches.length === 2) {
+            const m = mid(e.touches[0], e.touches[1]);
+            const target = Math.min(MAX_ZOOM, Math.max(1, (g.base.s * distance(e.touches[0], e.touches[1])) / g.startDist));
+            // Fingers drift a little even when held still; scale changes under 1% are ignored and the rest is followed part of the way.
+            const s = Math.abs(target - g.live.s) / g.live.s < 0.01 ? g.live.s : g.live.s + (target - g.live.s) * 0.4;
+            g.live = clampView({ s, x: m.x - g.cx - g.ux * s, y: m.y - g.cy - g.uy * s }, g.w, g.h);
+            el.style.transform = css(g.live);
+          } else if (g.mode === "pan" && e.touches.length === 1) {
+            const dx = e.touches[0].clientX - g.startX;
+            const dy = e.touches[0].clientY - g.startY;
+            g.moved = Math.max(g.moved, Math.hypot(dx, dy));
+            g.live = clampView({ s: g.base.s, x: g.base.x + dx, y: g.base.y + dy }, g.w, g.h);
+            el.style.transform = css(g.live);
+          } else if (e.touches.length === 1) {
+            g.moved = Math.max(g.moved, Math.hypot(e.touches[0].clientX - g.startX, e.touches[0].clientY - g.startY));
+          }
         }}
         onTouchEnd={(e) => {
-          const p = pinch.current;
-          if (e.touches.length >= 2 || p.start === null) return;
-          // Nearly back at normal size settles at exactly normal size.
-          const end = p.live < 1.08 ? 1 : p.live;
-          pinch.current = { start: null, base: end, live: end };
-          if (zoomEl.current) {
-            zoomEl.current.style.transition = "";
-            zoomEl.current.style.transform = `scale(${end})`;
+          const g = gesture.current;
+          const el = zoomEl.current;
+          g.lastTouchAt = Date.now();
+          if (g.mode === "pinch" && e.touches.length < 2) {
+            // Nearly back at normal size settles at exactly normal size.
+            const next = g.live.s < 1.08 ? REST : clampView({ ...g.live, s: g.live.s }, g.w, g.h);
+            g.mode = "none";
+            if (el) { el.style.transition = ""; el.style.transform = css(next); }
+            setView(next);
+            return;
           }
-          setZoom(end);
+          if (g.mode === "pan" && e.touches.length === 0 && g.moved > 8) {
+            g.mode = "none";
+            if (el) { el.style.transition = ""; el.style.transform = css(g.live); }
+            setView(g.live);
+            return;
+          }
+          if (e.touches.length > 0) return;
+          g.mode = "none";
+          if (el) el.style.transition = "";
+          // A quick second tap near the first zooms in on that spot, or back out.
+          const t = e.changedTouches[0];
+          if (!t || g.moved > 8) { g.lastTap = null; return; }
+          const last = g.lastTap;
+          if (last && Date.now() - last.t < 300 && Math.hypot(t.clientX - last.x, t.clientY - last.y) < 30) {
+            g.lastTap = null;
+            toggleZoomAt(t.clientX, t.clientY);
+          } else g.lastTap = { t: Date.now(), x: t.clientX, y: t.clientY };
         }}
-        onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : 2.5))}
+        onDoubleClick={(e) => {
+          // A touch double-tap is handled above; this is the mouse.
+          if (Date.now() - gesture.current.lastTouchAt < 700) return;
+          toggleZoomAt(e.clientX, e.clientY);
+        }}
       >
         {images.length === 0 && <p className="m-auto text-white/60">No pictures yet.{onAdd ? " Tap upload to add one." : ""}</p>}
         {images.map((img, i) => (
@@ -204,7 +294,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
             {/* Only the pictures next to the current one are loaded, so a long list stays light. */}
             {Math.abs(i - at) <= 1 && (
               // The box fills the space it is given, so the picture is measured against something definite and shows at full size.
-              <div ref={i === at ? zoomEl : undefined} className="relative flex h-full w-full items-center justify-center transition-transform" style={i === at ? { transform: `scale(${zoom})` } : undefined}>
+              <div ref={i === at ? zoomEl : undefined} className="relative flex h-full w-full items-center justify-center transition-transform" style={i === at ? { transform: css(view) } : undefined}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.url} alt={img.note ?? "Picture"} className="max-h-full max-w-full object-contain" />
                 {/* The main picture wears a star on its corner. */}
@@ -230,7 +320,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
         {image && (
           <>
             {/* Arrows sit right under the picture, away from the buttons that change things. */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-10">
               {images.length > 1 && <RoundButton icon="left" label="Previous" disabled={at === 0} onClick={() => go(-1)} size="lg" className={CIRCLE} />}
               {onNote && image.id && <RoundButton icon="note" label="Note" onClick={() => { setDraft(image.note ?? ""); setEditing(true); }} size="lg" className={CIRCLE} />}
               {images.length > 1 && <RoundButton icon="right" label="Next" disabled={at === images.length - 1} onClick={() => go(1)} size="lg" className={CIRCLE} />}

@@ -8,6 +8,8 @@ export interface Mood {
   /** Base hue in degrees, used for slides with no poster of their own. */
   hue: number;
   holiday: Theme | null;
+  /** "winter", "spring", "summer" or "autumn". */
+  season: string;
   /** Phrases to search for cut-out pictures, best first. */
   stickers: string[];
   /** Phrases to search for music, best first. */
@@ -73,6 +75,7 @@ export function moodFor(kind: StoryKind, period: string, moving: MovingDates): M
   return {
     hue: holiday ? holiday.hue : SEASON_HUE[season],
     holiday,
+    season,
     stickers: [...(festival?.stickers ?? []), ...general],
     music: [...(festival?.music ?? []), ...yearly, SEASON_MUSIC[season]],
   };

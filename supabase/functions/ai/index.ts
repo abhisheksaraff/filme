@@ -10,6 +10,8 @@ import {
   ASK_SYSTEM,
   HOLIDAY_SYSTEM,
   holidayShape,
+  STORY_SHAPE,
+  STORY_SYSTEM,
   jsonShapeInstruction,
   SYSTEM_INSTRUCTION,
 } from "../_shared/prompts.ts";
@@ -132,6 +134,29 @@ const ASK_SCHEMA = {
   },
 };
 
+const STORY_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    lines: { type: "ARRAY", items: { type: "STRING" } },
+    pictures: { type: "ARRAY", items: { type: "STRING" } },
+    music: { type: "STRING" },
+  },
+  required: ["lines", "pictures", "music"],
+};
+
+/** SECURITY: the reply is untrusted text that only ever becomes a caption or a search term, so it is trimmed, capped and stripped of anything but plain words. */
+function validateStory(data: unknown): unknown {
+  const raw = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+  const plain = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[^\p{L}\p{N} '&,.!?\-]/gu, "").trim().slice(0, max) : "");
+  const list = (v: unknown, max: number, len: number) =>
+    (Array.isArray(v) ? v : []).map((x) => plain(x, len)).filter(Boolean).slice(0, max);
+  const lines = list(raw.lines, 3, 70);
+  const pictures = list(raw.pictures, 8, 40);
+  const music = plain(raw.music, 50);
+  if (lines.length === 0 || pictures.length === 0 || !music) throw new ModelError("story reply was incomplete");
+  return { lines, pictures, music };
+}
+
 const isoDate = (value: unknown): value is string =>
   typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
 
@@ -216,7 +241,7 @@ function validateAsk(data: unknown): unknown {
 serve(async (req) => {
   const { userId } = await requireUser(req);
   const body = await readJson(req);
-  const task = body.task === "holidays" ? "holidays" : body.task === "ask" ? "ask" : "extract";
+  const task = body.task === "holidays" ? "holidays" : body.task === "ask" ? "ask" : body.task === "story" ? "story" : "extract";
   const today = typeof body.today === "string" ? body.today.slice(0, 40) : new Date().toISOString();
 
   let request: ModelRequest;
@@ -233,6 +258,20 @@ serve(async (req) => {
       jsonShape: holidayShape(slugs),
     };
     validate = (data) => validateHolidays(data, year, slugs);
+  } else if (task === "story") {
+    const titles = stringList(body.titles, "titles", 25);
+    const places = stringList(body.places, "places", 12);
+    const recentMusic = stringList(body.recentMusic, "recentMusic", 3);
+    const label = typeof body.label === "string" ? body.label.slice(0, 60) : "";
+    const festival = typeof body.festival === "string" ? body.festival.slice(0, 60) : "none";
+    const season = typeof body.season === "string" ? body.season.slice(0, 20) : "";
+    request = {
+      system: STORY_SYSTEM,
+      user: `Current date: ${today}\nStory: ${label}\nTitles: ${titles.join("; ") || "none"}\nPlaces: ${places.join("; ") || "none"}\nFestival: ${festival}\nSeason: ${season}\nRecent music (do not repeat): ${recentMusic.join("; ") || "none"}`,
+      geminiSchema: STORY_SCHEMA,
+      jsonShape: STORY_SHAPE,
+    };
+    validate = validateStory;
   } else if (task === "ask") {
     const question = typeof body.question === "string" ? body.question.trim() : "";
     if (!question || question.length > 300) throw new HttpError(400, "Ask a question of up to 300 characters.");

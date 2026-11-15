@@ -48,6 +48,27 @@ export const edgeAiProvider: AiProvider = {
     return ok(dates);
   },
 
+  async storyTheme(input) {
+    const res = await callFunction<{ data: { lines?: unknown; pictures?: unknown; music?: unknown } }>("ai", {
+      task: "story",
+      label: input.label,
+      titles: input.titles.map((t) => t.slice(0, 80)),
+      places: input.places.map((t) => t.slice(0, 80)),
+      festival: input.festival,
+      season: input.season,
+      recentMusic: input.recentMusic.map((t) => t.slice(0, 80)),
+      today: new Date().toISOString(),
+    });
+    if (!res.ok) return fail(res.error);
+    // SECURITY: model output once more; only plain short strings are kept, and they are only ever shown as text or sent as search words.
+    const strings = (v: unknown, max: number) => (Array.isArray(v) ? v : []).filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim().slice(0, 80)).slice(0, max);
+    const lines = strings(res.value.data?.lines, 3);
+    const pictures = strings(res.value.data?.pictures, 8);
+    const music = typeof res.value.data?.music === "string" ? res.value.data.music.trim().slice(0, 60) : "";
+    if (lines.length === 0 || pictures.length === 0 || !music) return fail("The AI gave no story theme.");
+    return ok({ lines, pictures, music });
+  },
+
   async askLog(question) {
     const res = await callFunction<{ data: unknown }>("ai", { task: "ask", question, today: new Date().toISOString() });
     // SECURITY: model output again, so it is validated into a filter before the app uses it.

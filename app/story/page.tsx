@@ -13,6 +13,7 @@ import { useRequireSession } from "@/hooks/useRequireSession";
 import { useStoryMedia } from "@/hooks/useStoryMedia";
 import { useStoryMemories } from "@/hooks/useStoryMemories";
 import { useStoryMusic } from "@/hooks/useStoryMusic";
+import { useStoryTheme } from "@/hooks/useStoryTheme";
 import { gradientFor, gradientFromPicture, type Gradient } from "@/lib/color";
 import { moodFor } from "@/lib/domain/storyMood";
 import { readDebugLog, setDebugBypass } from "@/lib/debug";
@@ -20,6 +21,9 @@ import { readCachedAppearance, readCachedMoving } from "@/lib/theme";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { buildAllTime, buildStory, storyTitle, validPeriod, type Slide, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
+
+/** How long a slide stays before the next one. */
+const SLIDE_MS = 6000;
 
 function isKind(value: string | null): value is StoryKind {
   return value === "day" || value === "month" || value === "year";
@@ -68,7 +72,23 @@ function StoryView() {
     if (isDebug) return moodFor("year", String(new Date().getFullYear()), readCachedMoving());
     return isKind(kind) ? moodFor(kind, period, readCachedMoving()) : null;
   }, [valid, isDebug, kind, period]);
-  const media = useStoryMedia(valid ? `${kind}:${period}` : null, mood);
+  const storyKey = valid ? `${kind}:${period}` : null;
+  // What the AI is told: the story's own headlines, once they are known. The searches wait for its answer.
+  const themeInput = useMemo(
+    () =>
+      slides && mood
+        ? {
+            label: isDebug ? "Everything watched" : isKind(kind) ? storyTitle(kind, period) : "",
+            titles: slides.filter((s) => s.heading !== "Checks").map((s) => `${s.heading}: ${s.big}`).slice(0, 25),
+            places: [],
+            festival: mood.holiday?.name ?? null,
+            season: mood.season,
+          }
+        : null,
+    [slides, mood, isDebug, kind, period],
+  );
+  const themeState = useStoryTheme(storyKey, themeInput, isDebug);
+  const media = useStoryMedia(storyKey, mood, themeState.theme, themeState.done);
   const music = useStoryMusic(media.tracks);
   // Real cut-outs when enough were found; otherwise a festival's own drawn charms.
   const pool: Sticker[] = useMemo(() => {
@@ -118,6 +138,17 @@ function StoryView() {
     if (window.history.length > 1) router.back();
     else router.push("/home/");
   }
+
+  /** Counts taps so a tap starts the slide's time again. */
+  const [taps, setTaps] = useState(0);
+  const checksOn = isDebug && slideNow?.heading === "Checks";
+  const lastIndex = slides ? slides.length - 1 : 0;
+  // Goes on by itself; stops on the last slide and on the debug checks.
+  useEffect(() => {
+    if (!slides || index >= lastIndex || checksOn) return;
+    const timer = setTimeout(() => setIndex((i) => Math.min(i + 1, lastIndex)), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [slides, index, lastIndex, checksOn, taps]);
 
   function step(by: 1 | -1) {
     if (!slides) return;
@@ -257,7 +288,7 @@ function StoryView() {
     <main
       className="fixed inset-0 flex flex-col text-white"
       style={{ background: `linear-gradient(160deg, ${grad.from}, ${grad.to})` }}
-      onClick={music.touch}
+      onClick={() => { music.touch(); setTaps((n) => n + 1); }}
       onTouchStart={(e) => { touchStart.current = e.touches[0].clientX; }}
       onTouchEnd={(e) => {
         const start = touchStart.current;
@@ -270,7 +301,13 @@ function StoryView() {
       <StoryStickers pool={pool} index={index} animate={animate} memories={isDebug && slide?.heading === "Checks" ? [] : memories} />
       <div className="relative z-10 flex gap-1 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         {slides?.map((_, i) => (
-          <div key={i} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-white" : "bg-white/30"}`} />
+          <div key={i} className="h-1 flex-1 overflow-hidden rounded-full bg-white/30">
+            {i < index || (i === index && (!animate || last || checks !== null)) ? (
+              <div className="h-full w-full bg-white" />
+            ) : i === index ? (
+              <div key={`${index}-${taps}`} className="h-full bg-white" style={{ animation: `story-fill ${SLIDE_MS}ms linear forwards` }} />
+            ) : null}
+          </div>
         ))}
       </div>
       <div className="relative z-10 flex items-center justify-between px-4 py-3 text-sm text-white/70">
@@ -304,6 +341,10 @@ function StoryView() {
             )}
             <p className="font-serif text-4xl leading-tight tracking-tight">{slide.big}</p>
             {slide.caption && <p className="text-white/70">{slide.caption}</p>}
+            {themeState.theme && !checks && (
+              // One caption per slide from the AI's few, going round without repeating until they run out.
+              <p className="font-serif text-lg italic text-white/80">{themeState.theme.lines[index % themeState.theme.lines.length]}</p>
+            )}
             {checks && (
               <ul className="flex max-h-[45vh] w-full flex-col gap-1 overflow-y-auto text-left text-xs leading-snug text-white/80">
                 {checks.map((line, i) => <li key={i} className="truncate">{line}</li>)}
