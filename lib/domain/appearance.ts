@@ -9,6 +9,9 @@ export const appearanceSchema = z.object({
   holidayThemeEnabled: z.boolean(),
   /** A theme slug to show regardless of the date; null follows the calendar. */
   holidayTheme: z.string().nullable(),
+  /** Moving backgrounds: snow, fireworks, walkers and the like. */
+  animationsEnabled: z.boolean().default(true),
+  /** Still pieces: string lights, garlands and small accents. */
   decorationsEnabled: z.boolean(),
   /** MM-DD, for the birthday theme. */
   birthday: z.string().regex(/^\d{2}-\d{2}$/).nullable(),
@@ -21,6 +24,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   themeMode: "system",
   holidayThemeEnabled: true,
   holidayTheme: null,
+  animationsEnabled: true,
   decorationsEnabled: true,
   birthday: DEFAULT_BIRTHDAY,
 };

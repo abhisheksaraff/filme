@@ -44,7 +44,7 @@ export const supabaseSettingsRepository: SettingsRepository = {
   async appearance() {
     const { data, error } = await getSupabase()
       .from("user_settings")
-      .select("theme_mode, holiday_theme, holiday_theme_enabled, decorations_enabled, birthday")
+      .select("theme_mode, holiday_theme, holiday_theme_enabled, decorations_enabled, animations_enabled, birthday")
       .maybeSingle();
     if (error) return fail("Could not load your appearance settings.");
     if (!data) return ok(DEFAULT_APPEARANCE);
@@ -52,6 +52,7 @@ export const supabaseSettingsRepository: SettingsRepository = {
       themeMode: data.theme_mode,
       holidayTheme: data.holiday_theme,
       holidayThemeEnabled: data.holiday_theme_enabled,
+      animationsEnabled: data.animations_enabled,
       decorationsEnabled: data.decorations_enabled,
       birthday: data.birthday,
     });
@@ -70,6 +71,7 @@ export const supabaseSettingsRepository: SettingsRepository = {
         theme_mode: appearance.themeMode,
         holiday_theme: appearance.holidayTheme,
         holiday_theme_enabled: appearance.holidayThemeEnabled,
+        animations_enabled: appearance.animationsEnabled,
         decorations_enabled: appearance.decorationsEnabled,
         birthday: appearance.birthday,
       },

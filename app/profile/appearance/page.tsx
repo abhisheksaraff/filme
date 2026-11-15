@@ -105,9 +105,14 @@ export default function AppearancePage() {
         </div>
       </section>
 
-      <Choice type="checkbox" checked={appearance.decorationsEnabled} onChange={(checked) => update({ ...appearance, decorationsEnabled: checked })}>
-        Floating decorations on themes
-      </Choice>
+      <div className="flex flex-col gap-3">
+        <Choice type="checkbox" checked={appearance.animationsEnabled} onChange={(checked) => update({ ...appearance, animationsEnabled: checked })}>
+          Animated backgrounds
+        </Choice>
+        <Choice type="checkbox" checked={appearance.decorationsEnabled} onChange={(checked) => update({ ...appearance, decorationsEnabled: checked })}>
+          Decorations
+        </Choice>
+      </div>
 
       <section className="flex flex-col gap-2">
         <h2 className="font-serif text-xl">Birthday</h2>

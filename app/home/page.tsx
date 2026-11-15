@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Avatar from "@/components/Avatar";
+import LogoLights from "@/components/decor/LogoLights";
 import Wordmark from "@/components/Wordmark";
 import HomeShortcuts from "@/components/HomeShortcuts";
 import HomeRowSection from "@/components/HomeRowSection";
@@ -46,6 +47,8 @@ export default function HomePage() {
         <Wordmark className="text-3xl" />
         <Link href="/profile/" aria-label="Profile" className="translate-y-1"><Avatar /></Link>
       </header>
+
+      <LogoLights />
 
       <Link href="/search/" className="flex items-center gap-3 rounded-full bg-neutral-100 px-5 py-3 text-base text-[color-mix(in_srgb,var(--foreground)_50%,transparent)] dark:bg-neutral-800">
         <Icon name="search" size={24} />

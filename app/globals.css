@@ -41,31 +41,41 @@ html[data-holiday] nav [aria-current="page"] {
   color: var(--accent);
 }
 
-/* Floating theme decorations: each piece drifts along its own path and fades at the edges. */
-.deco {
-  position: absolute;
-  opacity: 0;
-  animation-iteration-count: infinite;
-  animation-timing-function: linear;
+/* Theme backgrounds: every piece moves only by position and opacity, so iPhone keeps it smooth. */
+.drift-down, .drift-up { position: absolute; display: block; animation-timing-function: linear; animation-iteration-count: infinite; opacity: 0.85; }
+.drift-down { top: -10vh; animation-name: drift-down; }
+.drift-up { bottom: -22vh; animation-name: drift-up; }
+@keyframes drift-down { to { transform: translateY(125vh); } }
+@keyframes drift-up { to { transform: translateY(-135vh); } }
+.sway { display: block; animation: sway ease-in-out infinite alternate; }
+@keyframes sway { from { transform: translateX(-14px) rotate(-8deg); } to { transform: translateX(14px) rotate(8deg); } }
+.cross { position: absolute; left: 0; animation: cross linear forwards; will-change: transform; }
+@keyframes cross { from { transform: translateX(-40vw); } to { transform: translateX(120vw); } }
+.cloud { left: 0; animation: cross linear infinite; opacity: 0.7; }
+.swing { transform-origin: top center; animation: swing ease-in-out infinite alternate; }
+@keyframes swing { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+.bob-slow { animation: bob-slow 7s ease-in-out infinite alternate; }
+@keyframes bob-slow { from { transform: translateY(0); } to { transform: translateY(8px); } }
+.walker-bob { animation: walker-bob 0.45s ease-in-out infinite alternate; }
+@keyframes walker-bob { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
+.leg { transform-box: fill-box; transform-origin: top center; animation: leg 0.45s ease-in-out infinite alternate; }
+.leg-b { animation-direction: alternate-reverse; }
+@keyframes leg { from { transform: rotate(-16deg); } to { transform: rotate(16deg); } }
+.flap { display: block; animation: flap 0.28s ease-in-out infinite alternate; }
+@keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(0.55); } }
+.spark { position: absolute; left: 0; top: 0; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; animation: spark 1.7s cubic-bezier(0.1, 0.7, 0.3, 1) forwards; }
+@keyframes spark {
+  from { transform: rotate(var(--a)) translateX(0) scale(1); opacity: 1; }
+  70% { opacity: 0.9; }
+  to { transform: rotate(var(--a)) translateX(var(--d, 60px)) scale(0.3); opacity: 0; }
 }
-.deco-fall { top: -8%; animation-name: deco-fall; }
-.deco-rise { bottom: -8%; animation-name: deco-rise; }
-.deco-float { top: 100%; animation-name: deco-float; }
-@keyframes deco-fall {
-  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
-  10%, 85% { opacity: 0.55; }
-  100% { transform: translateY(115vh) rotate(180deg); opacity: 0; }
-}
-@keyframes deco-rise {
-  0% { transform: translateY(0) scale(0.8); opacity: 0; }
-  10%, 80% { opacity: 0.55; }
-  100% { transform: translateY(-115vh) scale(1.1); opacity: 0; }
-}
-@keyframes deco-float {
-  0% { transform: translate(0, 0); opacity: 0; }
-  10%, 80% { opacity: 0.5; }
-  50% { transform: translate(24px, -55vh); }
-  100% { transform: translate(-16px, -110vh); opacity: 0; }
+/* Lights and flames twinkle softly, not flash. */
+.twinkle { animation: twinkle 3.4s ease-in-out infinite; }
+@keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.flame { transform-box: fill-box; transform-origin: 50% 100%; animation: flame 1.5s ease-in-out infinite alternate; }
+@keyframes flame { from { transform: scale(1, 1); } to { transform: scale(0.88, 1.08) skewX(3deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .twinkle, .flame, .swing, .bob-slow { animation: none; }
 }
 
 /* Placeholder shapes shown while a page loads. */
