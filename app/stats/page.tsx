@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePageState } from "@/lib/pageMemory";
 import BarList from "@/components/BarList";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { computeStats, formatDuration, statYears, type StatRow } from "@/lib/domain/stats";
@@ -31,9 +32,9 @@ export default function StatsPage() {
   const ready = useRequireSession();
   const [rows, setRows] = useState<StatRow[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [year, setYear] = useState<number | null>(null);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [year, setYear] = usePageState<number | null>("stats.year", null);
+  const [from, setFrom] = usePageState("stats.from", "");
+  const [to, setTo] = usePageState("stats.to", "");
 
   useEffect(() => {
     if (!ready) return;

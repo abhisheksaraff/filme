@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { usePageState } from "@/lib/pageMemory";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { EMPTY_FILTER, type LogFilter } from "@/lib/domain/askLog";
@@ -71,17 +72,17 @@ function ResultRow({ href, poster, title, subtitle, badge }: {
 function SearchView() {
   const ready = useRequireSession();
   const askMode = useSearchParams().get("ask") === "1";
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = usePageState("search.query", "");
   const [found, setFound] = useState<Found | null>(null);
   const [wanted, setWanted] = useState<WantedItem[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<StatRow[]>([]);
   const [mode, setMode] = useState<"search" | "ask">(askMode ? "ask" : "search");
-  const [filter, setFilter] = useState<LogFilter>(EMPTY_FILTER);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [question, setQuestion] = useState("");
+  const [filter, setFilter] = usePageState<LogFilter>("search.filter", EMPTY_FILTER);
+  const [filtersOpen, setFiltersOpen] = usePageState("search.filtersOpen", false);
+  const [question, setQuestion] = usePageState("search.question", "");
   const [asking, setAsking] = useState(false);
-  const [asked, setAsked] = useState<LogFilter | null>(null);
+  const [asked, setAsked] = usePageState<LogFilter | null>("search.asked", null);
   const [askProblem, setAskProblem] = useState<string | null>(null);
 
   const q = query.trim();
@@ -224,7 +225,7 @@ function SearchView() {
           <h2 className="font-serif text-xl">{filtered.length} {filtered.length === 1 ? "match" : "matches"}</h2>
           <ul className="flex flex-col gap-3">
             {filtered.slice(0, 60).map((row) => (
-              <ResultRow key={row.id} href={`/session/?id=${row.id}`} poster={tmdbImageUrl(row.posterPath, "w185")} title={row.title}
+              <ResultRow key={row.id} href={`/title/?id=${row.mediaId}`} poster={tmdbImageUrl(row.posterPath, "w185")} title={row.title}
                 subtitle={[row.watchedOn, row.venue, row.rating !== null ? `★ ${row.rating}` : null].filter(Boolean).join(" · ")} />
             ))}
           </ul>
@@ -245,7 +246,7 @@ function SearchView() {
             {typed.slice(0, 12).map((row) => (
               <ResultRow
                 key={row.id}
-                href={`/session/?id=${row.id}`}
+                href={`/title/?id=${row.mediaId}`}
                 poster={tmdbImageUrl(row.posterPath, "w185")}
                 title={row.title}
                 subtitle={[row.watchedOn, row.venue, row.category].filter(Boolean).join(" · ")}

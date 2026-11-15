@@ -4,8 +4,9 @@
 
 import RoundButton from "@/components/RoundButton";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import CropDialog from "@/components/CropDialog";
 import ImageViewer from "@/components/ImageViewer";
 import { seatLabel } from "@/components/entryDraft";
@@ -20,6 +21,7 @@ type Gallery = { kind: "ticket" | "photo"; start: number } | null;
 
 function SessionView() {
   const ready = useRequireSession();
+  const router = useRouter();
   const id = useSearchParams().get("id");
   const [viewing, setViewing] = useState<{ mediaId: string; title: string; posterPath: string | null; summary: ViewingSummary } | null>(null);
   const [tickets, setTickets] = useState<StoredImage[]>([]);
@@ -28,6 +30,8 @@ function SessionView() {
   const [crop, setCrop] = useState<{ file: File; kind: "photo" | "ticket" } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const stubInput = useRef<HTMLInputElement>(null);
 
@@ -60,6 +64,19 @@ function SessionView() {
     const res = await services.images.add({ sessionId: id }, kind, small, null);
     if (res.ok) setReload((n) => n + 1);
     else setProblem(res.error);
+  }
+
+  async function deleteViewing() {
+    if (!id || !viewing) return;
+    setDeleting(true);
+    const res = await services.log.deleteViewing(id);
+    if (!res.ok) {
+      setDeleting(false);
+      setConfirmDelete(false);
+      return setProblem(res.error);
+    }
+    // replace, so Back from the movie page does not return to a viewing that no longer exists.
+    router.replace(`/title/?id=${viewing.mediaId}`);
   }
 
   if (!ready) return null;
@@ -96,7 +113,10 @@ function SessionView() {
             </div>
           )}
           {v.notes && <p className="text-sm">{v.notes}</p>}
-          <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${id}`} className="self-start" />
+          <div className="flex gap-2">
+            <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${id}`} />
+            <RoundButton icon="trash" label="Delete viewing" tone="danger" onClick={() => setConfirmDelete(true)} />
+          </div>
 
           <section className="flex flex-col gap-2">
             <h2 className="font-serif text-xl">Ticket stubs</h2>
@@ -133,6 +153,16 @@ function SessionView() {
         </>
       )}
 
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete this viewing?"
+          message="It moves to your deleted viewings, where you can restore it."
+          confirmLabel="Delete"
+          busy={deleting}
+          onConfirm={deleteViewing}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
       {crop && <CropDialog file={crop.file} aspect={crop.kind === "photo" ? 1 : 3 / 4} maxEdge={crop.kind === "photo" ? 2000 : 4000} title={crop.kind === "photo" ? "Frame your photo" : "Frame your stub"} onCancel={() => setCrop(null)} onDone={(blob) => addPicture(blob, crop.kind)} />}
       {gallery && shown.length > 0 && (
         <ImageViewer

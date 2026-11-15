@@ -30,12 +30,12 @@ export interface HomeRowDef {
 
 /** Every row Home can show, in the order they are offered. */
 export const HOME_ROWS: readonly HomeRowDef[] = [
-  { id: "recent", label: "Recently logged" },
+  { id: "like-movie", label: "You might also like" },
+  { id: "like-tv", label: "TV shows you might like" },
   { id: "want", label: "Want to watch" },
   { id: "favourites", label: "New from your favourites" },
   { id: "theatres", label: "In theatres near you" },
   { id: "soon", label: "Opening soon" },
-  { id: "abroad", label: "Out elsewhere, not confirmed here" },
   { id: "arriving", label: "Arriving from your list" },
   { id: "arthouse", label: "Art house" },
   { id: "wildcard", label: "Wildcard" },
@@ -44,14 +44,17 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
 
 /** Shown until the user customises Home. */
 export const DEFAULT_HOME_ROWS: readonly string[] = [
-  "recent", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "genre-28", "genre-35", "genre-27", "genre-878",
+  "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
 ];
 
 const KNOWN = new Set(HOME_ROWS.map((row) => row.id));
 
+/** Rows that were renamed or removed: layouts saved earlier still name them. */
+const RENAMED: Record<string, string> = { recent: "like-movie" };
+
 /** The saved ids with unknown and repeated ones dropped; nothing saved means the defaults. */
 export function resolveHomeRows(stored: readonly string[]): string[] {
-  const ids = [...new Set(stored)].filter((id) => KNOWN.has(id));
+  const ids = [...new Set(stored.map((id) => RENAMED[id] ?? id))].filter((id) => KNOWN.has(id));
   return ids.length > 0 ? ids : [...DEFAULT_HOME_ROWS];
 }
 

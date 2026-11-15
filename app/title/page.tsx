@@ -9,7 +9,6 @@ import { Suspense, useEffect, useState } from "react";
 import TitleHero from "@/components/TitleHero";
 import CoverPicker from "@/components/CoverPicker";
 import Icon from "@/components/Icon";
-import ImageViewer from "@/components/ImageViewer";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
 import { seatLabel } from "@/components/entryDraft";
@@ -36,9 +35,7 @@ function TitleView() {
   const [credits, setCredits] = useState<TitleCredits | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [justDeleted, setJustDeleted] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
-  const [stubViewer, setStubViewer] = useState<{ urls: string[]; index: number } | null>(null);
   const [seasonPick, setSeasonPick] = useState("all");
   const [seasonDate, setSeasonDate] = useState("");
 
@@ -63,16 +60,6 @@ function TitleView() {
       cancelled = true;
     };
   }, [ready, id, reload]);
-
-  async function change(action: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) {
-    setBusy(true);
-    const res = await action();
-    if (res.ok) {
-      after?.();
-      setReload((n) => n + 1);
-    } else setProblem(res.error ?? "Something went wrong.");
-    setBusy(false);
-  }
 
   function logAnother() {
     if (!detail) return;
@@ -186,39 +173,35 @@ function TitleView() {
             <h2 className="font-serif text-xl">Your viewings</h2>
             <ul className="flex flex-col gap-4">
               {detail.viewings.map((v) => (
-                <li key={v.id} className="flex flex-col gap-2 rounded-2xl border border-neutral-300 p-4 dark:border-neutral-700">
-                  <span className="text-xs uppercase tracking-wide text-neutral-500">{ORDINAL(order.get(v.id) ?? 1)}</span>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <Link href={`/session/?id=${v.id}`} className="font-medium">{[v.watchedOn ?? "Date unknown", v.watchedAt].filter(Boolean).join(" · ")}</Link>
-                    {v.rating !== null && <span className="text-sm">★ {v.rating}</span>}
-                  </div>
-                  <span className="text-sm text-neutral-500">
-                    {v.venueId ? <Link href={`/venue/?id=${v.venueId}`} className="underline">{v.venue}</Link> : v.venue}
-                    {[v.auditorium, v.primaryFormat].filter(Boolean).length > 0 && ` · ${[v.auditorium, v.primaryFormat].filter(Boolean).join(" · ")}`}
-                  </span>
-                  {v.seats.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {v.seats.map((seat, i) => (
-                        <span key={i} className="rounded-full border border-neutral-300 px-3 py-0.5 text-sm dark:border-neutral-700">{seatLabel(seat)}</span>
-                      ))}
+                <li key={v.id}>
+                  {/* The whole row is one link: details, edit and delete live on the viewing's own page. */}
+                  <Link href={`/session/?id=${v.id}`} className="flex flex-col gap-2 rounded-2xl border border-neutral-300 p-4 dark:border-neutral-700">
+                    <span className="text-xs uppercase tracking-wide text-neutral-500">{ORDINAL(order.get(v.id) ?? 1)}</span>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-medium">{[v.watchedOn ?? "Date unknown", v.watchedAt].filter(Boolean).join(" · ")}</span>
+                      {v.rating !== null && <span className="text-sm">★ {v.rating}</span>}
                     </div>
-                  )}
-                  {v.notes && <p className="text-sm">{v.notes}</p>}
-                  {v.stubUrls.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto">
-                      {v.stubUrls.map((url, i) => (
-                        <button key={url} type="button" onClick={() => setStubViewer({ urls: v.stubUrls, index: i })}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={url} alt="Ticket stub" className="h-32 rounded-lg" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <RoundButton icon="open" label="Open viewing" href={`/session/?id=${v.id}`} />
-                    <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${v.id}`} />
-                    <RoundButton icon="trash" label="Delete viewing" tone="danger" disabled={busy} onClick={() => change(() => services.log.deleteViewing(v.id), () => setJustDeleted(v.id))} />
-                  </div>
+                    <span className="text-sm text-neutral-500">
+                      {v.venue}
+                      {[v.auditorium, v.primaryFormat].filter(Boolean).length > 0 && ` · ${[v.auditorium, v.primaryFormat].filter(Boolean).join(" · ")}`}
+                    </span>
+                    {v.seats.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {v.seats.map((seat, i) => (
+                          <span key={i} className="rounded-full border border-neutral-300 px-3 py-0.5 text-sm dark:border-neutral-700">{seatLabel(seat)}</span>
+                        ))}
+                      </div>
+                    )}
+                    {v.notes && <p className="text-sm">{v.notes}</p>}
+                    {v.stubUrls.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto">
+                        {v.stubUrls.map((url) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={url} src={url} alt="Ticket stub" className="h-32 rounded-lg" />
+                        ))}
+                      </div>
+                    )}
+                  </Link>
                 </li>
               ))}
               {detail.viewings.length === 0 && <li className="text-sm text-neutral-500">No viewings left.</li>}
@@ -227,17 +210,6 @@ function TitleView() {
         )}
       </div>
 
-      {stubViewer && <ImageViewer images={stubViewer.urls.map((url) => ({ url }))} start={stubViewer.index} onClose={() => setStubViewer(null)} />}
-
-      {justDeleted && (
-        <div className="fixed inset-x-4 bottom-24 z-30 mx-auto flex max-w-md items-center justify-between rounded-xl bg-neutral-900 px-4 py-3 text-sm text-white dark:bg-white dark:text-neutral-900">
-          <span>Viewing deleted.</span>
-          <span className="flex gap-4">
-            <button type="button" disabled={busy} className="font-medium underline" onClick={() => change(() => services.log.restoreViewing(justDeleted), () => setJustDeleted(null))}>Undo</button>
-            <button type="button" aria-label="Dismiss" onClick={() => setJustDeleted(null)}>✕</button>
-          </span>
-        </div>
-      )}
     </main>
   );
 }

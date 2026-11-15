@@ -3,13 +3,17 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import BottomNav from "@/components/BottomNav";
 import RoundButton from "@/components/RoundButton";
+import { recallScroll, saveScroll } from "@/lib/pageMemory";
 
 /** No bottom bar: signed-out pages and the full-screen recap. */
 const NO_NAV = ["/", "/login/", "/story/"];
-/** No back button: Home is the end of the trail, and the title page has its own on the poster. */
-const NO_BACK = ["/", "/login/", "/home/", "/story/", "/title/", "/preview/"];
+/** No back button: Home is the end of the trail. */
+const NO_BACK = ["/", "/login/", "/home/", "/story/"];
+/** Pages that open on a cover photo: the same button floats over it instead of reserving a row. */
+const OVER_COVER = ["/title/", "/preview/"];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -17,19 +21,47 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const path = raw.endsWith("/") ? raw : `${raw}/`;
   const showNav = !NO_NAV.includes(path);
   const showBack = !NO_BACK.includes(path);
+  const overCover = OVER_COVER.includes(path);
+
+  // Keeps each page's scroll position, and returns to it when the page is reached with Back.
+  useEffect(() => {
+    const key = () => window.location.pathname + window.location.search;
+    const onScroll = () => saveScroll(key(), window.scrollY);
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    const target = recallScroll(key());
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // The page fills in as its data arrives, so keep trying until it is tall enough to scroll there.
+    const restore = () => {
+      if (target === null || target <= 0) return;
+      const tall = document.documentElement.scrollHeight >= target + window.innerHeight;
+      if (tall || tries >= 30) window.scrollTo(0, target);
+      if (!tall && tries++ < 30) timer = setTimeout(restore, 100);
+    };
+    restore();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      clearTimeout(timer);
+    };
+  }, [path]);
 
   return (
     <>
       {showBack && (
         <>
-          <div className="fixed left-4 top-[max(0.75rem,env(safe-area-inset-top))] z-30">
-            <RoundButton
-              icon="back"
-              label="Back"
-              onClick={() => (window.history.length > 1 ? router.back() : router.push("/home/"))}
-            />
+          {/* Sits inside the same centred column as the pages, so it is in one place on phone and desktop. */}
+          <div className="pointer-events-none fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-30">
+            <div className="mx-auto w-full max-w-md px-4">
+              <RoundButton
+                icon="back"
+                label="Back"
+                className={`pointer-events-auto ${overCover ? "!bg-black/70 !text-white" : ""}`}
+                onClick={() => (window.history.length > 1 ? router.back() : router.push("/home/"))}
+              />
+            </div>
           </div>
-          <div aria-hidden className="h-16 shrink-0" />
+          {!overCover && <div aria-hidden className="h-16 shrink-0" />}
         </>
       )}
       {children}

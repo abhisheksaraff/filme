@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { usePageState } from "@/lib/pageMemory";
 import FlatMap, { KIND_ICON } from "@/components/FlatMap";
 import Icon, { type IconName } from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -43,7 +44,7 @@ export default function MapPage() {
   const [finding, setFinding] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [open, setOpen] = useState<{ point: VenuePoint; detail: VenueDetail | null; tab: string } | null>(null);
-  const [sort, setSort] = useState<Sort>("new");
+  const [sort, setSort] = usePageState<Sort>("map.sort", "new");
 
   useEffect(() => {
     if (!ready) return;

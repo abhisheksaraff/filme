@@ -52,7 +52,7 @@ export default function WatchlistPage() {
           const poster = tmdbImageUrl(entry.posterPath, "w342");
           return (
             <li key={entry.id}>
-              <Link href={`/session/?id=${entry.id}`} className="flex flex-col gap-1">
+              <Link href={`/title/?id=${entry.mediaId}`} className="flex flex-col gap-1">
                 {poster ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-2xl object-cover" />

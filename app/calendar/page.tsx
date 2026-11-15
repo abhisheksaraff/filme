@@ -4,6 +4,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { usePageState } from "@/lib/pageMemory";
 import RoundButton from "@/components/RoundButton";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -18,14 +19,14 @@ const pad = (n: number) => String(n).padStart(2, "0");
 export default function CalendarPage() {
   const ready = useRequireSession();
   const today = new Date();
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
+  const [year, setYear] = usePageState("calendar.year", today.getFullYear());
+  const [month, setMonth] = usePageState("calendar.month", today.getMonth());
   const [rows, setRows] = useState<StatRow[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [category, setCategory] = useState<string | null>(null);
-  const [minRating, setMinRating] = useState(0);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [picked, setPicked] = useState<string | null>(null);
+  const [category, setCategory] = usePageState<string | null>("calendar.category", null);
+  const [minRating, setMinRating] = usePageState("calendar.minRating", 0);
+  const [filterOpen, setFilterOpen] = usePageState("calendar.filterOpen", false);
+  const [picked, setPicked] = usePageState<string | null>("calendar.picked", null);
 
   useEffect(() => {
     if (!ready) return;

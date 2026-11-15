@@ -2,9 +2,6 @@
 // The top of a title page: the cover fading into the page, with the poster half over its edge.
 "use client";
 
-import { useRouter } from "next/navigation";
-import RoundButton from "@/components/RoundButton";
-
 interface Props {
   backdropUrl: string | null;
   posterUrl: string | null;
@@ -15,7 +12,6 @@ interface Props {
 }
 
 export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loading }: Props) {
-  const router = useRouter();
   return (
     <header>
       <div className="relative h-56 w-full overflow-hidden bg-neutral-300 dark:bg-neutral-800">
@@ -25,13 +21,6 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
         )}
         {/* Fades the cover into the page colour so the poster sits on a soft edge. */}
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[var(--background)] to-transparent" />
-        <RoundButton
-          icon="back"
-          label="Back"
-          tone="dark"
-          onClick={() => (window.history.length > 1 ? router.back() : router.push("/home/"))}
-          className="absolute left-4 top-[max(1rem,env(safe-area-inset-top))] !bg-black/70 !text-white"
-        />
         {loading && <div className="skeleton absolute inset-0" />}
       </div>
 

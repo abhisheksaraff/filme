@@ -1,6 +1,6 @@
 // lib/home/rows.ts
-// Builds each Home row from the log, the want-to-watch list and TMDB. Results are kept for a
-// while so coming back to Home does not reshuffle everything or spend more TMDB calls.
+// Builds each Home row from the log, the want-to-watch list and TMDB. Rows are kept until the app
+// is reopened or the user refreshes, so coming back to Home never reshuffles or spends TMDB calls.
 import { GENRES } from "@/lib/domain/home";
 import { THEMES } from "@/lib/domain/holidays";
 import type { StatRow } from "@/lib/domain/stats";
@@ -40,10 +40,10 @@ const WILDCARD_LANGUAGES = ["ko", "ja", "es", "it", "hi", "th", "tr", "sv", "pt"
 const cache = new Map<string, { at: number; value: Promise<Result<unknown>> }>();
 const usedSurprises = new Set<string>();
 
-/** Runs `make` once per key within the cache window; failures are not kept. */
-function cached<T>(key: string, make: () => Promise<Result<T>>): Promise<Result<T>> {
+/** Runs `make` once per key within `ttl` milliseconds; failures are not kept. */
+function cached<T>(key: string, make: () => Promise<Result<T>>, ttl = CACHE_MS): Promise<Result<T>> {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value as Promise<Result<T>>;
+  if (hit && Date.now() - hit.at < ttl) return hit.value as Promise<Result<T>>;
   const value = make();
   cache.set(key, { at: Date.now(), value });
   value.then((res) => {
@@ -141,23 +141,33 @@ function injectSurprises(items: RowItem[], pool: RowItem[]): RowItem[] {
   });
 }
 
-async function recentRow(): Promise<Result<RowResult>> {
-  const res = await services.log.recent(40);
-  if (!res.ok) return res;
-  const seen = new Set<string>();
-  const items: RowItem[] = [];
-  for (const entry of res.value) {
-    if (seen.has(entry.mediaId)) continue;
-    seen.add(entry.mediaId);
-    items.push({
-      key: `title:${entry.mediaId}`,
-      title: entry.title,
-      subtitle: entry.watchedOn,
-      posterUrl: tmdbImageUrl(entry.posterPath, "w185"),
-      href: `/title/?id=${entry.mediaId}`,
-    });
+/** How many of the user's own titles each "You might also like" row starts from. */
+const SEEDS = 3;
+
+/**
+ * Picks a few titles at random from everything the user has logged, old or new, and mixes what TMDB
+ * recommends for each into one shuffled row, leaving out anything already seen or saved.
+ */
+async function likeRow(kind: CatalogKind): Promise<Result<RowResult>> {
+  const title = kind === "Movie" ? "You might also like" : "TV shows you might like";
+  const [seenRes, wanted] = await Promise.all([services.log.seen(), services.wanted.list()]);
+  if (!seenRes.ok) return seenRes;
+  const mine = seenRes.value.filter((key) => key.startsWith(`${kind}:`)).map((key) => ({ kind, tmdbId: Number(key.slice(kind.length + 1)) }));
+  const seeds = shuffle(mine.filter((m) => Number.isFinite(m.tmdbId))).slice(0, SEEDS);
+  if (seeds.length === 0) return ok({ title, items: [], empty: "Log a few titles to get picks here." });
+
+  const lists = await Promise.all(seeds.map((match) => services.catalog.recommendations(match)));
+  const good = lists.flatMap((list) => (list.ok ? [list.value] : []));
+  if (good.length === 0) {
+    const bad = lists.find((list) => !list.ok);
+    return bad && !bad.ok ? fail(bad.error) : ok({ title, items: [], empty: "No picks right now." });
   }
-  return ok({ title: "Recently logged", items: items.slice(0, 12), empty: "Nothing logged yet." });
+
+  const skip = new Set(seenRes.value);
+  for (const w of wanted.ok ? wanted.value : []) if (w.tmdbId !== null) skip.add(seenKey(w.category === "TV Show" ? "TV Show" : "Movie", w.tmdbId));
+  const unique = new Map<string, CatalogHit>();
+  for (const hit of shuffle(good.flat())) if (!skip.has(seenKey(hit.kind, hit.tmdbId))) unique.set(seenKey(hit.kind, hit.tmdbId), hit);
+  return ok({ title, items: [...unique.values()].slice(0, 18).map(hitItem), empty: "No picks right now." });
 }
 
 async function wantRow(): Promise<Result<RowResult>> {
@@ -321,24 +331,6 @@ async function theatreRow(when: "now" | "soon"): Promise<Result<RowResult>> {
   });
 }
 
-/** Popular films showing in another country (the US) that have no listing here yet. */
-async function abroadRow(): Promise<Result<RowResult>> {
-  const region = await regionCode();
-  const other = region === "US" ? "GB" : "US";
-  const [abroad, hereNow, hereSoon, seen, taste] = await Promise.all([
-    services.catalog.theatres("now", other),
-    services.catalog.theatres("now", region),
-    services.catalog.theatres("soon", region),
-    seenSet(),
-    tasteWeights(),
-  ]);
-  if (!abroad.ok) return abroad;
-  const here = new Set([...(hereNow.ok ? hereNow.value : []), ...(hereSoon.ok ? hereSoon.value : [])].map((h) => h.tmdbId));
-  const missing = abroad.value.filter((h) => !here.has(h.tmdbId) && !seen.has(seenKey(h.kind, h.tmdbId)));
-  const items = matchTaste(missing, taste).slice(0, 12);
-  return ok({ title: "Out elsewhere, not confirmed here", items, empty: "Nothing is out elsewhere that is missing here." });
-}
-
 /** Films on the want-to-watch list that are in theatres or opening soon. */
 async function arrivingRow(): Promise<Result<RowResult>> {
   const region = await regionCode();
@@ -351,18 +343,20 @@ async function arrivingRow(): Promise<Result<RowResult>> {
 
 /** Loads one Home row by id. */
 export function loadRow(id: string): Promise<Result<RowResult>> {
+  // Rows are kept until the app reopens or Home is refreshed; the want list is always read fresh
+  // so a title saved a moment ago shows up.
   return cached(`row:${id}`, () => {
-    if (id === "recent") return recentRow();
+    if (id === "like-movie") return likeRow("Movie");
+    if (id === "like-tv") return likeRow("TV Show");
     if (id === "want") return wantRow();
     if (id === "favourites") return favouritesRow();
     if (id === "theatres") return theatreRow("now");
     if (id === "soon") return theatreRow("soon");
-    if (id === "abroad") return abroadRow();
     if (id === "arriving") return arrivingRow();
     if (id === "arthouse") return artHouseRow();
     if (id === "wildcard") return wildcardRow();
     if (id.startsWith("holiday:")) return holidayRow(id.slice("holiday:".length));
     if (id.startsWith("genre-")) return genreRow(Number(id.slice("genre-".length)));
     return Promise.resolve(fail("Unknown row."));
-  });
+  }, id === "want" ? 0 : Infinity);
 }
