@@ -3,6 +3,7 @@
 "use client";
 
 import { toast } from "@/components/Toast";
+import PicturesViewer from "@/components/PicturesViewer";
 import RatingsLine from "@/components/RatingsLine";
 import type { TitleLinks } from "@/lib/ports/ratings";
 import RoundButton from "@/components/RoundButton";
@@ -41,6 +42,7 @@ function TitleView() {
   const [reload, setReload] = useState(0);
   const [wanted, setWanted] = useState(false);
   const [links, setLinks] = useState<TitleLinks | null>(null);
+  const [viewer, setViewer] = useState<"poster" | "backdrop" | null>(null);
   const [seasonPick, setSeasonPick] = useState("all");
   const [seasonDate, setSeasonDate] = useState("");
 
@@ -134,6 +136,8 @@ function TitleView() {
         title={detail?.title ?? ""}
         subtitle={detail ? [detail.releaseDate?.slice(0, 4), detail.runtime ? `${detail.runtime} min` : null, detail.category].filter(Boolean).join(" · ") : ""}
         loading={!detail && !problem}
+        onCoverClick={detail ? () => setViewer("backdrop") : undefined}
+        onPosterClick={detail ? () => setViewer("poster") : undefined}
         extra={detail && !isLive && <RatingsLine links={links} mine={detail.viewings.find((v) => v.rating !== null)?.rating ?? null} />}
       />
 
@@ -244,6 +248,17 @@ function TitleView() {
         )}
       </div>
 
+      {viewer && detail && (
+        <PicturesViewer
+          mediaId={detail.mediaId}
+          tmdbId={detail.tmdbId}
+          category={detail.category}
+          kind={viewer}
+          currentPath={viewer === "poster" ? detail.posterPath : detail.backdropPath}
+          onChanged={() => setReload((n) => n + 1)}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </main>
   );
 }

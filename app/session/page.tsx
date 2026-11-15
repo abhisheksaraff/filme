@@ -153,14 +153,6 @@ function SessionView() {
             )}
             {v.notes && <p className="text-sm">{v.notes}</p>}
 
-            <div className="flex items-center gap-3">
-              <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${id}`} size="lg" />
-              <RoundButton icon="trash" label="Delete viewing" tone="danger" size="lg" onClick={() => setConfirmDelete(true)} />
-              {viewing.season !== null && viewing.episode !== null && viewing.tmdbId !== null && viewing.category === "TV Show" && (
-                <WatchButton watch={{ tmdbId: viewing.tmdbId, kind: "TV Show", title: viewing.title, year: viewing.year, season: viewing.season, episode: viewing.episode }} />
-              )}
-            </div>
-
             <section className="flex flex-col gap-2">
               <h2 className="font-serif text-xl">Ticket stubs</h2>
               <input ref={stubInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setCrop({ file: f, kind: "ticket" }); e.target.value = ""; }} />
@@ -192,6 +184,14 @@ function SessionView() {
                 <li className="shrink-0"><AddTile label="Add a photo" className="h-32 w-32" onClick={() => input.current?.click()} /></li>
               </ul>
             </section>
+
+            <div className="flex items-center gap-3">
+              <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${id}`} size="lg" />
+              <RoundButton icon="trash" label="Delete viewing" tone="danger" size="lg" onClick={() => setConfirmDelete(true)} />
+              {viewing.season !== null && viewing.episode !== null && viewing.tmdbId !== null && viewing.category === "TV Show" && (
+                <WatchButton watch={{ tmdbId: viewing.tmdbId, kind: "TV Show", title: viewing.title, year: viewing.year, season: viewing.season, episode: viewing.episode }} />
+              )}
+            </div>
 
             {v.venueId && v.venue && (
               <section className="flex flex-col gap-2">

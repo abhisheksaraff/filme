@@ -38,13 +38,48 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "soon", label: "Opening soon" },
   { id: "arriving", label: "Arriving from your list" },
   { id: "arthouse", label: "Art house" },
-  { id: "wildcard", label: "Wildcard" },
+  { id: "wildcard", label: "World Cinema" },
   ...GENRES.map((g) => ({ id: `genre-${g.id}`, label: g.name })),
 ];
 
 /** Shown until the user customises Home. */
 export const DEFAULT_HOME_ROWS: readonly string[] = [
   "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
+];
+
+/** Rows the very first saved layouts predate; they are added once to layouts saved before rows were tracked. */
+const ADDED_LATER = ["like-tv"];
+
+/**
+ * Adds rows a saved layout has not been offered yet. `seen` is the list it was last saved against;
+ * null means it was saved before rows were tracked. A row turned off afterwards stays off.
+ */
+export function addNewRows(layout: readonly string[], seen: readonly string[] | null): string[] {
+  const all = HOME_ROWS.map((row) => row.id);
+  const known = new Set(seen ?? all.filter((id) => !ADDED_LATER.includes(id)));
+  const fresh = all.filter((id) => !known.has(id) && !layout.includes(id));
+  return [...layout, ...fresh];
+}
+
+/** Every row id Home can show, recorded when a layout is saved. */
+export const ALL_ROW_IDS: readonly string[] = HOME_ROWS.map((row) => row.id);
+
+/** Languages the Art House row draws from, with the country shown under its title. */
+export const ART_HOUSE: readonly { language: string; country: string }[] = [
+  { language: "fr", country: "France" }, { language: "de", country: "Germany" }, { language: "it", country: "Italy" },
+  { language: "ja", country: "Japan" }, { language: "ru", country: "Russia" }, { language: "pl", country: "Poland" },
+  { language: "sv", country: "Sweden" }, { language: "hu", country: "Hungary" }, { language: "cs", country: "Czechia" },
+  { language: "es", country: "Spain" }, { language: "pt", country: "Portugal" }, { language: "da", country: "Denmark" },
+];
+
+/** Languages the World Cinema row draws from, with the country shown under its title. */
+export const WORLD_CINEMA: readonly { language: string; country: string }[] = [
+  { language: "ko", country: "Korea" }, { language: "ja", country: "Japan" }, { language: "es", country: "Spain" },
+  { language: "it", country: "Italy" }, { language: "hi", country: "India" }, { language: "th", country: "Thailand" },
+  { language: "tr", country: "Turkey" }, { language: "sv", country: "Sweden" }, { language: "pt", country: "Portugal" },
+  { language: "zh", country: "China" }, { language: "fa", country: "Iran" }, { language: "pl", country: "Poland" },
+  { language: "da", country: "Denmark" }, { language: "el", country: "Greece" }, { language: "id", country: "Indonesia" },
+  { language: "he", country: "Israel" },
 ];
 
 const KNOWN = new Set(HOME_ROWS.map((row) => row.id));

@@ -12,6 +12,7 @@ import { supabaseBrowseRepository } from "@/lib/adapters/supabase/SupabaseBrowse
 import { supabaseDataRepository } from "@/lib/adapters/supabase/SupabaseDataRepository";
 import { supabaseImageRepository } from "@/lib/adapters/supabase/SupabaseImageRepository";
 import { supabaseNotificationRepository } from "@/lib/adapters/supabase/SupabaseNotificationRepository";
+import { supabaseHiddenRepository } from "@/lib/adapters/supabase/SupabaseHiddenRepository";
 import { supabaseRatingsRepository } from "@/lib/adapters/supabase/SupabaseRatingsRepository";
 import { supabaseWantedRepository } from "@/lib/adapters/supabase/SupabaseWantedRepository";
 import { supabaseKeyVault } from "@/lib/adapters/supabase/SupabaseKeyVault";
@@ -30,6 +31,7 @@ import type { CollectionRepository } from "@/lib/ports/collections";
 import type { KeyVault } from "@/lib/ports/keys";
 import type { LogRepository } from "@/lib/ports/log";
 import type { SettingsRepository } from "@/lib/ports/settings";
+import type { HiddenRepository } from "@/lib/ports/hidden";
 import type { RatingsRepository } from "@/lib/ports/ratings";
 import type { WantedRepository } from "@/lib/ports/wanted";
 
@@ -47,6 +49,7 @@ export const services: {
   collections: CollectionRepository;
   keys: KeyVault;
   log: LogRepository;
+  hidden: HiddenRepository;
   ratings: RatingsRepository;
   settings: SettingsRepository;
   wanted: WantedRepository;
@@ -64,6 +67,7 @@ export const services: {
   collections: supabaseCollectionRepository,
   keys: supabaseKeyVault,
   log: supabaseLogRepository,
+  hidden: supabaseHiddenRepository,
   ratings: supabaseRatingsRepository,
   settings: supabaseSettingsRepository,
   wanted: supabaseWantedRepository,

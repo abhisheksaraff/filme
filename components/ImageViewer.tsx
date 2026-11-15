@@ -11,6 +11,8 @@ export interface ViewerImage {
   url: string;
   note?: string | null;
   isDefault?: boolean;
+  /** A TMDB picture that is not saved yet; it is saved when it is set as the main one. */
+  tmdbPath?: string;
 }
 
 interface Props {
@@ -106,7 +108,7 @@ export default function ImageViewer({ images, start, onClose, onAdd, onSetDefaul
           <div className="flex items-center gap-3">
             {images.length > 1 && <RoundButton icon="left" label="Previous" disabled={index === 0} onClick={() => go(-1)} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />}
             <RoundButton icon="download" label="Download" onClick={save} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />
-            {onSetDefault && image.id && (
+            {onSetDefault && (image.id || image.tmdbPath) && (
               <RoundButton icon="star" label={image.isDefault ? "Default" : "Set as default"} disabled={image.isDefault} pressed={image.isDefault} onClick={() => onSetDefault(image)} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />
             )}
             {onNote && image.id && <RoundButton icon="note" label="Note" onClick={() => { setDraft(image.note ?? ""); setEditing(true); }} size="lg" className="bg-white/15 text-white dark:bg-white/15 dark:text-white" />}

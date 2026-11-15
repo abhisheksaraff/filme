@@ -16,12 +16,18 @@ interface Props {
   loading?: boolean;
   /** Shown under the subtitle, such as the IMDb link and ratings. */
   extra?: ReactNode;
+  /** Make the cover and poster open a viewer of every picture for the title. */
+  onCoverClick?: () => void;
+  onPosterClick?: () => void;
 }
 
-export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loading, titleHref, extra }: Props) {
+export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loading, titleHref, extra, onCoverClick, onPosterClick }: Props) {
   return (
     <header>
-      <div className="relative h-56 w-full overflow-hidden bg-neutral-300 dark:bg-neutral-800">
+      <div
+        className="relative h-56 w-full overflow-hidden bg-neutral-300 dark:bg-neutral-800"
+        {...(onCoverClick ? { role: "button", tabIndex: 0, "aria-label": "See all covers", onClick: onCoverClick, onKeyDown: (e: React.KeyboardEvent) => e.key === "Enter" && onCoverClick() } : {})}
+      >
         {backdropUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={backdropUrl} alt="" className="h-full w-full object-cover" />
@@ -32,12 +38,15 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
       </div>
 
       <div className="relative z-10 -mt-20 flex items-end gap-4 px-5">
-        {posterUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={posterUrl} alt="" className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white object-cover shadow-md dark:border-neutral-950" />
-        ) : (
-          <div className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white bg-neutral-200 dark:border-neutral-950 dark:bg-neutral-800" />
-        )}
+        {(() => {
+          const poster = posterUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={posterUrl} alt="" className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white object-cover shadow-md dark:border-neutral-950" />
+          ) : (
+            <div className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white bg-neutral-200 dark:border-neutral-950 dark:bg-neutral-800" />
+          );
+          return onPosterClick ? <button type="button" aria-label="See all posters" onClick={onPosterClick} className="shrink-0">{poster}</button> : poster;
+        })()}
         <div className="flex min-w-0 flex-col gap-1 pb-1">
           <h1 className="font-serif text-2xl leading-tight tracking-tight">{titleHref ? <Link href={titleHref}>{title}</Link> : title}</h1>
           <span className="text-sm text-neutral-500">{subtitle}</span>

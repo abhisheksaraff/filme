@@ -37,6 +37,7 @@ export default function HomeRowSection({ rowId, nonce }: Props) {
   return (
     <section className="flex flex-col gap-2">
       <h2 className="font-serif text-xl">{done?.ok ? done.value.title : label}</h2>
+      {done?.ok && done.value.subtitle && <p className="-mt-1.5 text-sm text-neutral-500">{done.value.subtitle}</p>}
       {!done && (
         <ul className="-mx-6 flex gap-3 overflow-hidden px-6" aria-label="Loading">
           {Array.from({ length: 4 }, (_, i) => <li key={i} className="skeleton aspect-[2/3] w-28 shrink-0 rounded-lg" />)}

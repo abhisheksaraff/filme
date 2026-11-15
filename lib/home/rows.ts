@@ -1,7 +1,7 @@
 // lib/home/rows.ts
 // Builds each Home row from the log, the watchlist and TMDB. Rows are kept until the app
 // is reopened or the user refreshes, so coming back to Home never reshuffles or spends TMDB calls.
-import { GENRES } from "@/lib/domain/home";
+import { ART_HOUSE, GENRES, WORLD_CINEMA } from "@/lib/domain/home";
 import { THEMES } from "@/lib/domain/holidays";
 import type { StatRow } from "@/lib/domain/stats";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -22,6 +22,8 @@ export interface RowItem {
 export interface RowResult {
   title: string;
   items: RowItem[];
+  /** A line under the row title, such as the country on World Cinema. */
+  subtitle?: string;
   /** Shown when the row has nothing in it. */
   empty: string;
 }
@@ -32,10 +34,6 @@ const SURPRISE_RATE = 0.25;
 const ROW_SIZE = 16;
 const DRAMA = 18;
 
-/** Languages the art house row draws from, one chosen at random each time. */
-const ART_HOUSE_LANGUAGES = ["fr", "de", "it", "ja", "ru", "pl", "sv", "hu", "cs", "es", "pt", "da"];
-/** Languages the wildcard row draws from. */
-const WILDCARD_LANGUAGES = ["ko", "ja", "es", "it", "hi", "th", "tr", "sv", "pt", "zh", "fa", "pl", "da", "el", "id", "he"];
 
 const cache = new Map<string, { at: number; value: Promise<Result<unknown>> }>();
 const usedSurprises = new Set<string>();
@@ -106,10 +104,16 @@ function hitItem(hit: CatalogHit): RowItem {
   };
 }
 
-/** Titles already seen; if the log cannot be read, nothing is hidden. */
+/** Titles marked "Not interested", as "Movie:123" keys. */
+async function hiddenKeys(): Promise<string[]> {
+  const res = await cached("hidden", () => services.hidden.list());
+  return res.ok ? res.value.map((h) => seenKey(h.category, h.tmdbId)) : [];
+}
+
+/** Titles already seen or marked not interested; if either cannot be read, nothing is left out for it. */
 async function seenSet(): Promise<Set<string>> {
-  const res = await cached("seen", () => services.log.seen());
-  return new Set(res.ok ? res.value : []);
+  const [res, hidden] = await Promise.all([cached("seen", () => services.log.seen()), hiddenKeys()]);
+  return new Set([...(res.ok ? res.value : []), ...hidden]);
 }
 
 /** One shared batch of random picks that every genre row draws its surprises from. */
@@ -154,7 +158,13 @@ async function likeRow(kind: CatalogKind): Promise<Result<RowResult>> {
   if (!seenRes.ok) return seenRes;
   const mine = seenRes.value.filter((key) => key.startsWith(`${kind}:`)).map((key) => ({ kind, tmdbId: Number(key.slice(kind.length + 1)) }));
   const seeds = shuffle(mine.filter((m) => Number.isFinite(m.tmdbId))).slice(0, SEEDS);
-  if (seeds.length === 0) return ok({ title, items: [], empty: "Log a few titles to get picks here." });
+  if (seeds.length === 0) {
+    // Nothing of this kind logged yet: well-regarded titles stand in until there is something to base picks on.
+    const popular = await services.catalog.browse({ kind, sortBy: "vote_average.desc", minVotes: 500, minRating: 7.5, page: randomPage(3) });
+    if (!popular.ok) return popular;
+    const skipAll = new Set([...seenRes.value, ...(await hiddenKeys())]);
+    return ok({ title, items: shuffle(popular.value).filter((h) => !skipAll.has(seenKey(h.kind, h.tmdbId))).slice(0, 18).map(hitItem), empty: "No picks right now." });
+  }
 
   const lists = await Promise.all(seeds.map((match) => services.catalog.recommendations(match)));
   const good = lists.flatMap((list) => (list.ok ? [list.value] : []));
@@ -163,7 +173,7 @@ async function likeRow(kind: CatalogKind): Promise<Result<RowResult>> {
     return bad && !bad.ok ? fail(bad.error) : ok({ title, items: [], empty: "No picks right now." });
   }
 
-  const skip = new Set(seenRes.value);
+  const skip = new Set([...seenRes.value, ...(await hiddenKeys())]);
   for (const w of wanted.ok ? wanted.value : []) if (w.tmdbId !== null) skip.add(seenKey(w.category === "TV Show" ? "TV Show" : "Movie", w.tmdbId));
   const unique = new Map<string, CatalogHit>();
   for (const hit of shuffle(good.flat())) if (!skip.has(seenKey(hit.kind, hit.tmdbId))) unique.set(seenKey(hit.kind, hit.tmdbId), hit);
@@ -235,9 +245,9 @@ async function genreRow(genreId: number): Promise<Result<RowResult>> {
   return ok({ ...row.value, items: injectSurprises(row.value.items, pool) });
 }
 
-function artHouseRow(): Promise<Result<RowResult>> {
-  const language = pick(ART_HOUSE_LANGUAGES);
-  return discoverRow(`Art house · ${languageName(language)}`, "Nothing found. Try shuffling.", {
+async function artHouseRow(): Promise<Result<RowResult>> {
+  const { language, country } = pick(ART_HOUSE);
+  const row = await discoverRow("Art House", "Nothing found. Try shuffling.", {
     kind: "Movie",
     genreId: DRAMA,
     language,
@@ -246,11 +256,12 @@ function artHouseRow(): Promise<Result<RowResult>> {
     minRating: 7.3,
     page: randomPage(3),
   });
+  return row.ok ? ok({ ...row.value, subtitle: country }) : row;
 }
 
-function wildcardRow(): Promise<Result<RowResult>> {
-  const language = pick(WILDCARD_LANGUAGES);
-  return discoverRow(`Wildcard · ${languageName(language)}`, "Nothing found. Try shuffling.", {
+async function wildcardRow(): Promise<Result<RowResult>> {
+  const { language, country } = pick(WORLD_CINEMA);
+  const row = await discoverRow("World Cinema", "Nothing found. Try shuffling.", {
     kind: "Movie",
     language,
     sortBy: "popularity.desc",
@@ -258,6 +269,7 @@ function wildcardRow(): Promise<Result<RowResult>> {
     minRating: 6.8,
     page: randomPage(4),
   });
+  return row.ok ? ok({ ...row.value, subtitle: country }) : row;
 }
 
 /** Every viewing in compact form, shared by Home's story chips, the stories and the stats page. */

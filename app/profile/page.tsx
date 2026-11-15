@@ -13,6 +13,7 @@ import DataSync from "@/components/DataSync";
 import { ConfirmPopup } from "@/components/Popup";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { allStores } from "@/lib/files";
+import { fail, type Result } from "@/lib/ports/result";
 import { services } from "@/lib/services";
 
 const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
@@ -20,6 +21,7 @@ const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
   { href: "/collections/", icon: "layers", label: "Collections", note: "Your own lists of titles" },
   { href: "/profile/appearance/", icon: "palette", label: "Appearance", note: "Light or dark, themes and decorations" },
   { href: "/profile/data/", icon: "archive", label: "Import and export", note: "Letterboxd and Trakt files" },
+  { href: "/profile/hidden/", icon: "close", label: "Not interested", note: "Titles hidden from Home, with undo" },
   { href: "/profile/watch/", icon: "watch", label: "Watch link", note: "Which website the Watch button opens" },
   { href: "/profile/keys/", icon: "key", label: "API keys", note: "AI and TMDB keys, models and order" },
 ];
@@ -40,13 +42,16 @@ function RowBody({ icon, label, note }: { icon: IconName; label: string; note: s
 
 /** The free 10 GB of the image store; the meter is measured against that. */
 const FREE_BYTES = 10_000_000_000;
+/** How long a store may take to report its size before the meter goes on without it. */
+const STORE_WAIT_MS = 8000;
 
 const size = (bytes: number) => (bytes >= 1_000_000_000 ? `${(bytes / 1_000_000_000).toFixed(2)} GB` : `${(bytes / 1_000_000).toFixed(bytes < 10_000_000 ? 1 : 0)} MB`);
 
 export default function ProfilePage() {
   const ready = useRequireSession();
   const router = useRouter();
-  const [used, setUsed] = useState<number | null>(null);
+  // null while checking; "none" when no store answered; otherwise the bytes found and any store that did not answer.
+  const [storage, setStorage] = useState<{ bytes: number; missing: string[] } | "none" | null>(null);
   const [crop, setCrop] = useState<File | null>(null);
   const [avatarKey, setAvatarKey] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
@@ -56,9 +61,15 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
-    // Images may be in either store while they are being moved, so both count.
-    Promise.all(allStores.map((store) => store.usage())).then((results) => {
-      if (!cancelled && results.every((res) => res.ok)) setUsed(results.reduce((sum, res) => sum + (res.ok ? res.value : 0), 0));
+    // Images may be in either store while they are being moved, so both count. A store that does not
+    // answer within a few seconds is reported instead of holding the meter on "Checking…".
+    const within = (job: Promise<Result<number>>) =>
+      Promise.race([job, new Promise<Result<number>>((resolve) => setTimeout(() => resolve(fail("No answer.")), STORE_WAIT_MS))]);
+    Promise.all(allStores.map(async (store) => ({ id: store.id, res: await within(store.usage()) }))).then((list) => {
+      if (cancelled) return;
+      const answered = list.flatMap((item) => (item.res.ok ? [item.res.value] : []));
+      const missing = list.filter((item) => !item.res.ok).map((item) => (item.id === "files" ? "B2" : "Supabase"));
+      setStorage(answered.length === 0 ? "none" : { bytes: answered.reduce((a, b) => a + b, 0), missing });
     });
     return () => {
       cancelled = true;
@@ -78,6 +89,7 @@ export default function ProfilePage() {
   }
 
   if (!ready) return null;
+  const used = storage === null || storage === "none" ? null : storage.bytes;
   const share = used === null ? 0 : Math.min(100, (used / FREE_BYTES) * 100);
 
   return (
@@ -96,7 +108,10 @@ export default function ProfilePage() {
         <div className="h-2 overflow-hidden rounded-full bg-neutral-300 dark:bg-neutral-700">
           <div className="h-full rounded-full bg-neutral-900 dark:bg-white" style={{ width: `${share}%` }} />
         </div>
-        <span>{used === null ? "Checking…" : `${size(used)} of ${size(FREE_BYTES)}`}</span>
+        <span>
+          {storage === null ? "Checking…" : storage === "none" ? "Not available right now" : `${size(storage.bytes)} of ${size(FREE_BYTES)}`}
+          {storage !== null && storage !== "none" && storage.missing.length > 0 && <span className="text-neutral-500"> · {storage.missing.join(", ")} not reachable</span>}
+        </span>
       </section>
 
       <ul className="flex flex-col gap-3">

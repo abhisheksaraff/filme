@@ -1,6 +1,7 @@
 // lib/adapters/supabase/SupabaseSettingsRepository.ts
 // Per-user preferences, kept in the single user_settings row.
 import { z } from "zod";
+import { addNewRows, ALL_ROW_IDS } from "@/lib/domain/home";
 import { DEFAULT_APPEARANCE, appearanceSchema } from "@/lib/domain/appearance";
 import type { MovingDates } from "@/lib/domain/holidays";
 import { EMPTY_WATCH_LINKS, watchLinksSchema } from "@/lib/domain/watchLinks";
@@ -12,10 +13,22 @@ const rowIds = z.array(z.string());
 
 export const supabaseSettingsRepository: SettingsRepository = {
   async homeRows() {
-    const { data, error } = await getSupabase().from("user_settings").select("home_layout").maybeSingle();
+    const db = getSupabase();
+    const { data, error } = await db.from("user_settings").select("home_layout, home_seen").maybeSingle();
     if (error) return fail("Could not load your Home layout.");
     const parsed = rowIds.safeParse(data?.home_layout);
-    return ok(parsed.success ? parsed.data : []);
+    const layout = parsed.success ? parsed.data : [];
+    if (layout.length === 0) return ok([]);
+
+    // Rows added since the layout was saved appear once; the layout is then saved so they can be turned off.
+    const seen = rowIds.safeParse(data?.home_seen);
+    const merged = addNewRows(layout, seen.success ? seen.data : null);
+    const { data: auth } = await db.auth.getSession();
+    const userId = auth.session?.user.id;
+    if (userId && (merged.length !== layout.length || !seen.success)) {
+      await db.from("user_settings").upsert({ user_id: userId, home_layout: merged, home_seen: [...ALL_ROW_IDS] }, { onConflict: "user_id" });
+    }
+    return ok(merged);
   },
 
   async saveHomeRows(ids) {
@@ -24,7 +37,7 @@ export const supabaseSettingsRepository: SettingsRepository = {
     const userId = auth.session?.user.id;
     if (!userId) return fail("Your session has expired. Sign in again.");
 
-    const { error } = await db.from("user_settings").upsert({ user_id: userId, home_layout: ids }, { onConflict: "user_id" });
+    const { error } = await db.from("user_settings").upsert({ user_id: userId, home_layout: ids, home_seen: [...ALL_ROW_IDS] }, { onConflict: "user_id" });
     return error ? fail("Could not save your Home layout.") : ok(undefined);
   },
 
