@@ -202,3 +202,12 @@ h1, h2, h3, h4, h5, h6,
     min-height: 0;
   }
 }
+
+/* Story stickers drift a little, each on its own timing. Only used when animations are on. */
+@keyframes sticker-drift {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -10px; }
+}
+.sticker-drift {
+  animation: sticker-drift 6s ease-in-out infinite;
+}

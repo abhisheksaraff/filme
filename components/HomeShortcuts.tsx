@@ -1,15 +1,14 @@
 // components/HomeShortcuts.tsx
-// One row of icon circles under the search pill: unread notifications, the map, read
-// notifications, then recaps. Refresh and customize stay pinned at the right.
+// One row of icon circles under the search pill: new-episode alerts, the map, then Your day, Your month and
+// Your year. A new recap shows as a red dot on its circle rather than a circle of its own.
 "use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Icon, { type IconName } from "@/components/Icon";
-import RoundButton from "@/components/RoundButton";
 import { buildStory, periodFor, previousPeriod, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
-import { homeSnapshot } from "@/lib/home/session";
+import { homeSnapshot, type ShortcutStory } from "@/lib/home/session";
 import { keepIfSame } from "@/lib/same";
 import type { AppNotification } from "@/lib/ports/notifications";
 import { services } from "@/lib/services";
@@ -26,13 +25,9 @@ interface Item {
   onOpen?: () => void;
 }
 
-function describe(n: AppNotification): { label: string; href: string; icon: IconName } {
-  if (n.kind === "new-episode") {
-    const [mediaId, , ...name] = n.period.split("|");
-    return { label: name.join("|") || "New episode", href: `/title/?id=${mediaId}`, icon: "tv" };
-  }
-  const kind: StoryKind = n.kind === "report-year" ? "year" : "month";
-  return { label: kind === "year" ? "Year recap" : "Month recap", href: `/story/?kind=${kind}&period=${n.period}`, icon: "sparkle" };
+function describeEpisode(n: AppNotification): { label: string; href: string; icon: IconName } {
+  const [mediaId, , ...name] = n.period.split("|");
+  return { label: name.join("|") || "New episode", href: `/title/?id=${mediaId}`, icon: "tv" };
 }
 
 function Circle({ item }: { item: Item }) {
@@ -49,10 +44,10 @@ function Circle({ item }: { item: Item }) {
   );
 }
 
-export default function HomeShortcuts({ nonce, onShuffle }: { nonce: number; onShuffle: () => void }) {
+export default function HomeShortcuts({ nonce }: { nonce: number }) {
   // Both start from what Home last showed, so coming back does not make the circles appear one by one.
   const [notes, setNotes] = useState<AppNotification[]>(() => homeSnapshot.notes);
-  const [stories, setStories] = useState<Item[]>(() => homeSnapshot.stories);
+  const [stories, setStories] = useState<ShortcutStory[]>(() => homeSnapshot.stories);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,17 +73,16 @@ export default function HomeShortcuts({ nonce, onShuffle }: { nonce: number; onS
     loadStatRows().then((res) => {
       if (cancelled || !res.ok) return;
       const now = new Date();
-      const candidates: { kind: StoryKind; period: string; label: string; icon: IconName }[] = [
-        { kind: "day", period: periodFor("day", now), label: "On this day", icon: "clock" },
-        { kind: "month", period: periodFor("month", now), label: "This month", icon: "calendar" },
-        { kind: "year", period: periodFor("year", now), label: "This year", icon: "star" },
-        { kind: "month", period: previousPeriod("month", now), label: "Last month", icon: "calendarPlus" },
-        { kind: "year", period: previousPeriod("year", now), label: "Last year", icon: "archive" },
+      // Today's date in past years, and the recaps of the month and the year that just finished.
+      const candidates: { kind: StoryKind; period: string; label: string; icon: IconName; recap?: "month" | "year" }[] = [
+        { kind: "day", period: periodFor("day", now), label: "Your day", icon: "clock" },
+        { kind: "month", period: previousPeriod("month", now), label: "Your month", icon: "calendar", recap: "month" },
+        { kind: "year", period: previousPeriod("year", now), label: "Your year", icon: "star", recap: "year" },
       ];
       // Recaps with nothing in them are left out.
       const next = candidates
         .filter((c) => buildStory(res.value, c.kind, c.period).length > 0)
-        .map((c) => ({ key: `${c.kind}-${c.period}`, href: `/story/?kind=${c.kind}&period=${c.period}`, icon: c.icon, label: c.label }));
+        .map((c) => ({ key: `${c.kind}-${c.period}`, href: `/story/?kind=${c.kind}&period=${c.period}`, icon: c.icon, label: c.label, recap: c.recap }));
       homeSnapshot.stories = next;
       setStories((prev) => keepIfSame(prev, next));
     });
@@ -102,22 +96,26 @@ export default function HomeShortcuts({ nonce, onShuffle }: { nonce: number; onS
     services.notifications.markRead(id);
   }
 
-  const toItem = (n: AppNotification): Item => ({ key: n.id, ...describe(n), unread: !n.readAt, onOpen: n.readAt ? undefined : () => open(n.id) });
-  // Backup reminders no longer get a circle on Home; Profile already has the backup tools.
-  const shown = notes.filter((n) => n.kind !== "backup");
-  const unread = shown.filter((n) => !n.readAt).map(toItem);
-  const read = shown.filter((n) => n.readAt).map(toItem);
+  /** Opening a recap reads its alert; the red dot goes with it. */
+  function readRecaps(recap: "month" | "year") {
+    for (const n of notes.filter((x) => x.kind === `report-${recap}` && !x.readAt)) open(n.id);
+  }
+
+  const toEpisode = (n: AppNotification): Item => ({ key: n.id, ...describeEpisode(n), unread: !n.readAt, onOpen: n.readAt ? undefined : () => open(n.id) });
+  // Backup reminders and recap alerts get no circle of their own.
+  const episodes = notes.filter((n) => n.kind === "new-episode");
+  const unread = episodes.filter((n) => !n.readAt).map(toEpisode);
+  const read = episodes.filter((n) => n.readAt).map(toEpisode);
   const map: Item = { key: "map", href: "/map/", icon: "map", label: "Map" };
+  const recaps: Item[] = stories.map((st) => ({
+    ...st,
+    unread: st.recap ? notes.some((n) => n.kind === `report-${st.recap}` && !n.readAt) : false,
+    onOpen: st.recap ? () => readRecaps(st.recap as "month" | "year") : undefined,
+  }));
 
   return (
-    <div className="flex items-start gap-2">
-      <ul className="-ml-1 flex min-w-0 flex-1 gap-2 overflow-x-auto pl-1">
-        {[...unread, map, ...read, ...stories].map((item) => <Circle key={item.key} item={item} />)}
-      </ul>
-      <div className="mt-2 flex shrink-0 gap-2">
-        <RoundButton icon="refresh" label="Refresh" onClick={onShuffle} />
-        <RoundButton icon="sliders" label="Customize Home" href="/home/customize/" />
-      </div>
-    </div>
+    <ul className="-mx-1 flex gap-2 overflow-x-auto px-1">
+      {[...unread, map, ...recaps, ...read].map((item) => <Circle key={item.key} item={item} />)}
+    </ul>
   );
 }

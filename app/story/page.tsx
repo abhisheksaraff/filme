@@ -1,11 +1,20 @@
 // app/story/page.tsx
-// A full-screen recap of a day, month or year. Tap the right side to go on, the left to go back.
+// A full-screen recap of a day, month or year. Tap the right side to go on, the left to go back. Each slide takes its
+// colours from its poster, with cut-out stickers round the edges and soft music chosen for the season or festival.
 "use client";
 
 import ProblemPopup from "@/components/ProblemPopup";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import StoryStickers, { stickersFor, type Sticker } from "@/components/StoryStickers";
+import { ACCENTS } from "@/components/decor/art";
+import { CHARMS } from "@/components/decor/charms";
 import { useRequireSession } from "@/hooks/useRequireSession";
+import { useStoryMedia } from "@/hooks/useStoryMedia";
+import { useStoryMusic } from "@/hooks/useStoryMusic";
+import { gradientFor, gradientFromPicture, type Gradient } from "@/lib/color";
+import { moodFor } from "@/lib/domain/storyMood";
+import { readCachedAppearance, readCachedMoving } from "@/lib/theme";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { buildStory, storyTitle, validPeriod, type Slide, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
@@ -41,6 +50,18 @@ function StoryView() {
   const [problem, setProblem] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const touchStart = useRef<number | null>(null);
+  /** Each poster's main colour as a gradient, filled in as the pictures are read. */
+  const [grads, setGrads] = useState<Record<string, Gradient>>({});
+  const [animate] = useState(() => readCachedAppearance().animationsEnabled);
+
+  const mood = useMemo(() => (valid ? moodFor(kind, period, readCachedMoving()) : null), [valid, kind, period]);
+  const media = useStoryMedia(valid ? `${kind}:${period}` : null, mood);
+  const music = useStoryMusic(media.tracks);
+  // Real cut-outs when enough were found; otherwise a festival's own drawn charms.
+  const pool: Sticker[] = useMemo(() => {
+    if (media.stickers.length >= 2) return media.stickers.map((m) => ({ kind: "picture", url: m.url }));
+    return (mood?.holiday ? CHARMS[mood.holiday.slug] ?? [] : []).filter((n) => n !== "icon" && ACCENTS[n]).map((name) => ({ kind: "charm", name }));
+  }, [media.stickers, mood]);
 
   useEffect(() => {
     if (!ready || !isKind(kind) || !validPeriod(kind, period)) return;
@@ -54,6 +75,20 @@ function StoryView() {
       cancelled = true;
     };
   }, [ready, kind, period]);
+
+  useEffect(() => {
+    let cancelled = false;
+    for (const path of new Set((slides ?? []).map((x) => x.posterPath).filter((x): x is string => x !== null))) {
+      const url = tmdbImageUrl(path, "w185");
+      if (!url) continue;
+      gradientFromPicture(url).then((g) => {
+        if (!cancelled && g) setGrads((prev) => (prev[path] ? prev : { ...prev, [path]: g }));
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [slides]);
 
   function close() {
     if (window.history.length > 1) router.back();
@@ -75,8 +110,33 @@ function StoryView() {
     canvas.height = 1920;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.fillStyle = "#0a0a0a";
+    const back = ctx.createLinearGradient(0, 0, 400, 1920);
+    back.addColorStop(0, grad.from);
+    back.addColorStop(1, grad.to);
+    ctx.fillStyle = back;
     ctx.fillRect(0, 0, 1080, 1920);
+    // Stickers: only pictures that were checked as readable are drawn, so the canvas stays exportable.
+    for (const { sticker, slot } of stickersFor(pool, index)) {
+      if (sticker.kind !== "picture") continue;
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = sticker.url;
+        await img.decode();
+        const w = slot.size * 1080;
+        const h = (img.height / img.width) * w;
+        ctx.save();
+        ctx.translate(slot.x * 1080, slot.y * 1920);
+        ctx.rotate((slot.rot * Math.PI) / 180);
+        ctx.shadowColor = "rgba(0,0,0,0.35)";
+        ctx.shadowBlur = 24;
+        ctx.shadowOffsetY = 10;
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      } catch {
+        // A sticker that fails to load is just left out of the picture.
+      }
+    }
     ctx.fillStyle = "#ffffff99";
     ctx.textAlign = "center";
     ctx.font = "44px sans-serif";
@@ -122,10 +182,19 @@ function StoryView() {
 
   const slide = slides?.[index];
   const poster = tmdbImageUrl(slide?.posterPath, "w342");
+  const grad = (slide?.posterPath ? grads[slide.posterPath] : undefined) ?? gradientFor((mood?.hue ?? 220) + index * 28);
+  const last = slides !== null && index === slides.length - 1;
+  // Whatever is on screen from Openverse is credited on the last slide.
+  const credits = [
+    ...(music.playing ? [music.playing.credit] : []),
+    ...(pool.length > 0 && pool[0].kind === "picture" ? media.stickers.map((m) => m.credit) : []),
+  ].map((c) => `${c.title}${c.creator ? ` by ${c.creator}` : ""}, ${c.license}`);
 
   return (
     <main
-      className="fixed inset-0 flex flex-col bg-neutral-950 text-white"
+      className="fixed inset-0 flex flex-col text-white"
+      style={{ background: `linear-gradient(160deg, ${grad.from}, ${grad.to})` }}
+      onClick={music.touch}
       onTouchStart={(e) => { touchStart.current = e.touches[0].clientX; }}
       onTouchEnd={(e) => {
         const start = touchStart.current;
@@ -135,20 +204,27 @@ function StoryView() {
         if (Math.abs(delta) > 50) step(delta < 0 ? 1 : -1);
       }}
     >
-      <div className="flex gap-1 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      <StoryStickers pool={pool} index={index} animate={animate} />
+      <div className="relative z-10 flex gap-1 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         {slides?.map((_, i) => (
           <div key={i} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-white" : "bg-white/30"}`} />
         ))}
       </div>
-      <div className="flex items-center justify-between px-4 py-3 text-sm text-white/70">
-        <span>{storyTitle(kind, period)}</span>
+      <div className="relative z-10 flex items-center justify-between px-4 py-3 text-sm text-white/70">
+        <span>{storyTitle(kind, period)}{mood?.holiday ? ` · ${mood.holiday.name}` : ""}</span>
         <span className="flex items-center gap-3">
+          {music.available && (
+            <button type="button" aria-pressed={music.on} aria-label={music.on ? "Turn the music off" : "Turn the music on"}
+              onClick={(e) => { e.stopPropagation(); music.toggle(); }} className="relative z-10 px-2">
+              {music.on ? "Music on" : "Music off"}
+            </button>
+          )}
           <button type="button" aria-label="Save as picture" onClick={savePicture} className="relative z-10 px-2">Save</button>
           <button type="button" aria-label="Close" onClick={close} className="relative z-10 px-2 text-lg">✕</button>
         </span>
       </div>
 
-      <div className="relative flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
         <button type="button" aria-label="Previous" className="absolute inset-y-0 left-0 w-1/3" onClick={() => step(-1)} />
         <button type="button" aria-label="Next" className="absolute inset-y-0 right-0 w-2/3" onClick={() => step(1)} />
 
@@ -165,6 +241,11 @@ function StoryView() {
             )}
             <p className="font-serif text-4xl leading-tight tracking-tight">{slide.big}</p>
             {slide.caption && <p className="text-white/70">{slide.caption}</p>}
+            {last && credits.length > 0 && (
+              <ul className="absolute inset-x-6 bottom-6 flex flex-col gap-0.5 text-[11px] leading-snug text-white/50">
+                {credits.slice(0, 5).map((c) => <li key={c} className="truncate">{c}</li>)}
+              </ul>
+            )}
           </>
         )}
       </div>

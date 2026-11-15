@@ -5,6 +5,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import BottomNav from "@/components/BottomNav";
+import FocusProxy from "@/components/FocusProxy";
 import RoundButton from "@/components/RoundButton";
 import { recallScroll, saveScroll } from "@/lib/pageMemory";
 
@@ -51,6 +52,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <FocusProxy />
       {showBack && (
         <>
           {/* Sits inside the same centred column as the pages, so it is in one place on phone and desktop. */}

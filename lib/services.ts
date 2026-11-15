@@ -1,6 +1,7 @@
 // lib/services.ts
 // Composition root: the only file that chooses which adapter backs each port.
 import { musicBrainzArtists } from "@/lib/adapters/musicbrainz/MusicBrainzArtists";
+import { openverseSearch } from "@/lib/adapters/openverse/OpenverseSearch";
 import { nominatimGeocoder } from "@/lib/adapters/geo/NominatimGeocoder";
 import { edgeAiProvider } from "@/lib/adapters/ai/EdgeAIProvider";
 import { supabaseAuth } from "@/lib/adapters/supabase/auth";
@@ -27,6 +28,7 @@ import type { ImageRepository } from "@/lib/ports/images";
 import type { NotificationRepository } from "@/lib/ports/notifications";
 import type { Catalog } from "@/lib/ports/catalog";
 import type { Geocoder } from "@/lib/ports/geo";
+import type { MediaSearch } from "@/lib/ports/media";
 import type { KeyVault } from "@/lib/ports/keys";
 import type { LogRepository } from "@/lib/ports/log";
 import type { SettingsRepository } from "@/lib/ports/settings";
@@ -45,6 +47,7 @@ export const services: {
   images: ImageRepository;
   notifications: NotificationRepository;
   geo: Geocoder;
+  media: MediaSearch;
   catalog: Catalog;
   keys: KeyVault;
   log: LogRepository;
@@ -63,6 +66,7 @@ export const services: {
   images: supabaseImageRepository,
   notifications: supabaseNotificationRepository,
   geo: nominatimGeocoder,
+  media: openverseSearch,
   catalog: edgeCatalog,
   keys: supabaseKeyVault,
   log: supabaseLogRepository,

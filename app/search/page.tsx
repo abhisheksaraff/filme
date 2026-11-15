@@ -8,7 +8,8 @@ import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { searchFocus } from "@/lib/searchFocus";
 import Icon from "@/components/Icon";
 import PersonCircle from "@/components/PersonCircle";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -150,6 +151,17 @@ function SearchView() {
   const formatParam = params.get("format");
   const extraParam = params.get("extra");
   const tapStamp = params.get("at");
+  // Opened from Home's search pill, the field takes focus so the keyboard is up. On a computer it also takes focus unless
+  // the page was opened with filters already set (from a person, a format or an extra), where the results are the point.
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!ready) return;
+    const fromHome = searchFocus.take();
+    const withFilters = Boolean(idParam || formatParam || extraParam);
+    if (fromHome || (matchMedia("(pointer: fine)").matches && !withFilters)) inputRef.current?.focus({ preventScroll: true });
+    // Only when the page opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
   useEffect(() => {
     if ((!formatParam && !extraParam) || !tapStamp) return;
     if (sessionStorage.getItem("filme_tap") === tapStamp) return;
@@ -431,24 +443,22 @@ function SearchView() {
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Search</h1>
 
-      <form onSubmit={(e) => { e.preventDefault(); if (askOn) void ask(); }} className="relative">
+      {/* The same bar in both modes: Ask AI only changes what Return does. */}
+      <form onSubmit={(e) => { e.preventDefault(); if (askOn) void ask(); else inputRef.current?.blur(); }} className="relative">
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color-mix(in_srgb,var(--foreground)_50%,transparent)]"><Icon name="search" size={24} /></span>
         <input
+          ref={inputRef}
           type={askOn ? "text" : "search"}
           value={askOn ? question : query}
           onChange={(e) => (askOn ? setQuestion(e.target.value) : setQuery(e.target.value))}
           maxLength={askOn ? 300 : undefined}
-          placeholder={askOn ? "Ask anything, like comedy movies from the 50s" : "A film, show, person or place"}
+          placeholder="Search movies, shows, concerts…"
           autoComplete="off"
           enterKeyHint={askOn ? "go" : "search"}
           // 16px keeps iOS Safari from zooming the page when the field is focused.
-          className={`w-full rounded-full bg-neutral-100 py-3 pl-5 text-base dark:bg-neutral-800 ${askOn ? "pr-14" : "pr-5"}`}
+          aria-busy={asking}
+          className={`h-11 w-full rounded-full bg-neutral-100 pl-12 pr-5 text-base transition-opacity dark:bg-neutral-800 ${asking ? "opacity-60" : ""}`}
         />
-        {askOn && (
-          <button type="submit" aria-label="Ask" disabled={asking || question.trim().length < 3}
-            className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-950 text-white disabled:opacity-40 dark:bg-white dark:text-neutral-950">
-            <Icon name={asking ? "sparkle" : "right"} size={18} />
-          </button>
-        )}
       </form>
       <div className="flex items-center gap-3 text-sm">
         <button type="button" aria-pressed={filtersOpen} onClick={() => setFiltersOpen((o) => !o)} className="flex items-center gap-1.5 py-1.5 text-neutral-500">
@@ -508,7 +518,6 @@ function SearchView() {
       )}
       {current?.plan?.notice && <p className="text-sm text-neutral-500">{current.plan.notice}</p>}
 
-      {!active && <p className="text-sm text-neutral-500">{askOn ? "Ask a question and press Return." : "Type a title or person, set a filter, or turn on Ask AI."}</p>}
 
       {active && current && current.people.length > 0 && (
         <ul className="-mx-6 flex gap-3 overflow-x-auto px-6 pb-1" aria-label="People">

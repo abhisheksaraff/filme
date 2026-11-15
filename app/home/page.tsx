@@ -11,6 +11,8 @@ import Wordmark from "@/components/Wordmark";
 import HomeShortcuts from "@/components/HomeShortcuts";
 import HomeRowSection from "@/components/HomeRowSection";
 import Icon from "@/components/Icon";
+import RoundButton from "@/components/RoundButton";
+import { searchFocus } from "@/lib/searchFocus";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { resolveHomeRows } from "@/lib/domain/home";
 import { clearHomeCache } from "@/lib/home/rows";
@@ -60,13 +62,18 @@ export default function HomePage() {
 
       <LogoLights />
 
-      <Link href="/search/" className="flex items-center gap-3 rounded-full bg-neutral-100 px-5 py-3 text-base text-[color-mix(in_srgb,var(--foreground)_50%,transparent)] dark:bg-neutral-800">
-        <Icon name="search" size={24} />
-        Search movies, shows, concerts…
-      </Link>
+      {/* Search takes the room the buttons leave; its words are trimmed on a narrow phone. */}
+      <div className="flex items-center gap-2">
+        <Link href="/search/" onClick={() => searchFocus.prime()} className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-neutral-100 px-4 text-base text-[color-mix(in_srgb,var(--foreground)_50%,transparent)] dark:bg-neutral-800">
+          <span className="shrink-0"><Icon name="search" size={24} /></span>
+          <span className="truncate">Search movies, shows, concerts…</span>
+        </Link>
+        <RoundButton icon="refresh" label="Refresh" onClick={() => { clearHomeCache(); setSettled(new Set()); setNonce((n) => n + 1); }} />
+        <RoundButton icon="sliders" label="Customize Home" href="/home/customize/" />
+      </div>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
-      <HomeShortcuts nonce={nonce} onShuffle={() => { clearHomeCache(); setSettled(new Set()); setNonce((n) => n + 1); }} />
+      <HomeShortcuts nonce={nonce} />
       {rows?.map((id, i) => (
         <HomeRowSection key={id} rowId={id} nonce={nonce} eager={i < 3} mayFold={rows.slice(0, i).every((above) => settled.has(above))} onSettled={onSettled} />
       ))}

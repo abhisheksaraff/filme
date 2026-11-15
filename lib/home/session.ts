@@ -9,6 +9,8 @@ export interface ShortcutStory {
   href: string;
   icon: IconName;
   label: string;
+  /** The kind of recap whose unread notification puts a dot on this circle. */
+  recap?: "month" | "year";
 }
 
 export const homeSnapshot: { rows: string[] | null; notes: AppNotification[]; stories: ShortcutStory[] } = { rows: null, notes: [], stories: [] };
