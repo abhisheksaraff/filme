@@ -217,7 +217,7 @@ export const supabaseLogRepository: LogRepository = {
   async recent(limit) {
     const { data, error } = await getSupabase()
       .from("watch_sessions")
-      .select("id, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, scope, season_number, episode_number, created_at, media:media_items(title, category, poster_path), venue:venues(id, name, latitude, longitude)")
+      .select("id, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, media:media_items(title, category, poster_path), venue:venues(id, name, latitude, longitude)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -245,6 +245,8 @@ export const supabaseLogRepository: LogRepository = {
         auditorium: row.auditorium,
         seats: row.seats ?? [],
         totalTickets: row.total_tickets,
+        rating: row.rating === null || row.rating === undefined ? null : Number(row.rating),
+        notes: row.notes ?? null,
         scope: (row.scope as RecentEntry["scope"]) ?? "show",
         season: row.season_number ?? null,
         episode: row.episode_number ?? null,

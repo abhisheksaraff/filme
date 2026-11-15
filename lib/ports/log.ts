@@ -24,6 +24,8 @@ export interface RecentEntry {
   auditorium: string | null;
   seats: SeatDetail[];
   totalTickets: number | null;
+  rating: number | null;
+  notes: string | null;
   scope: "show" | "season" | "episode";
   season: number | null;
   episode: number | null;

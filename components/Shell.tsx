@@ -61,7 +61,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
               <RoundButton
                 icon="back"
                 label="Back"
-                className={`pointer-events-auto ${overCover ? "!bg-black/70 !text-white" : ""}`}
+                className={`pointer-events-auto relative before:absolute before:-inset-3 before:content-[''] ${overCover ? "!bg-black/70 !text-white" : ""}`}
                 onClick={() => (window.history.length > 1 ? router.back() : router.push("/home/"))}
               />
             </div>

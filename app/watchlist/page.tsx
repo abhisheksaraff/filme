@@ -54,7 +54,7 @@ export default function WatchlistPage() {
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
-        {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} />)}
+        {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} rating={entry.rating} notes={entry.notes} />)}
         {recent.length === 0 && !problem && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}
       </ul>
 

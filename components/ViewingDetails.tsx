@@ -1,13 +1,17 @@
 // components/ViewingDetails.tsx
-// The small print under a viewing in a list: auditorium, seat pills, format and extras, date and time.
+// The small print of a viewing, in two parts so a card can fold: the summary (first seats, format, date and time) is always
+// shown, and the rest (auditorium, remaining seats, extras) rolls out when the card opens.
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { seatLabel } from "@/components/entryDraft";
 import type { SeatDetail } from "@/lib/domain/sessions";
 
+/** Seats shown while a card is folded. */
+export const FOLDED_SEATS = 3;
+
 interface Props {
+  view: "summary" | "more";
   auditorium: string | null;
   seats: SeatDetail[];
   totalTickets: number | null;
@@ -15,43 +19,49 @@ interface Props {
   addons: string[];
   watchedOn: string | null;
   watchedAt: string | null;
-  /** Smaller type for tiles two to a row. */
-  compact?: boolean;
-  /** Makes the format and each extra open Search with just that one. Off inside a tile that is itself a link. */
-  links?: boolean;
+  /** Sits at the right end of the seats line, such as the picture circles. */
+  trailing?: ReactNode;
 }
 
-/** Seats wrap onto more lines for a group instead of spilling out, so a tile never cuts them off. */
-export default function ViewingDetails({ auditorium, seats, totalTickets, format, addons, watchedOn, watchedAt, compact, links }: Props) {
-  // A new stamp per visit lets the same format be tapped again later and still apply.
-  const [stamp] = useState(() => Date.now());
-  const small = compact ? "text-[11px]" : "text-xs";
-  const formatLink = format ? { label: format, href: `/search/?format=${encodeURIComponent(format)}&at=${stamp}` } : null;
-  const extras = addons.map((a) => ({ label: a, href: `/search/?extra=${encodeURIComponent(a)}&at=${stamp}` }));
+const chip = "rounded-full bg-neutral-950 px-2 py-px text-[10px] leading-4 text-white dark:bg-white dark:text-neutral-950";
+
+/** Whether opening a card would reveal anything beyond what the folded card shows. */
+export function hasMoreDetail(props: { auditorium: string | null; seats: SeatDetail[]; addons: string[]; notes?: string | null }): boolean {
+  return Boolean(props.auditorium || props.seats.length > FOLDED_SEATS || props.addons.length > 0 || props.notes);
+}
+
+export default function ViewingDetails({ view, auditorium, seats, totalTickets, format, addons, watchedOn, watchedAt, trailing }: Props) {
+  if (view === "more") {
+    const rest = seats.slice(FOLDED_SEATS);
+    return (
+      <div className="flex min-w-0 flex-col gap-1 text-xs">
+        {auditorium && <span className="text-neutral-700 dark:text-neutral-300">{auditorium}</span>}
+        {rest.length > 0 && (
+          <span className="flex flex-wrap gap-1">
+            {rest.map((seat, i) => <span key={i} className={chip}>{seatLabel(seat)}</span>)}
+          </span>
+        )}
+        {addons.length > 0 && <span className="text-neutral-600 dark:text-neutral-400">{addons.join(" · ")}</span>}
+      </div>
+    );
+  }
+
+  const first = seats.slice(0, FOLDED_SEATS);
+  const hasLine = first.length > 0 || totalTickets || format || trailing;
   return (
-    <div className={`flex min-w-0 flex-col gap-1 ${small}`}>
-      {auditorium && <span className="text-neutral-700 dark:text-neutral-300">{auditorium}</span>}
-      {/* Tickets and the format share a line; extras get their own below. */}
-      {(seats.length > 0 || totalTickets || formatLink) && (
+    <div className="flex min-w-0 flex-col gap-1 text-xs">
+      {hasLine && (
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          {seats.length > 0 ? (
-            <span className="flex flex-wrap gap-1">
-              {seats.map((seat, i) => <span key={i} className="rounded-full bg-neutral-950 px-2 py-px text-[10px] leading-4 text-white dark:bg-white dark:text-neutral-950">{seatLabel(seat)}</span>)}
-            </span>
+          {first.length > 0 ? (
+            <span className="flex flex-wrap gap-1">{first.map((seat, i) => <span key={i} className={chip}>{seatLabel(seat)}</span>)}</span>
           ) : totalTickets ? (
             <span className="text-neutral-600 dark:text-neutral-400">{totalTickets} {totalTickets === 1 ? "ticket" : "tickets"}</span>
           ) : null}
-          {formatLink && <span className="text-neutral-600 dark:text-neutral-400">{links ? <Link href={formatLink.href}>{formatLink.label}</Link> : formatLink.label}</span>}
+          {format && <span className="text-neutral-600 dark:text-neutral-400">{format}</span>}
+          {trailing}
         </span>
       )}
-      {extras.length > 0 && (
-        <span className="flex flex-wrap gap-x-2 text-neutral-600 dark:text-neutral-400">
-          {extras.map((t, i) => (
-            <span key={t.label}>{links ? <Link href={t.href}>{t.label}</Link> : t.label}{i < extras.length - 1 ? " ·" : ""}</span>
-          ))}
-        </span>
-      )}
-      {(watchedOn || watchedAt) && <span className="mt-auto pt-0.5 text-[10px] text-neutral-500">{[watchedOn, watchedAt].filter(Boolean).join(" · ")}</span>}
+      {(watchedOn || watchedAt) && <span className="pt-0.5 text-[10px] text-neutral-500">{[watchedOn, watchedAt].filter(Boolean).join(" · ")}</span>}
     </div>
   );
 }
