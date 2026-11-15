@@ -18,7 +18,6 @@ import { services } from "@/lib/services";
 
 const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
   { href: "/stats/", icon: "chart", label: "Stats", note: "Totals and charts for everything you have logged" },
-  { href: "/collections/", icon: "layers", label: "Collections", note: "Your own lists of titles" },
   { href: "/profile/appearance/", icon: "palette", label: "Appearance", note: "Light or dark, themes and decorations" },
   { href: "/profile/data/", icon: "archive", label: "Import and export", note: "Letterboxd and Trakt files" },
   { href: "/profile/hidden/", icon: "close", label: "Not interested", note: "Titles hidden from Home, with undo" },

@@ -9,13 +9,3 @@ export const wantToWatchSchema = z.object({
   addedAt: timestampSchema,
 });
 export type WantToWatch = z.infer<typeof wantToWatchSchema>;
-
-export const collectionSchema = z.object({
-  id: idSchema,
-  name: z.string().min(1),
-  description: z.string().nullable(),
-  /** Set when the collection belongs to a holiday theme, so it can be surfaced seasonally. */
-  holidayId: idSchema.nullable(),
-  createdAt: timestampSchema,
-});
-export type Collection = z.infer<typeof collectionSchema>;

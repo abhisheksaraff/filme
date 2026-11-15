@@ -2,6 +2,7 @@
 // Manage providers, their model lists and their API keys. Keys are sent once and never shown again.
 "use client";
 
+import { FIELD_FULL } from "@/components/ui/fields";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -16,8 +17,7 @@ import {
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { services } from "@/lib/services";
 
-const input =
-  "w-full rounded-xl border border-neutral-300 bg-transparent px-4 py-3 text-base dark:border-neutral-700";
+const input = FIELD_FULL;
 const small = "rounded-xl border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-neutral-700";
 const primary =
   "rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900";

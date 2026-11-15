@@ -1,6 +1,6 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
+import { Geist, Geist_Mono, Libre_Caslon_Text, Playfair_Display } from "next/font/google";
 import Decorations from "@/components/Decorations";
 import Shell from "@/components/Shell";
 import RevealImages from "@/components/RevealImages";
@@ -16,6 +16,14 @@ const geistSans = Geist({
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
+});
+
+// Only the italic f of the logo uses this one.
+const caslon = Libre_Caslon_Text({
+  variable: "--font-caslon",
+  subsets: ["latin"],
+  weight: "400",
+  style: "italic",
 });
 
 const geistMono = Geist_Mono({
@@ -66,7 +74,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${caslon.variable} h-full antialiased`}
     >
       <head>
         <meta httpEquiv="Content-Security-Policy" content={csp} />

@@ -8,7 +8,7 @@ import { getSupabase } from "./client";
 /** Tables in the order they can be restored (parents before children). */
 export const EXPORT_TABLES = [
   "media_items", "genres", "people", "media_genres", "media_people", "venues", "watch_sessions",
-  "images", "want_to_watch", "collections", "collection_items", "user_settings",
+  "images", "want_to_watch", "user_settings",
 ] as const;
 
 const PAGE = 1000;

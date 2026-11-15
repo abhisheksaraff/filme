@@ -1,6 +1,7 @@
 // app/(public)/login/page.tsx
 "use client";
 
+import { FIELD_FULL } from "@/components/ui/fields";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -28,8 +29,7 @@ export default function LoginPage() {
   }
 
   // 16px inputs stop iOS Safari from zooming the page on focus.
-  const field =
-    "w-full rounded-xl border border-neutral-300 bg-transparent px-4 py-3 text-base dark:border-neutral-700";
+  const field = FIELD_FULL;
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-6">

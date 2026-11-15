@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Avatar from "@/components/Avatar";
+import Wordmark from "@/components/Wordmark";
 import HomeShortcuts from "@/components/HomeShortcuts";
 import HomeRowSection from "@/components/HomeRowSection";
 import Icon from "@/components/Icon";
@@ -42,12 +43,12 @@ export default function HomePage() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
       <header className="flex items-center justify-between">
-        <span className="font-serif text-3xl tracking-tight">filmè</span>
+        <Wordmark className="text-3xl" />
         <Link href="/profile/" aria-label="Profile" className="translate-y-1"><Avatar /></Link>
       </header>
 
-      <Link href="/search/" className="flex items-center gap-3 rounded-full bg-neutral-100 px-5 py-3 text-neutral-500 dark:bg-neutral-800">
-        <Icon name="search" size={18} />
+      <Link href="/search/" className="flex items-center gap-3 rounded-full bg-neutral-100 px-5 py-3 text-base text-[color-mix(in_srgb,var(--foreground)_50%,transparent)] dark:bg-neutral-800">
+        <Icon name="search" size={24} />
         Search movies, shows, concerts…
       </Link>
 

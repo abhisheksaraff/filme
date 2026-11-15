@@ -1,16 +1,16 @@
 // components/BottomNav.tsx
-// A floating pill with the main places. Only the current one is lit: a grey circle with a filled white icon.
+// A floating pill with the main places. The current one sits in a grey circle; only Home and Watchlist fill their icon in white.
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Icon, { type IconName } from "./Icon";
 
-const TABS: { href: string; label: string; icon: IconName }[] = [
-  { href: "/home/", label: "Home", icon: "home" },
+const TABS: { href: string; label: string; icon: IconName; fills?: boolean }[] = [
+  { href: "/home/", label: "Home", icon: "home", fills: true },
   { href: "/calendar/", label: "Calendar", icon: "calendar" },
   { href: "/watchlist/", label: "Watched", icon: "ticket" },
-  { href: "/want/", label: "Watchlist", icon: "bookmark" },
+  { href: "/want/", label: "Watchlist", icon: "bookmark", fills: true },
   { href: "/scan/", label: "Add an entry", icon: "plus" },
 ];
 
@@ -29,7 +29,7 @@ export default function BottomNav() {
                 aria-current={active ? "page" : undefined}
                 className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${active ? "bg-neutral-600 text-white" : "text-white"}`}
               >
-                <Icon name={tab.icon} size={22} filled={active} />
+                <Icon name={tab.icon} size={22} filled={active && tab.fills} />
               </Link>
             </li>
           );

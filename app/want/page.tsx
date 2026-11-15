@@ -72,12 +72,6 @@ export default function WantPage() {
     };
   }, [ready]);
 
-  async function remove(item: WantedItem) {
-    const res = await services.wanted.remove(item.mediaId, { season: item.season, episode: item.episode });
-    if (res.ok) setWanted((list) => list?.filter((w) => w !== item) ?? null);
-    else setProblem(res.error);
-  }
-
   if (!ready) return null;
 
   const wantedIds = new Set((wanted ?? []).flatMap((w) => (w.tmdbId === null ? [] : [`${w.category}:${w.tmdbId}`])));
@@ -188,7 +182,6 @@ export default function WantPage() {
                 )}
                 <span className="mt-1 block font-serif text-base leading-tight">{withShow(item.title, item.season, item.episode)}</span>
               </Link>
-              <RoundButton icon="close" label="Remove from list" size="sm" onClick={() => remove(item)} className="self-start" />
             </li>
           );
         })}

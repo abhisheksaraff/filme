@@ -1,10 +1,11 @@
 // app/(public)/page.tsx
+import Wordmark from "@/components/Wordmark";
 import Link from "next/link";
 
 export default function WelcomePage() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-6">
-      <h1 className="font-serif text-5xl tracking-tight">filmè</h1>
+      <h1><Wordmark className="text-5xl" /></h1>
       <p className="text-base leading-relaxed text-neutral-600 dark:text-neutral-400">
         A private log of the films, shows and concerts I have seen, with the ticket stubs to prove it.
       </p>

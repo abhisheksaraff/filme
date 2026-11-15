@@ -29,8 +29,11 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
         {...(onCoverClick ? { role: "button", tabIndex: 0, "aria-label": "See all covers", onClick: onCoverClick, onKeyDown: (e: React.KeyboardEvent) => e.key === "Enter" && onCoverClick() } : {})}
       >
         {backdropUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={backdropUrl} alt="" className="h-full w-full object-cover" />
+          // The wrapper carries the settle animation; the picture itself already fades in as it loads.
+          <div className="settle h-full w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={backdropUrl} alt="" className="h-full w-full object-cover" />
+          </div>
         )}
         {/* Fades the cover into the page colour so the poster sits on a soft edge. */}
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[var(--background)] to-transparent" />
@@ -50,7 +53,7 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
         <div className="flex min-w-0 flex-col gap-1 pb-1">
           <h1 className="font-serif text-2xl leading-tight tracking-tight">{titleHref ? <Link href={titleHref}>{title}</Link> : title}</h1>
           <span className="text-sm text-neutral-500">{subtitle}</span>
-          {extra}
+          {extra && <div className="reveal">{extra}</div>}
         </div>
       </div>
     </header>

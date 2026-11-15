@@ -2,6 +2,7 @@
 // Choose which rows Home shows and in what order.
 "use client";
 
+import Choice from "@/components/ui/Choice";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -73,14 +74,7 @@ export default function CustomizeHomePage() {
       <ul className="flex flex-col gap-2">
         {rows?.map((row, i) => (
           <li key={row.id} className="flex items-center gap-3">
-            <input
-              id={`row-${row.id}`}
-              type="checkbox"
-              checked={row.on}
-              onChange={() => toggle(i)}
-              className="h-5 w-5"
-            />
-            <label htmlFor={`row-${row.id}`} className="flex-1 text-base">{row.label}</label>
+            <Choice type="checkbox" checked={row.on} onChange={() => toggle(i)} className="flex-1">{row.label}</Choice>
             <button type="button" aria-label={`Move ${row.label} up`} className={small} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
             <button type="button" aria-label={`Move ${row.label} down`} className={small} disabled={i === rows.length - 1} onClick={() => move(i, 1)}>↓</button>
           </li>

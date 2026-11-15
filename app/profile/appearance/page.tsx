@@ -3,12 +3,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Choice from "@/components/ui/Choice";
+import { FIELD } from "@/components/ui/fields";
+import ThemeIcon from "@/components/ThemeIcon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { DEFAULT_APPEARANCE, type Appearance } from "@/lib/domain/appearance";
 import { MONTH_NAMES } from "@/lib/domain/stats";
 import { THEMES } from "@/lib/domain/holidays";
 import { services } from "@/lib/services";
-import { changeAppearance, currentTheme, readCachedAppearance } from "@/lib/theme";
+import { changeAppearance, readCachedAppearance } from "@/lib/theme";
 
 const MODES: { value: Appearance["themeMode"]; label: string }[] = [
   { value: "system", label: "Match my phone" },
@@ -63,10 +66,9 @@ export default function AppearancePage() {
 
   if (!ready) return null;
 
-  const today = currentTheme(appearance);
   const choice = choiceOf(appearance);
   const [month, day] = (appearance.birthday ?? "").split("-").map(Number);
-  const field = "rounded-xl border border-neutral-300 bg-transparent px-3 py-3 text-base dark:border-neutral-700";
+  const field = FIELD;
 
   const setBirthday = (m: number, d: number) =>
     update({ ...appearance, birthday: `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}` });
@@ -76,40 +78,36 @@ export default function AppearancePage() {
       <h1 className="font-serif text-3xl tracking-tight">Appearance</h1>
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
-      <fieldset className="flex flex-col gap-2">
+      <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 font-serif text-xl">Mode</legend>
         {MODES.map((mode) => (
-          <label key={mode.value} className="flex items-center gap-3 text-base">
-            <input type="radio" name="mode" className="h-5 w-5" checked={appearance.themeMode === mode.value} onChange={() => update({ ...appearance, themeMode: mode.value })} />
+          <Choice key={mode.value} type="radio" name="mode" checked={appearance.themeMode === mode.value} onChange={() => update({ ...appearance, themeMode: mode.value })}>
             {mode.label}
-          </label>
+          </Choice>
         ))}
       </fieldset>
 
       <section className="flex flex-col gap-3">
         <h2 className="font-serif text-xl">Theme</h2>
-        <p className="text-sm text-neutral-500">
-          {today ? `Showing ${today.emoji} ${today.name}.` : "Plain look right now."} A theme you pick stays until you change it.
-        </p>
         <div className="grid grid-cols-2 gap-2">
-          {[{ id: "plain", name: "Plain", emoji: "◻️" }, { id: "auto", name: "By the calendar", emoji: "📅" }, ...THEMES.map((t) => ({ id: t.slug, name: t.name, emoji: t.emoji }))].map((option) => (
+          {[{ id: "plain", name: "Plain" }, { id: "auto", name: "By the calendar" }, ...THEMES.map((t) => ({ id: t.slug, name: t.name }))].map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={() => choose(option.id)}
               aria-pressed={choice === option.id}
-              className={`rounded-xl border px-3 py-3 text-left text-sm ${choice === option.id ? "border-neutral-900 font-medium dark:border-white" : "border-neutral-300 dark:border-neutral-700"}`}
+              className={`flex items-center gap-2.5 rounded-xl border-2 bg-neutral-100 px-3 py-3 text-left text-sm dark:bg-neutral-800 ${choice === option.id ? "border-neutral-950 font-medium dark:border-white" : "border-transparent"}`}
             >
-              <span className="mr-1">{option.emoji}</span>{option.name}
+              <ThemeIcon slug={option.id} />
+              <span className="min-w-0">{option.name}</span>
             </button>
           ))}
         </div>
       </section>
 
-      <label className="flex items-center gap-3 text-base">
-        <input type="checkbox" className="h-5 w-5" checked={appearance.decorationsEnabled} onChange={(e) => update({ ...appearance, decorationsEnabled: e.target.checked })} />
+      <Choice type="checkbox" checked={appearance.decorationsEnabled} onChange={(checked) => update({ ...appearance, decorationsEnabled: checked })}>
         Floating decorations on themes
-      </label>
+      </Choice>
 
       <section className="flex flex-col gap-2">
         <h2 className="font-serif text-xl">Birthday</h2>

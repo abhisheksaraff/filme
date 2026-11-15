@@ -6,7 +6,7 @@ import { useEffect } from "react";
 
 export default function RevealImages() {
   useEffect(() => {
-    const mark = (img: HTMLImageElement) => img.classList.add("img-loaded");
+    const mark = (img: HTMLImageElement) => img.setAttribute("data-loaded", "");
     // `load` does not bubble, so it is caught on the way down.
     const onLoad = (e: Event) => e.target instanceof HTMLImageElement && mark(e.target);
     document.addEventListener("load", onLoad, true);

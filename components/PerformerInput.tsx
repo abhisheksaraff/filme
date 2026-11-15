@@ -2,6 +2,7 @@
 // Adds performers and openers to a concert or live event, with MusicBrainz suggestions.
 "use client";
 
+import { FIELD } from "@/components/ui/fields";
 import { useEffect, useState } from "react";
 import { addPerformer } from "@/lib/credits";
 import type { ArtistHit } from "@/lib/ports/artists";
@@ -43,7 +44,7 @@ export default function PerformerInput({ mediaId, onAdded }: Props) {
     onAdded();
   }
 
-  const field = "rounded-xl border border-neutral-300 bg-transparent px-3 py-3 text-base dark:border-neutral-700";
+  const field = FIELD;
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">

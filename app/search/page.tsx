@@ -3,6 +3,7 @@
 // results: people first as round photos, then titles as one list.
 "use client";
 
+import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -16,6 +17,7 @@ import { EMPTY_PLAN, hasPlan, LANGUAGE_NAMES, type AskPlan } from "@/lib/domain/
 import { GENRES } from "@/lib/domain/home";
 import { applyFilter, describeFilter, normalize } from "@/lib/domain/search";
 import type { StatRow } from "@/lib/domain/stats";
+import { warmTitle } from "@/lib/handoff";
 import { loadStatRows, previewHref, seenKey } from "@/lib/home/rows";
 import { usePageState } from "@/lib/pageMemory";
 import type { BrowseSpec, CatalogHit, CatalogKind } from "@/lib/ports/catalog";
@@ -41,7 +43,6 @@ const ORDERS: { id: Order; label: string }[] = [
   { id: "az", label: "A–Z" },
 ];
 
-const FIELD = "rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-base dark:border-neutral-700";
 
 /** One title in the results: from your log, your Watchlist or TMDB, shown once. */
 interface Item {
@@ -85,7 +86,7 @@ function genreId(name: string | null): number | undefined {
 function ResultRow({ item }: { item: Item }) {
   return (
     <li>
-      <Link href={item.href} className="relative flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
+      <Link href={item.href} onPointerDown={() => warmTitle(item.href, { title: item.title, posterUrl: item.poster, subtitle: item.year })} className="relative flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
         {/* A quiet word in the corner says it is already in your log or on your Watchlist. */}
         {(item.watched || item.wanted) && <span className="absolute right-3 top-2 text-[11px] text-neutral-500">{item.watched ? "Watched" : "Watchlist"}</span>}
         <span className="relative shrink-0">

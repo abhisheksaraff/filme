@@ -2,6 +2,7 @@
 // Totals and charts over everything you have logged, for all time or one year.
 "use client";
 
+import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePageState } from "@/lib/pageMemory";
@@ -92,9 +93,9 @@ export default function StatsPage() {
             ))}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" className="flex-1 rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-base dark:border-neutral-700" />
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" className={`min-w-0 flex-1 ${FIELD}`} />
             <span className="text-neutral-500">to</span>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" className="flex-1 rounded-xl border border-neutral-300 bg-transparent px-3 py-2 text-base dark:border-neutral-700" />
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" className={`min-w-0 flex-1 ${FIELD}`} />
           </div>
 
           {stats.viewings === 0 ? (

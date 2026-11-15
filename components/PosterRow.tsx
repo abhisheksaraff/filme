@@ -1,14 +1,19 @@
 // components/PosterRow.tsx
 // A sideways-scrolling strip of posters; a ✦ marks random surprise picks.
 import Link from "next/link";
+import { warmTitle } from "@/lib/handoff";
 import type { RowItem } from "@/lib/home/rows";
 
 export default function PosterRow({ items }: { items: RowItem[] }) {
   return (
-    <ul className="-mx-6 flex gap-3 overflow-x-auto px-6 pb-2">
-      {items.map((item) => (
-        <li key={item.key} className="w-28 shrink-0">
-          <Link href={item.href} className="flex flex-col gap-1">
+    <ul className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-2">
+      {items.map((item, i) => (
+        <li key={item.key} className="reveal-item w-28 shrink-0" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
+          <Link
+            href={item.href}
+            onPointerDown={() => warmTitle(item.href, { title: item.title, posterUrl: item.posterUrl, subtitle: item.subtitle })}
+            className="flex flex-col gap-1"
+          >
             <div className="relative">
               {item.posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element

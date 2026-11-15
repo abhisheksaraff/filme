@@ -13,6 +13,8 @@ import SeasonTiles from "@/components/SeasonTiles";
 import RatingsLine from "@/components/RatingsLine";
 import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
+import TmdbPicturesViewer from "@/components/TmdbPicturesViewer";
+import { handoffFor } from "@/lib/handoff";
 import { clearHomeCache } from "@/lib/home/rows";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -44,6 +46,10 @@ function PreviewView() {
   const [confirmHide, setConfirmHide] = useState(false);
   const [last, setLast] = useState<LastViewing | null>(null);
   const [menu, setMenu] = useState(false);
+  // Which kind of picture the viewer is showing, if it is open.
+  const [viewer, setViewer] = useState<"poster" | "backdrop" | null>(null);
+  // What the tile that opened this page already showed, so the poster and name are there before the details are.
+  const [early] = useState(() => handoffFor(kind, id));
   const showData = useShowData(kind === "TV Show" ? id : null, ready);
 
   useEffect(() => {
@@ -136,9 +142,11 @@ function PreviewView() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5">
       <TitleHero
         backdropUrl={details?.backdropUrl ?? details?.posterUrl ?? null}
-        posterUrl={details?.posterUrl ?? null}
-        title={details?.title ?? ""}
-        subtitle={details ? [details.releaseYear, details.runtime ? `${details.runtime} min` : null, details.category].filter(Boolean).join(" · ") : ""}
+        posterUrl={details?.posterUrl ?? early?.posterUrl ?? null}
+        title={details?.title ?? early?.title ?? ""}
+        subtitle={details ? [details.releaseYear, details.runtime ? `${details.runtime} min` : null, details.category].filter(Boolean).join(" · ") : (early?.subtitle ?? "")}
+        onCoverClick={details ? () => setViewer("backdrop") : undefined}
+        onPosterClick={details ? () => setViewer("poster") : undefined}
         loading={!details && !problem}
         extra={details && <RatingsLine links={links} mine={null} />}
       />
@@ -147,7 +155,7 @@ function PreviewView() {
         {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
         {details && (
-          <>
+          <div className="reveal flex flex-col gap-5">
             {details.genres.length > 0 && <span className="text-sm text-neutral-500">{details.genres.join(", ")}</span>}
 
             {status && (
@@ -199,9 +207,19 @@ function PreviewView() {
                 </button>
               )
             )}
-          </>
+          </div>
         )}
       </div>
+
+      {viewer && details && (
+        <TmdbPicturesViewer
+          kind={details.category === "TV Show" ? "TV Show" : "Movie"}
+          tmdbId={details.tmdbId}
+          shape={viewer}
+          currentPath={viewer === "poster" ? details.posterPath : details.backdropPath}
+          onClose={() => setViewer(null)}
+        />
+      )}
 
       {menu && details && (
         <LogMenu

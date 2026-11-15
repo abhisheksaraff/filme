@@ -1,0 +1,37 @@
+// components/ui/Choice.tsx
+// The app's one checkbox and radio: a square with a thick black edge that fills solid black when chosen.
+// The real input stays underneath (hidden but focusable), so labels, keyboards and screen readers work as usual.
+"use client";
+
+import type { ReactNode } from "react";
+
+interface Props {
+  type: "checkbox" | "radio";
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  children: ReactNode;
+  /** Groups radios so only one is chosen. */
+  name?: string;
+  disabled?: boolean;
+  className?: string;
+}
+
+export default function Choice({ type, checked, onChange, children, name, disabled, className = "" }: Props) {
+  return (
+    <label className={`flex items-center gap-3 text-base ${disabled ? "opacity-50" : ""} ${className}`}>
+      <input
+        type={type}
+        name={name}
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="h-5 w-5 shrink-0 rounded-md border-[2.5px] border-neutral-950 transition-colors peer-checked:bg-neutral-950 peer-focus-visible:ring-2 peer-focus-visible:ring-neutral-950 peer-focus-visible:ring-offset-2 dark:border-white dark:peer-checked:bg-white dark:peer-focus-visible:ring-white dark:peer-focus-visible:ring-offset-neutral-950"
+      />
+      <span className="flex-1">{children}</span>
+    </label>
+  );
+}

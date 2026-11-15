@@ -6,7 +6,6 @@ import { edgeAiProvider } from "@/lib/adapters/ai/EdgeAIProvider";
 import { supabaseAuth } from "@/lib/adapters/supabase/auth";
 import { activeStore } from "@/lib/files";
 import { supabaseLogRepository } from "@/lib/adapters/supabase/SupabaseLogRepository";
-import { supabaseCollectionRepository } from "@/lib/adapters/supabase/SupabaseCollectionRepository";
 import { supabaseSettingsRepository } from "@/lib/adapters/supabase/SupabaseSettingsRepository";
 import { supabaseBrowseRepository } from "@/lib/adapters/supabase/SupabaseBrowseRepository";
 import { supabaseDataRepository } from "@/lib/adapters/supabase/SupabaseDataRepository";
@@ -28,7 +27,6 @@ import type { ImageRepository } from "@/lib/ports/images";
 import type { NotificationRepository } from "@/lib/ports/notifications";
 import type { Catalog } from "@/lib/ports/catalog";
 import type { Geocoder } from "@/lib/ports/geo";
-import type { CollectionRepository } from "@/lib/ports/collections";
 import type { KeyVault } from "@/lib/ports/keys";
 import type { LogRepository } from "@/lib/ports/log";
 import type { SettingsRepository } from "@/lib/ports/settings";
@@ -48,7 +46,6 @@ export const services: {
   notifications: NotificationRepository;
   geo: Geocoder;
   catalog: Catalog;
-  collections: CollectionRepository;
   keys: KeyVault;
   log: LogRepository;
   hidden: HiddenRepository;
@@ -67,7 +64,6 @@ export const services: {
   notifications: supabaseNotificationRepository,
   geo: nominatimGeocoder,
   catalog: edgeCatalog,
-  collections: supabaseCollectionRepository,
   keys: supabaseKeyVault,
   log: supabaseLogRepository,
   hidden: supabaseHiddenRepository,

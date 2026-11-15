@@ -98,7 +98,7 @@ async function search(title: string, category: string, limit = 6): Promise<Resul
 /** Seasons already fetched this session; a season page and the progress bars share them. */
 const seasonCache = new Map<string, SeasonDetail>();
 
-export const edgeCatalog: Catalog = {
+const rawCatalog: Catalog = {
   search,
 
   browse(spec: BrowseSpec) {
@@ -376,4 +376,26 @@ export const edgeCatalog: Catalog = {
     };
     return ok(details);
   },
+};
+
+/** Answers kept for a few minutes, so reopening a title, or warming one when a tile is pressed, costs nothing. */
+const REMEMBER_MS = 5 * 60_000;
+const answers = new Map<string, { at: number; value: Promise<Result<unknown>> }>();
+
+function remember<T>(key: string, run: () => Promise<Result<T>>): Promise<Result<T>> {
+  const hit = answers.get(key);
+  if (hit && Date.now() - hit.at < REMEMBER_MS) return hit.value as Promise<Result<T>>;
+  // A failure is not kept, so the next try asks again.
+  const value = run().then((res) => {
+    if (!res.ok) answers.delete(key);
+    return res;
+  });
+  answers.set(key, { at: Date.now(), value });
+  return value;
+}
+
+export const edgeCatalog: Catalog = {
+  ...rawCatalog,
+  details: (match) => remember(`details:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match)),
+  images: (match) => remember(`images:${match.kind}:${match.tmdbId}`, () => rawCatalog.images(match)),
 };
