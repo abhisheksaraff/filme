@@ -267,7 +267,7 @@ function StoryView() {
         if (Math.abs(delta) > 50) step(delta < 0 ? 1 : -1);
       }}
     >
-      <StoryStickers pool={pool} index={index} animate={animate} memories={memories} />
+      <StoryStickers pool={pool} index={index} animate={animate} memories={isDebug && slide?.heading === "Checks" ? [] : memories} />
       <div className="relative z-10 flex gap-1 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         {slides?.map((_, i) => (
           <div key={i} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-white" : "bg-white/30"}`} />
@@ -306,7 +306,7 @@ function StoryView() {
             {slide.caption && <p className="text-white/70">{slide.caption}</p>}
             {checks && (
               <ul className="flex max-h-[45vh] w-full flex-col gap-1 overflow-y-auto text-left text-xs leading-snug text-white/80">
-                {checks.map((line, i) => <li key={i} className="break-words">{line}</li>)}
+                {checks.map((line, i) => <li key={i} className="truncate">{line}</li>)}
               </ul>
             )}
             {last && credits.length > 0 && (

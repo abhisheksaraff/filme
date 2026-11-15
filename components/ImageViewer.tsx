@@ -75,7 +75,9 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
-  const pinch = useRef<{ start: number | null; base: number }>({ start: null, base: 1 });
+  // While two fingers are down the picture is scaled directly (no re-drawing, no easing) from a smoothed value; the zoom is committed when they lift.
+  const pinch = useRef<{ start: number | null; base: number; live: number }>({ start: null, base: 1, live: 1 });
+  const zoomEl = useRef<HTMLDivElement | null>(null);
 
   // The picture in view, kept inside the list when pictures are removed.
   const at = Math.min(index, Math.max(0, images.length - 1));
@@ -168,14 +170,31 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
         // While zoomed in, the strip stays put so the zoomed picture is not dragged away.
         className={`flex min-h-0 flex-1 touch-pan-x snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${zoom > 1 ? "overflow-x-hidden" : "overflow-x-auto"}`}
         onTouchStart={(e) => {
-          if (e.touches.length === 2) pinch.current = { start: distance(e.touches[0], e.touches[1]), base: zoom };
+          if (e.touches.length === 2) {
+            pinch.current = { start: distance(e.touches[0], e.touches[1]), base: zoom, live: zoom };
+            if (zoomEl.current) zoomEl.current.style.transition = "none";
+          }
         }}
         onTouchMove={(e) => {
           const p = pinch.current;
-          if (e.touches.length === 2 && p.start) setZoom(Math.min(MAX_ZOOM, Math.max(1, (p.base * distance(e.touches[0], e.touches[1])) / p.start)));
+          if (e.touches.length !== 2 || !p.start || !zoomEl.current) return;
+          const target = Math.min(MAX_ZOOM, Math.max(1, (p.base * distance(e.touches[0], e.touches[1])) / p.start));
+          // Fingers drift a little even when held still; changes under 1% are ignored and the rest is followed part of the way.
+          if (Math.abs(target - p.live) / p.live < 0.01) return;
+          p.live += (target - p.live) * 0.4;
+          zoomEl.current.style.transform = `scale(${p.live})`;
         }}
         onTouchEnd={(e) => {
-          if (e.touches.length === 0) pinch.current = { ...pinch.current, start: null };
+          const p = pinch.current;
+          if (e.touches.length >= 2 || p.start === null) return;
+          // Nearly back at normal size settles at exactly normal size.
+          const end = p.live < 1.08 ? 1 : p.live;
+          pinch.current = { start: null, base: end, live: end };
+          if (zoomEl.current) {
+            zoomEl.current.style.transition = "";
+            zoomEl.current.style.transform = `scale(${end})`;
+          }
+          setZoom(end);
         }}
         onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : 2.5))}
       >
@@ -185,7 +204,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
             {/* Only the pictures next to the current one are loaded, so a long list stays light. */}
             {Math.abs(i - at) <= 1 && (
               // The box fills the space it is given, so the picture is measured against something definite and shows at full size.
-              <div className="relative flex h-full w-full items-center justify-center transition-transform" style={i === at ? { transform: `scale(${zoom})` } : undefined}>
+              <div ref={i === at ? zoomEl : undefined} className="relative flex h-full w-full items-center justify-center transition-transform" style={i === at ? { transform: `scale(${zoom})` } : undefined}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.url} alt={img.note ?? "Picture"} className="max-h-full max-w-full object-contain" />
                 {/* The main picture wears a star on its corner. */}

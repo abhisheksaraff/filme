@@ -38,13 +38,15 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://image.tmdb.org https://*.supabase.co https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://*.backblazeb2.com",
+  // Story pictures and music come from many sites (Openverse links to the original hosts), so any secure address may supply them. Scripts stay locked down.
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
   "font-src 'self' data:",
   "worker-src 'self' blob: https://cdn.jsdelivr.net",
   [
     "connect-src 'self'",
     "https://*.supabase.co wss://*.supabase.co",
-    "https://musicbrainz.org https://nominatim.openstreetmap.org",
+    "https://musicbrainz.org https://nominatim.openstreetmap.org https://api.openverse.org",
     "https://cdn.jsdelivr.net https://tessdata.projectnaptha.com",
     isDev ? "ws://localhost:* ws://10.0.0.169:*" : "",
   ].filter(Boolean).join(" "),

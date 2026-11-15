@@ -6,7 +6,7 @@ const lines: string[] = [];
 let bypass = false;
 
 export function debugLog(line: string): void {
-  lines.push(line);
+  lines.push(line.length > 80 ? `${line.slice(0, 79)}…` : line);
   if (lines.length > 40) lines.shift();
 }
 
