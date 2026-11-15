@@ -6,17 +6,19 @@
 import ProblemPopup from "@/components/ProblemPopup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import StoryStickers, { stickersFor, type Sticker } from "@/components/StoryStickers";
+import StoryStickers, { memoriesFor, stickersFor, type Sticker } from "@/components/StoryStickers";
 import { ACCENTS } from "@/components/decor/art";
 import { CHARMS } from "@/components/decor/charms";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { useStoryMedia } from "@/hooks/useStoryMedia";
+import { useStoryMemories } from "@/hooks/useStoryMemories";
 import { useStoryMusic } from "@/hooks/useStoryMusic";
 import { gradientFor, gradientFromPicture, type Gradient } from "@/lib/color";
 import { moodFor } from "@/lib/domain/storyMood";
+import { readDebugLog, setDebugBypass } from "@/lib/debug";
 import { readCachedAppearance, readCachedMoving } from "@/lib/theme";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import { buildStory, storyTitle, validPeriod, type Slide, type StoryKind } from "@/lib/domain/stories";
+import { buildAllTime, buildStory, storyTitle, validPeriod, type Slide, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
 
 function isKind(value: string | null): value is StoryKind {
@@ -44,7 +46,9 @@ function StoryView() {
   const params = useSearchParams();
   const kind = params.get("kind");
   const period = params.get("period") ?? "";
-  const valid = isKind(kind) && validPeriod(kind, period);
+  // The temporary debug story covers the whole log and asks for its pictures and music afresh every time.
+  const isDebug = kind === "debug";
+  const valid = isDebug || (isKind(kind) && validPeriod(kind, period));
 
   const [slides, setSlides] = useState<Slide[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -54,7 +58,16 @@ function StoryView() {
   const [grads, setGrads] = useState<Record<string, Gradient>>({});
   const [animate] = useState(() => readCachedAppearance().animationsEnabled);
 
-  const mood = useMemo(() => (valid ? moodFor(kind, period, readCachedMoving()) : null), [valid, kind, period]);
+  useEffect(() => {
+    if (!isDebug) return;
+    setDebugBypass(true);
+    return () => setDebugBypass(false);
+  }, [isDebug]);
+  const mood = useMemo(() => {
+    if (!valid) return null;
+    if (isDebug) return moodFor("year", String(new Date().getFullYear()), readCachedMoving());
+    return isKind(kind) ? moodFor(kind, period, readCachedMoving()) : null;
+  }, [valid, isDebug, kind, period]);
   const media = useStoryMedia(valid ? `${kind}:${period}` : null, mood);
   const music = useStoryMusic(media.tracks);
   // Real cut-outs when enough were found; otherwise a festival's own drawn charms.
@@ -64,17 +77,18 @@ function StoryView() {
   }, [media.stickers, mood]);
 
   useEffect(() => {
-    if (!ready || !isKind(kind) || !validPeriod(kind, period)) return;
+    if (!ready || !valid) return;
     let cancelled = false;
     loadStatRows().then((res) => {
       if (cancelled) return;
-      if (res.ok) setSlides(buildStory(res.value, kind, period));
-      else setProblem(res.error);
+      if (!res.ok) return setProblem(res.error);
+      if (isDebug) setSlides([...buildAllTime(res.value), { heading: "Checks", big: "Debug", caption: null, posterPath: null, lines: [] }]);
+      else if (isKind(kind)) setSlides(buildStory(res.value, kind, period));
     });
     return () => {
       cancelled = true;
     };
-  }, [ready, kind, period]);
+  }, [ready, valid, isDebug, kind, period]);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +103,16 @@ function StoryView() {
       cancelled = true;
     };
   }, [slides]);
+
+  // Ticks while the debug checks are on screen, so the lines follow the searches as they finish.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!isDebug) return;
+    const timer = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(timer);
+  }, [isDebug]);
+  const slideNow = slides?.[index];
+  const memories = useStoryMemories(slideNow?.sessionIds?.length ? slideNow.sessionIds : slides?.[0]?.sessionIds, slideNow?.heading ?? "story");
 
   function close() {
     if (window.history.length > 1) router.back();
@@ -137,6 +161,36 @@ function StoryView() {
         // A sticker that fails to load is just left out of the picture.
       }
     }
+    // The slide's own stubs and photos, laid the same way as on screen; any that cannot be read are left out.
+    for (const { memory, slot } of memoriesFor(memories, index)) {
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = memory.url;
+        await img.decode();
+        const w = slot.size * 1080;
+        ctx.save();
+        ctx.translate(slot.x * 1080, slot.y * 1920);
+        ctx.rotate((slot.rot * Math.PI) / 180);
+        ctx.shadowColor = "rgba(0,0,0,0.4)";
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 14;
+        if (memory.kind === "photo") {
+          const frame = 16;
+          const pw = w - frame * 2;
+          const ph = pw * 1.25;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(-w / 2, -(ph + frame * 3.5) / 2, w, ph + frame * 3.5);
+          ctx.shadowColor = "transparent";
+          ctx.drawImage(img, -w / 2 + frame, -(ph + frame * 3.5) / 2 + frame, pw, ph);
+        } else {
+          ctx.drawImage(img, -w / 2, -((img.height / img.width) * w) / 2, w, (img.height / img.width) * w);
+        }
+        ctx.restore();
+      } catch {
+        // Left out of the picture.
+      }
+    }
     ctx.fillStyle = "#ffffff99";
     ctx.textAlign = "center";
     ctx.font = "44px sans-serif";
@@ -181,6 +235,15 @@ function StoryView() {
   if (!valid) return <main className="p-6 text-sm">That story does not exist.</main>;
 
   const slide = slides?.[index];
+  // The debug checks slide: what each search found, whether anything played, and what the security policy blocked.
+  const checks = isDebug && slide?.heading === "Checks"
+    ? [
+        `stickers: ${media.stickers.length} found, ${pool.length > 0 ? `${pool[0].kind === "picture" ? "pictures" : "drawn charms"} in use` : "none in use"}`,
+        `music: ${media.tracks.length} found, ${music.playing ? "playing" : music.on ? "on, not playing" : "off"}`,
+        `stubs and photos on the story: ${memories.filter((m) => m.kind === "stub").length} and ${memories.filter((m) => m.kind === "photo").length}`,
+        ...readDebugLog(),
+      ]
+    : null;
   const poster = tmdbImageUrl(slide?.posterPath, "w342");
   const grad = (slide?.posterPath ? grads[slide.posterPath] : undefined) ?? gradientFor((mood?.hue ?? 220) + index * 28);
   const last = slides !== null && index === slides.length - 1;
@@ -204,14 +267,14 @@ function StoryView() {
         if (Math.abs(delta) > 50) step(delta < 0 ? 1 : -1);
       }}
     >
-      <StoryStickers pool={pool} index={index} animate={animate} />
+      <StoryStickers pool={pool} index={index} animate={animate} memories={memories} />
       <div className="relative z-10 flex gap-1 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         {slides?.map((_, i) => (
           <div key={i} className={`h-1 flex-1 rounded-full ${i <= index ? "bg-white" : "bg-white/30"}`} />
         ))}
       </div>
       <div className="relative z-10 flex items-center justify-between px-4 py-3 text-sm text-white/70">
-        <span>{storyTitle(kind, period)}{mood?.holiday ? ` · ${mood.holiday.name}` : ""}</span>
+        <span>{isDebug ? "Debug · all time" : isKind(kind) ? storyTitle(kind, period) : ""}{mood?.holiday ? ` · ${mood.holiday.name}` : ""}</span>
         <span className="flex items-center gap-3">
           {music.available && (
             <button type="button" aria-pressed={music.on} aria-label={music.on ? "Turn the music off" : "Turn the music on"}
@@ -241,6 +304,11 @@ function StoryView() {
             )}
             <p className="font-serif text-4xl leading-tight tracking-tight">{slide.big}</p>
             {slide.caption && <p className="text-white/70">{slide.caption}</p>}
+            {checks && (
+              <ul className="flex max-h-[45vh] w-full flex-col gap-1 overflow-y-auto text-left text-xs leading-snug text-white/80">
+                {checks.map((line, i) => <li key={i} className="break-words">{line}</li>)}
+              </ul>
+            )}
             {last && credits.length > 0 && (
               <ul className="absolute inset-x-6 bottom-6 flex flex-col gap-0.5 text-[11px] leading-snug text-white/50">
                 {credits.slice(0, 5).map((c) => <li key={c} className="truncate">{c}</li>)}

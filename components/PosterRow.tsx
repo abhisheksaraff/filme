@@ -1,10 +1,13 @@
 // components/PosterRow.tsx
 // A sideways-scrolling strip of posters; a ✦ marks random surprise picks.
 import Link from "next/link";
+import StatusBadge from "@/components/StatusBadge";
 import { warmTitle } from "@/lib/handoff";
+import { useWantedKeys, wantedKeyOf } from "@/lib/useWantedKeys";
 import type { RowItem } from "@/lib/home/rows";
 
 export default function PosterRow({ items }: { items: RowItem[] }) {
+  const wanted = useWantedKeys();
   return (
     <ul className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-2">
       {items.map((item) => (
@@ -21,6 +24,7 @@ export default function PosterRow({ items }: { items: RowItem[] }) {
               ) : (
                 <div className="aspect-[2/3] w-full rounded-lg bg-neutral-200 dark:bg-neutral-800" />
               )}
+              {wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" size={24} className="absolute bottom-1.5 right-1.5" />}
               {item.surprise && (
                 <span
                   title="Surprise pick"

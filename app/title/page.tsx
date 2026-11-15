@@ -180,6 +180,7 @@ function TitleView() {
 
             <TitleActions
               wanted={wanted}
+              watched={(detail.viewings ?? []).length > 0}
               canBookmark={detail.tmdbId !== null && (detail.category === "Movie" || detail.category === "TV Show")}
               watch={isLive ? null : { tmdbId: detail.tmdbId, kind: isShow ? "TV Show" : "Movie", title: detail.title, year: detail.releaseDate?.slice(0, 4) ?? null }}
               busy={busy}

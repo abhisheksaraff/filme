@@ -323,6 +323,12 @@ const rawCatalog: Catalog = {
     });
   },
 
+  async personImages(tmdbId) {
+    const res = await callFunction<{ profiles?: { file_path: string }[] }>("tmdb", { path: `/person/${tmdbId}/images` });
+    if (!res.ok) return fail(res.error);
+    return ok((res.value.profiles ?? []).slice(0, 30).map((p) => p.file_path));
+  },
+
   async theatres(when, region) {
     const path = when === "now" ? "/movie/now_playing" : "/movie/upcoming";
     const pages = await Promise.all([1, 2].map((page) => listHits(path, { region, page: String(page) }, "Movie")));
@@ -440,6 +446,7 @@ export const edgeCatalog: Catalog = {
   ...rawCatalog,
   details: (match) => remember(`details:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match), DAY_MS, true),
   images: (match) => remember(`images:${match.kind}:${match.tmdbId}`, () => rawCatalog.images(match), DAY_MS, true),
+  personImages: (id) => remember(`personImages:${id}`, () => rawCatalog.personImages(id), DAY_MS, true),
   person: (id) => remember(`person:${id}`, () => rawCatalog.person(id), DAY_MS, true),
   personCredits: (id) => remember(`personCredits:${id}`, () => rawCatalog.personCredits(id), DAY_MS, true),
   recommendations: (match) => remember(`recs:${match.kind}:${match.tmdbId}`, () => rawCatalog.recommendations(match), 6 * 60 * MINUTE, true),

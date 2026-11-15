@@ -163,6 +163,7 @@ function PreviewView() {
               <>
                 <TitleActions
                   wanted={status.wanted}
+                  watched={status.logged}
                   canBookmark
                   watch={{ tmdbId: details.tmdbId, kind: details.category === "TV Show" ? "TV Show" : "Movie", title: details.title, year: details.releaseYear ? String(details.releaseYear) : null }}
                   busy={busy}

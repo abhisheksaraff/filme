@@ -6,7 +6,7 @@ export type IconName =
   | "home" | "calendar" | "ticket" | "bookmark" | "plus" | "close" | "download" | "upload" | "star"
   | "note" | "trash" | "edit" | "filter" | "shuffle" | "refresh" | "database" | "watch" | "sliders" | "image" | "bell" | "archive"
   | "calendarPlus" | "check" | "back" | "search" | "user" | "undo" | "open" | "sparkle" | "globe" | "chart"
-  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "posterFrame" | "coverFrame" | "none";
+  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "posterFrame" | "coverFrame" | "none" | "eye";
 
 interface Props {
   name: IconName;
@@ -91,12 +91,18 @@ export default function Icon({ name, size = 20, filled = false }: Props) {
       </>
     ),
     chart: <path d="M5 20V10M12 20V4M19 20v-7" />,
+    eye: <><path d="M2.500 12S6 5.500 12 5.500 21.500 12 21.500 12 18 18.500 12 18.500 2.500 12 2.500 12z" /><circle cx="12" cy="12" r="3" /></>,
     none: <><circle cx="12" cy="12" r="8" /><path d="M6.300 17.700L17.700 6.300" /></>,
+    // A globe turned to show India in the middle: the land is drawn as outlines and fills in when selected.
     map: (
       <>
-        {/* Selected: the middle of the three panels fills in. */}
-        {filled && <path fill="currentColor" d="M9 4l6 2v14l-6-2z" />}
-        <path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2zM9 4v14M15 6v14" />
+        <circle cx="12" cy="12" r="9" />
+        <g fill={filled ? "currentColor" : "none"}>
+          <path d="M7.500 8.500l3-2.200 4.500.4 2.200 2.300-1.800 1.500h-2l-.8 1.300H9.600L7.800 10z" />
+          <path d="M10.200 12h3.600L12.800 15.200 12 17.800l-.8-2.600z" />
+          <path d="M5.600 11.200l2-.9.800 2.700-.8 3-1.900-1.700z" />
+          <path d="M15 15.600l2.800-.8 1 1.800-2.400.9z" />
+        </g>
       </>
     ),
     film: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4" /></>,

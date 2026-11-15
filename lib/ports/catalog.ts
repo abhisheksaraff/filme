@@ -180,6 +180,8 @@ export interface Catalog {
   episodePeople(tmdbId: number, season: number, episode: number): Promise<Result<EpisodePerson[]>>;
   /** Poster and cover paths available for a title. */
   images(match: CatalogMatch): Promise<Result<{ posters: string[]; backdrops: string[] }>>;
+  /** Every profile picture TMDB has for a person, best first, as TMDB image paths. */
+  personImages(tmdbId: number): Promise<Result<string[]>>;
   /** Films in cinemas now, or opening soon, in a country. */
   theatres(when: "now" | "soon", region: string): Promise<Result<CatalogHit[]>>;
   details(match: CatalogMatch): Promise<Result<CatalogDetails>>;

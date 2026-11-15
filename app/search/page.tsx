@@ -25,6 +25,7 @@ import { loadStatRows, previewHref, seenKey } from "@/lib/home/rows";
 import { usePageState } from "@/lib/pageMemory";
 import type { BrowseSpec, CatalogHit, CatalogKind } from "@/lib/ports/catalog";
 import type { WantedItem } from "@/lib/ports/wanted";
+import StatusBadge from "@/components/StatusBadge";
 import { services } from "@/lib/services";
 
 const DEBOUNCE_MS = 350;
@@ -90,8 +91,13 @@ function ResultRow({ item }: { item: Item }) {
   return (
     <li>
       <Link href={item.href} onClick={() => warmTitle(item.href, { title: item.title, posterUrl: item.poster, subtitle: item.year })} className="relative flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
-        {/* A quiet word in the corner says it is already in your log or on your Watchlist. */}
-        {(item.watched || item.wanted) && <span className="absolute right-3 top-2 text-[11px] text-neutral-500">{item.watched ? "Watched" : "Watchlist"}</span>}
+        {/* Round badges in the corner say it is in your log, on your Watchlist, or both. */}
+        {(item.watched || item.wanted) && (
+          <span className="absolute right-3 top-3 flex gap-1">
+            {item.wanted && <StatusBadge kind="watchlist" size={26} />}
+            {item.watched && <StatusBadge kind="watched" size={26} />}
+          </span>
+        )}
         <span className="relative shrink-0">
           {item.poster ? (
             // eslint-disable-next-line @next/next/no-img-element

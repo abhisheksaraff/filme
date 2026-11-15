@@ -5,6 +5,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { debugLog } from "@/lib/debug";
 import type { MediaTrack } from "@/lib/ports/media";
 
 const PREF = "filme-story-sound";
@@ -34,12 +35,19 @@ export function useStoryMusic(tracks: MediaTrack[]) {
     const attempt = (i: number): void => {
       if (i >= tracks.length) return;
       el.src = tracks[i].url;
-      el.onerror = () => attempt(i + 1);
+      el.onerror = () => {
+        debugLog(`track ${i + 1} could not load (${new URL(tracks[i].url).host})`);
+        attempt(i + 1);
+      };
       el.play().then(() => {
         const ctx = context.current;
         if (ctx && gain.current) gain.current.gain.setTargetAtTime(VOLUME, ctx.currentTime, 1.2);
+        debugLog(`track ${i + 1} playing`);
         setPlaying(tracks[i]);
-      }).catch(() => attempt(i + 1));
+      }).catch((e) => {
+        debugLog(`track ${i + 1} refused: ${e instanceof Error ? e.name : "error"}`);
+        attempt(i + 1);
+      });
     };
     attempt(first);
   }, [tracks]);

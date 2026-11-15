@@ -30,6 +30,9 @@ function describeEpisode(n: AppNotification): { label: string; href: string; ico
   return { label: name.join("|") || "New episode", href: `/title/?id=${mediaId}`, icon: "tv" };
 }
 
+// Temporary: a story over the whole log that checks the pictures and music. Remove with the debug story.
+const DEBUG: Item = { key: "debug", href: "/story/?kind=debug&period=all", icon: "sliders", label: "Debug" };
+
 function Circle({ item }: { item: Item }) {
   return (
     <li className="w-16 shrink-0">
@@ -114,7 +117,7 @@ export default function HomeShortcuts({ nonce }: { nonce: number }) {
 
   return (
     <ul className="-mx-1 flex gap-2 overflow-x-auto px-1">
-      {[...unread, ...recaps, ...read].map((item) => <Circle key={item.key} item={item} />)}
+      {[...unread, ...recaps, ...read, DEBUG].map((item) => <Circle key={item.key} item={item} />)}
     </ul>
   );
 }

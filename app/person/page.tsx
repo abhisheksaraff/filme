@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import Icon from "@/components/Icon";
+import ImageViewer from "@/components/ImageViewer";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { previewHref, seenKey } from "@/lib/home/rows";
@@ -46,6 +47,9 @@ function PersonView() {
   const [person, setPerson] = useState<PersonDetail | null>(null);
   const [other, setOther] = useState<CatalogPerson | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // The full-screen profile pictures: opens at once on the one shown, then gains the rest as TMDB answers.
+  const [viewing, setViewing] = useState(false);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [related, setRelated] = useState<PersonPick[]>([]);
   // Everything you have logged, so "More from" only offers what you have not seen.
   const [everSeen, setEverSeen] = useState<Set<string>>(new Set());
@@ -100,16 +104,29 @@ function PersonView() {
   const more = (other?.works ?? []).filter((w) => !everSeen.has(seenKey(w.kind, w.tmdbId))).slice(0, 24);
   const catalogId = person?.tmdbId ?? tmdbParam;
   const picture = tmdbImageUrl(person?.profilePath, "w342") ?? other?.profileUrl ?? null;
+  const shown = tmdbImageUrl(person?.profilePath, "original") ?? other?.profileUrl ?? null;
+  // The picture on screen first, then TMDB's other profile pictures without repeating it.
+  const gallery = [...(shown ? [shown] : []), ...photos.map((p) => tmdbImageUrl(p, "original")).filter((u): u is string => u !== null && u !== shown)];
+
+  function openPhotos() {
+    setViewing(true);
+    if (photos.length > 0 || catalogId === null) return;
+    services.catalog.personImages(catalogId).then((res) => res.ok && setPhotos(res.value));
+  }
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
+      {/* View only: no upload, note or delete handlers, so the viewer offers none of them. */}
+      {viewing && gallery.length > 0 && <ImageViewer images={gallery.map((url) => ({ url }))} start={0} onClose={() => setViewing(false)} />}
       {person && (
         <>
           <div className="flex items-center gap-4">
             {picture ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={picture} alt="" className="h-24 w-24 rounded-full object-cover" />
+              <button type="button" aria-label={`Show pictures of ${person.name}`} onClick={() => openPhotos()} className="shrink-0 rounded-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={picture} alt="" className="h-24 w-24 rounded-full object-cover" />
+              </button>
             ) : (
               <span className="flex h-24 w-24 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"><Icon name="user" size={40} /></span>
             )}
