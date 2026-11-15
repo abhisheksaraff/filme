@@ -33,7 +33,6 @@ import { services } from "@/lib/services";
 
 const card = "flex flex-col gap-2 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900";
 const ROLE_LABEL: Record<string, string> = { actor: "Cast", director: "Director", producer: "Producer", writer: "Writer", creator: "Creator", performer: "Performers", opener: "Openers" };
-const ORDINAL = (n: number) => (n === 1 ? "First viewing" : `Rewatch #${n - 1}`);
 
 function TitleView() {
   const ready = useRequireSession();
@@ -137,16 +136,6 @@ function TitleView() {
   const groups = Object.entries(
     (credits?.people ?? []).reduce<Record<string, TitleCredits["people"]>>((acc, p) => ({ ...acc, [p.role]: [...(acc[p.role] ?? []), p] }), {}),
   );
-  // Oldest first, so the first time you watched it is labelled "First viewing". A show counts each series, season
-  // and episode on its own, so watching Season 2 again is a rewatch of Season 2 and not of the whole show.
-  const order = new Map<string, number>();
-  const seen = new Map<string, number>();
-  for (const v of [...(detail?.viewings ?? [])].reverse()) {
-    const key = `${v.scope}:${v.season ?? ""}:${v.episode ?? ""}`;
-    const n = (seen.get(key) ?? 0) + 1;
-    seen.set(key, n);
-    order.set(v.id, n);
-  }
   const lastLine = lastWatchedText(latestViewing(detail?.viewings ?? []), isShow);
   const viewings = isShow ? [...(detail?.viewings ?? [])].sort((a, b) => scopeRank(a.season, a.episode) - scopeRank(b.season, b.episode)) : detail?.viewings ?? [];
   const covers: Cover[] = (detail?.viewings ?? []).map((v) => ({ scope: v.scope, season: v.season, episode: v.episode, date: v.watchedOn }));
@@ -226,14 +215,13 @@ function TitleView() {
             </section>
 
             <h2 className="font-serif text-xl">Your viewings</h2>
-            <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 lg:grid-cols-3">
+            <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
               {viewings.map((v, i) => (
                 <WatchedCard
                   key={v.id}
                   index={i}
                   showTitle={false}
                   animate
-                  label={ORDINAL(order.get(v.id) ?? 1)}
                   rating={v.rating}
                   notes={v.notes}
                   entry={{

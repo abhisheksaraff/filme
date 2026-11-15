@@ -17,6 +17,7 @@ import { scopeLabel } from "@/lib/domain/tv";
 import type { SeatDetail } from "@/lib/domain/sessions";
 import type { VenuePoint } from "@/lib/ports/browse";
 import type { StoredImage } from "@/lib/ports/images";
+import { reportFolded, useTallestFolded } from "@/lib/foldedHeight";
 import { useOpenCard } from "@/lib/openCard";
 import { readCachedAppearance } from "@/lib/theme";
 
@@ -132,6 +133,22 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
   const { open, toggle } = useOpenCard(`${path}|${entry.id}`);
   const root = useRef<HTMLLIElement>(null);
   const near = useNearScreen(root);
+  // Folded height: this card reports how tall its content is without the stretch, and takes the tallest on the page (wide screens only).
+  const fold = useRef<HTMLDivElement>(null);
+  const spacer = useRef<HTMLDivElement>(null);
+  const tallestFolded = useTallestFolded(path);
+  useEffect(() => {
+    const el = fold.current;
+    if (!el) return;
+    const measure = () => reportFolded(path, entry.id, el.offsetHeight - (spacer.current?.offsetHeight ?? 0));
+    measure();
+    const watcher = new ResizeObserver(measure);
+    watcher.observe(el);
+    return () => {
+      watcher.disconnect();
+      reportFolded(path, entry.id, null);
+    };
+  }, [path, entry.id]);
   const images = useViewingPictures(entry.id, near);
   // The roll-out is smooth unless animations are switched off, when it just snaps.
   const [smooth] = useState(() => readCachedAppearance().animationsEnabled);
@@ -158,8 +175,8 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
   );
 
   return (
-    <li ref={root} id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8) } as React.CSSProperties}
-      className={`${animate ? "rise-item" : ""} relative flex flex-col scroll-mt-24 rounded-3xl bg-white p-1 ${smooth ? "transition-[box-shadow,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" : ""} dark:bg-neutral-900 ${
+    <li ref={root} id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8), "--folded": `${tallestFolded}px` } as React.CSSProperties}
+      className={`${animate ? "rise-item" : ""} relative scroll-mt-24 rounded-3xl bg-white p-1 ${smooth ? "transition-[box-shadow,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" : ""} dark:bg-neutral-900 ${
         open
           ? `shadow-[0_2px_4px_rgba(0,0,0,0.08),0_24px_44px_-10px_rgba(0,0,0,0.45),0_8px_16px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_44px_-10px_rgba(0,0,0,0.95)] ${more ? "-translate-y-0.5" : "scale-[1.025]"}`
           : "shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]"
@@ -172,6 +189,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
         <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${entry.id}`} className="relative !bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)] before:absolute before:-inset-3 before:content-['']" />
       </div>
 
+      <div ref={fold} className="flex flex-col md:min-h-[var(--folded)]">
       {label && <span className={`mb-1 block px-3 pt-2 text-xs uppercase tracking-wide text-neutral-500 `}>{label}</span>}
       <div className="flex gap-1">
         <div className="flex w-1/2 flex-col gap-1">
@@ -206,8 +224,11 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
         )}
       </div>
 
-      <div className="mt-auto px-3 pt-2">
+      <div ref={spacer} className="flex-1" />
+      <div className="px-3 pt-2">
         <ViewingDetails view="summary" auditorium={entry.auditorium} seats={entry.seats} totalTickets={entry.totalTickets} format={entry.primaryFormat} addons={entry.addons} watchedOn={entry.watchedOn} watchedAt={entry.watchedAt} trailing={<PictureStack images={images} />} />
+      </div>
+
       </div>
 
       {/* Rolls out below: the auditorium, any more seats (on as many rows as needed), extras and notes. */}

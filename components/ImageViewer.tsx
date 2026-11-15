@@ -83,6 +83,18 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
 
   // A late tap on close lands on a clear sheet instead of the button underneath.
   useEffect(() => absorbStrayTap(), []);
+  // Keyboard: left and right move between pictures, Escape closes. Typing in the note field is left alone.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "ArrowLeft") go(-1);
+      else if (e.key === "ArrowRight") go(1);
+      else if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   // Puts the strip on the current picture when it opens and whenever pictures are added or removed.
   useLayoutEffect(() => {

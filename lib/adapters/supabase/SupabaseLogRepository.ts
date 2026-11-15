@@ -266,6 +266,7 @@ export const supabaseLogRepository: LogRepository = {
       .eq("media_id", mediaId)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false })
+      .order("watched_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
     if (sessions.error) return fail("Could not load your viewings.");
 

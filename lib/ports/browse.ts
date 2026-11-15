@@ -55,6 +55,8 @@ export interface VenueViewing {
   posterPath: string | null;
   watchedOn: string | null;
   rating: number | null;
+  /** The title's public TMDB score, which the map sorts by. */
+  publicScore: number | null;
   /** Movie, TV Show, Concert or Live Event. */
   category: string;
   watchedAt: string | null;

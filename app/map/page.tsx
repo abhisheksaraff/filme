@@ -86,13 +86,14 @@ function MapView() {
   const shown = useMemo(() => {
     const viewings = open?.detail?.viewings ?? [];
     const list = open && open.tab !== "all" ? viewings.filter((v) => v.category === open.tab) : viewings;
-    const rate = (r: number | null, missing: number) => r ?? missing;
+    // Rated by the title's public score; titles without one go last either way, and ties fall back to newest first.
+    const score = (v: { publicScore: number | null }, missing: number) => v.publicScore ?? missing;
     // Viewings with no date go last in either date order.
     const byDate = (a: string | null, b: string | null, dir: 1 | -1) => (a === null ? (b === null ? 0 : 1) : b === null ? -1 : dir * a.localeCompare(b));
     return [...list].sort((a, b) =>
       sort === "old" ? byDate(a.watchedOn, b.watchedOn, 1)
-      : sort === "high" ? rate(b.rating, -1) - rate(a.rating, -1)
-      : sort === "low" ? rate(a.rating, 11) - rate(b.rating, 11)
+      : sort === "high" ? (score(b, -1) - score(a, -1) || byDate(a.watchedOn, b.watchedOn, -1))
+      : sort === "low" ? (score(a, 11) - score(b, 11) || byDate(a.watchedOn, b.watchedOn, -1))
       : byDate(a.watchedOn, b.watchedOn, -1));
   }, [open, sort]);
 
