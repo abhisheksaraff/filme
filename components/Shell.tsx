@@ -13,7 +13,7 @@ const NO_NAV = ["/", "/login/", "/story/"];
 /** No back button: Home is the end of the trail. */
 const NO_BACK = ["/", "/login/", "/home/", "/story/"];
 /** Pages that open on a cover photo or fill the screen: the same button floats over it instead of reserving a row. */
-const OVER_COVER = ["/title/", "/preview/", "/map/", "/session/", "/season/", "/episode/"];
+const OVER_COVER = ["/title/", "/preview/", "/map/", "/season/", "/episode/"];
 /** The page fills the whole screen, so no space is kept free for the bottom bar. */
 const FULL_SCREEN = ["/map/"];
 

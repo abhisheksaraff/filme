@@ -123,6 +123,10 @@ const ASK_SCHEMA = {
         like: { type: "ARRAY", items: { type: "STRING" } },
         sortBy: { type: "STRING", enum: ["popular", "newest", "oldest", "rating"], nullable: true },
         seen: { type: "STRING", enum: ["not-seen", "seen", "either"] },
+        maxRuntime: { type: "INTEGER", nullable: true },
+        minRuntime: { type: "INTEGER", nullable: true },
+        providers: { type: "ARRAY", items: { type: "STRING" } },
+        inTheatres: { type: "STRING", enum: ["now", "soon"], nullable: true },
       },
     },
   },
@@ -151,6 +155,8 @@ function validateHolidays(data: unknown, year: number, slugs: string[]): unknown
 }
 
 /** SECURITY: every list the model returns is capped and trimmed; names are only ever sent on as search text. */
+const minutes = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 600 ? v : null);
+
 function validatePlan(value: unknown): unknown {
   const raw = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
   const list = (v: unknown, max: number, pattern?: RegExp): string[] =>
@@ -174,6 +180,10 @@ function validatePlan(value: unknown): unknown {
     like: list(raw.like, 2),
     sortBy: ["popular", "newest", "oldest", "rating"].includes(raw.sortBy as string) ? raw.sortBy : null,
     seen: ["not-seen", "seen"].includes(raw.seen as string) ? raw.seen : "either",
+    maxRuntime: minutes(raw.maxRuntime),
+    minRuntime: minutes(raw.minRuntime),
+    providers: list(raw.providers, 3),
+    inTheatres: raw.inTheatres === "now" || raw.inTheatres === "soon" ? raw.inTheatres : null,
   };
 }
 
@@ -182,7 +192,7 @@ function validateAsk(data: unknown): unknown {
   const raw = data as Record<string, unknown>;
   const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 120) : null);
   const year = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 1870 && v <= 2200 ? v : null);
-  const rating = (v: unknown) => (typeof v === "number" && v >= 1 && v <= 10 ? v : null);
+  const rating = (v: unknown) => (typeof v === "number" && v >= 0 && v <= 10 ? v : null);
   return {
     text: text(raw.text),
     category: CATEGORIES.includes(raw.category as string) ? raw.category : null,

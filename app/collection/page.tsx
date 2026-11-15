@@ -214,6 +214,7 @@ function CollectionView() {
               title="Delete this collection?"
               message="Its titles stay in your log; only the list is deleted."
               confirmLabel="Delete"
+              cancelLabel="Keep"
               busy={busy}
               onConfirm={() => run(() => services.collections.remove(detail.id), () => router.replace("/collections/"))}
               onCancel={() => setConfirmDelete(false)}

@@ -29,6 +29,13 @@ export interface DiscoverOutcome {
   notice: string | null;
 }
 
+/** TMDB's ids for the streaming services offered in Canada, by the names people use. */
+const PROVIDERS: [RegExp, number][] = [
+  [/netflix/i, 8], [/prime|amazon/i, 9], [/disney/i, 337], [/crave/i, 230], [/apple/i, 350],
+  [/paramount/i, 531], [/\bmax\b|hbo/i, 1899], [/crunchyroll/i, 283],
+];
+const REGION = "CA";
+
 const key = (h: CatalogHit) => `${h.kind}:${h.tmdbId}`;
 
 function dedupe(hits: CatalogHit[]): CatalogHit[] {
@@ -53,6 +60,10 @@ export async function discover(input: DiscoverInput): Promise<DiscoverOutcome> {
     }))),
   ]);
 
+  const providerIds = plan.providers.flatMap((name) => {
+    const hit = PROVIDERS.find(([pattern]) => pattern.test(name));
+    return hit ? [hit[1]] : (missing.push(name), []);
+  });
   const found = people.flatMap(({ p, hit }) => (hit ? [{ name: hit.name, tmdbId: hit.tmdbId, role: p.role }] : (missing.push(p.name), [])));
   const keywords = keywordIds.flatMap(({ k, id }) => (id !== null ? [id] : (missing.push(k), [])));
   const genreIds = plan.genres.flatMap((g) => {
@@ -112,6 +123,10 @@ export async function discover(input: DiscoverInput): Promise<DiscoverOutcome> {
           castAll: kind === "Movie" && !opts.everyone && actors.length > 0 ? actors : undefined,
           castAny: kind === "Movie" && opts.everyone && actors.length > 0 ? actors : undefined,
           crewAny: kind === "Movie" && crew.length > 0 ? crew : undefined,
+          maxRuntime: plan.maxRuntime ?? undefined,
+          minRuntime: plan.minRuntime ?? undefined,
+          providerIds: providerIds.length > 0 ? providerIds : undefined,
+          region: REGION,
         })));
       const pages = await Promise.all(specs.map((s) => catalog.browse(s)));
       const merged = dedupe(pages.flatMap((r) => (r.ok ? r.value : [])));
@@ -121,18 +136,30 @@ export async function discover(input: DiscoverInput): Promise<DiscoverOutcome> {
     return dedupe(lists.flat());
   }
 
+  // "In cinemas now" or "coming soon" is its own list, narrowed here by whatever else was asked.
+  const cinema = plan.inTheatres && kinds.includes("Movie")
+    ? await catalog.theatres(plan.inTheatres, REGION).then((r) => (r.ok ? r.value.filter((h) => {
+        const year = Number(h.year);
+        if (genreIds.length > 0 && h.genreIds && !genreIds.every((g) => h.genreIds?.includes(g))) return false;
+        if (plan.languages.length > 0 && h.language && !plan.languages.includes(h.language)) return false;
+        if (filter.releaseFrom !== null && (!year || year < filter.releaseFrom)) return false;
+        if (filter.minRating !== null && (h.voteAverage ?? 0) < filter.minRating) return false;
+        return true;
+      }) : []))
+    : null;
+
   let notice: string | null = null;
-  let hits = await run({ keywords: true, genres: true, everyone: false });
+  let hits = cinema ?? await run({ keywords: true, genres: true, everyone: false });
   // Loosen one thing at a time: mood words first, then genre, then "all of them" to "any of them".
-  if (hits.length === 0 && keywords.length > 0) {
+  if (!cinema && hits.length === 0 && keywords.length > 0) {
     hits = await run({ keywords: false, genres: true, everyone: false });
     if (hits.length > 0) notice = "Nothing matched the mood words, so they were left out.";
   }
-  if (hits.length === 0 && genreIds.length > 0) {
+  if (!cinema && hits.length === 0 && genreIds.length > 0) {
     hits = await run({ keywords: false, genres: false, everyone: false });
     if (hits.length > 0) notice = "Nothing matched that genre, so it was left out.";
   }
-  if (hits.length === 0 && found.length > 1) {
+  if (!cinema && hits.length === 0 && found.length > 1) {
     hits = await run({ keywords: false, genres: false, everyone: true });
     if (hits.length > 0) notice = "No title has all of them, so these have any one of them.";
   }
@@ -145,16 +172,25 @@ export async function discover(input: DiscoverInput): Promise<DiscoverOutcome> {
       return [];
     }
     const res = await catalog.recommendations(match.value);
-    return res.ok ? res.value.filter((h) => kinds.includes(h.kind)) : [];
+    // "Like X but newer" keeps the release years the question set.
+    return res.ok ? res.value.filter((h) => {
+      const year = Number(h.year);
+      if (!kinds.includes(h.kind)) return false;
+      if (filter.releaseFrom !== null && (!year || year < filter.releaseFrom)) return false;
+      if (filter.releaseTo !== null && (!year || year > filter.releaseTo)) return false;
+      return true;
+    }) : [];
   }));
 
-  let all = dedupe([...namedHits, ...likeLists.flat(), ...hits]);
+  // A single person with no sort asked for lists newest first, so their latest work is on top.
+  const order = plan.sortBy ?? (found.length > 0 ? "newest" : null);
+  const ranked = [...hits];
+  if (order === "newest") ranked.sort((a, b) => (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""));
+  else if (order === "oldest") ranked.sort((a, b) => (a.releaseDate ?? "9").localeCompare(b.releaseDate ?? "9"));
+  else if (order === "rating") ranked.sort((a, b) => (b.voteAverage ?? 0) - (a.voteAverage ?? 0));
+
+  let all = dedupe([...namedHits, ...likeLists.flat(), ...ranked]);
   if (plan.seen === "not-seen") all = all.filter((h) => !input.isSeen(h));
   if (plan.seen === "seen") all = all.filter((h) => input.isSeen(h));
-  // Newest and oldest lists keep their order from TMDB for movies; credit lists are sorted here.
-  if (plan.sortBy === "newest") all.sort((a, b) => (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""));
-  else if (plan.sortBy === "oldest") all.sort((a, b) => (a.releaseDate ?? "9").localeCompare(b.releaseDate ?? "9"));
-  else if (plan.sortBy === "rating") all.sort((a, b) => (b.voteAverage ?? 0) - (a.voteAverage ?? 0));
-
   return { hits: all, people: found, missing: [...new Set(missing)], notice };
 }

@@ -4,7 +4,7 @@
 // be added by name and gets the default person icon.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { StarringPick } from "@/lib/adapters/supabase/credits";
@@ -39,6 +39,14 @@ function Face({ path, size }: { path: string | null; size: number }) {
 export default function PeopleInput({ label, people, onChange, disabled }: Props) {
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<{ query: string; items: Suggestion[] }>({ query: "", items: [] });
+  // Names show in at most two rows; the rest open with "Show more".
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const list = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (el) setOverflows(el.scrollHeight > 72 + 1);
+  }, [people]);
 
   // Looks a moment after typing stops: own history first, then everyone on TMDB.
   useEffect(() => {
@@ -75,14 +83,20 @@ export default function PeopleInput({ label, people, onChange, disabled }: Props
       <span className="px-1 text-xs text-neutral-500">{label}</span>
 
       {people.length > 0 && (
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-          {people.map((p, index) => (
-            <span key={`${p.name}-${index}`} className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-neutral-900 py-1 pl-1 pr-3 text-sm text-white dark:bg-white dark:text-neutral-900">
-              <Face path={p.profilePath} size={24} />
-              {p.name}
-              <button type="button" disabled={disabled} aria-label={`Remove ${p.name} from ${label}`} onClick={() => onChange(people.filter((_, i) => i !== index))}>✕</button>
-            </span>
-          ))}
+        <div className="flex flex-col items-start gap-1">
+          <div ref={list} className="flex flex-wrap gap-2 overflow-hidden" style={expanded ? undefined : { maxHeight: 72 }}>
+            {people.map((p, index) => (
+              <span key={`${p.name}-${index}`} className={`inline-flex max-w-full items-center gap-2 rounded-full bg-neutral-900 py-1 pl-1 text-sm text-white dark:bg-white dark:text-neutral-900 ${p.fromMatch ? "pr-3" : "pr-2"}`}>
+                <Face path={p.profilePath} size={24} />
+                <span className="truncate">{p.name}</span>
+                {/* Names that came with the title are fixed; only the ones added here can be taken out. */}
+                {!p.fromMatch && <button type="button" disabled={disabled} aria-label={`Remove ${p.name} from ${label}`} onClick={() => onChange(people.filter((_, i) => i !== index))}>✕</button>}
+              </span>
+            ))}
+          </div>
+          {(overflows || expanded) && (
+            <button type="button" onClick={() => setExpanded((o) => !o)} className="self-end px-1 text-sm text-neutral-500">{expanded ? "Show less" : "Show more"}</button>
+          )}
         </div>
       )}
 

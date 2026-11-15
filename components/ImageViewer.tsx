@@ -229,6 +229,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
           title="Delete this photo?"
           message={deleteMessage ?? "It is removed for good."}
           confirmLabel="Delete"
+          cancelLabel="Keep"
           busy={busy}
           onConfirm={remove}
           onCancel={() => setConfirmDelete(false)}

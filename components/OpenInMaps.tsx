@@ -3,7 +3,7 @@
 "use client";
 
 import { useState } from "react";
-import Popup, { POPUP_PRIMARY, POPUP_SECONDARY } from "@/components/Popup";
+import Popup, { POPUP_OPTION, POPUP_SECONDARY } from "@/components/Popup";
 
 interface Props {
   name: string;
@@ -36,14 +36,13 @@ export default function OpenInMaps({ name, address, latitude, longitude }: Props
         {address}
       </button>
       {choosing && (
-        <Popup title="Open in Maps" onClose={() => setChoosing(false)}
-          actions={
-            <>
-              <a href={apple} onClick={() => setChoosing(false)} className={POPUP_PRIMARY}>Apple Maps</a>
-              <a href={google} target="_blank" rel="noopener" onClick={() => setChoosing(false)} className={POPUP_SECONDARY}>Google Maps</a>
-            </>
-          }>
-          <p className="text-sm">{name}</p>
+        <Popup title="Open in Maps" onClose={() => setChoosing(false)}>
+          <p className="text-[13px] text-white/70">{name}</p>
+          <div className="flex flex-col">
+            <a href={apple} onClick={() => setChoosing(false)} className={POPUP_OPTION}>Apple Maps</a>
+            <a href={google} target="_blank" rel="noopener" onClick={() => setChoosing(false)} className={POPUP_OPTION}>Google Maps</a>
+          </div>
+          <div className="flex justify-end"><button type="button" className={POPUP_SECONDARY} onClick={() => setChoosing(false)}>Close</button></div>
         </Popup>
       )}
     </>

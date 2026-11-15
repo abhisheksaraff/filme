@@ -84,7 +84,6 @@ export default function HiddenPage() {
           title="Recommend this again?"
           message={`${asking.title} can show up on Home again.`}
           confirmLabel="Undo"
-          confirmIcon="undo"
           busy={busy}
           onConfirm={undo}
           onCancel={() => setAsking(null)}

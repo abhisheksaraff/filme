@@ -13,9 +13,9 @@ export const dateSchema = z.string().regex(/^\d{4}(-\d{2}(-\d{2})?)?$/);
 /** How much of a watch date the user actually knows. */
 export const datePrecisionSchema = z.enum(["day", "month", "year", "unknown"]);
 
-/** Ratings run 1–10 in half steps; null means unrated. */
+/** Ratings run 0–10 in half steps; null means unrated. */
 export const ratingSchema = z
   .number()
-  .min(1)
+  .min(0)
   .max(10)
   .refine((n) => Number.isInteger(n * 2), "Ratings use half steps");

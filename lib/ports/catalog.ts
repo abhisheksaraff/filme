@@ -132,13 +132,19 @@ export interface BrowseSpec {
   keywordIds?: number[];
   /** Country of origin, two letters. */
   country?: string;
+  /** Runtime limits in minutes (movies only). */
+  maxRuntime?: number;
+  minRuntime?: number;
+  /** TMDB streaming provider ids, offered by subscription in the given region. */
+  providerIds?: number[];
+  region?: string;
   page?: number;
 }
 
 /** Looks films and shows up in an external catalogue (TMDB). */
 export interface Catalog {
   /** A few likely titles for what the user has typed so far. Only movies and shows exist on TMDB. */
-  search(title: string, category: string): Promise<Result<CatalogHit[]>>;
+  search(title: string, category: string, limit?: number): Promise<Result<CatalogHit[]>>;
   /** Best match for a title, or null when nothing fits. */
   findClosest(title: string, category: string | null): Promise<Result<CatalogMatch | null>>;
   /** Titles that fit a genre, language and quality filter. */

@@ -73,11 +73,11 @@ function EpisodeView() {
     toast(wanted ? "Removed from watchlist" : "Added to watchlist");
   }
 
-  async function logNow() {
+  async function logNow(date: string | null = new Date().toISOString().slice(0, 10)) {
     if (!detail?.tmdbId) return;
     setBusy(true);
     const full = await services.catalog.details({ tmdbId: detail.tmdbId, kind: "TV Show" });
-    const res = full.ok ? await logShowNow(full.value, s, e) : full;
+    const res = full.ok ? await logShowNow(full.value, s, e, date) : full;
     setBusy(false);
     setWhen(false);
     if (!res.ok) return setProblem(res.error);
@@ -142,8 +142,8 @@ function EpisodeView() {
                 <ul className="flex flex-col gap-2">
                   {covering.map((v) => (
                     <li key={v.id}>
-                      <Link href={`/session/?id=${v.id}`} className="flex justify-between gap-2 rounded-2xl border border-neutral-300 p-3 text-sm dark:border-neutral-700">
-                        <span>{v.watchedOn ?? "Date unknown"}{v.scope !== "episode" ? ` · with ${scopeLabel(v.season, null).toLowerCase()}` : ""}</span>
+                      <Link href={`/title/?id=${id}&v=${v.id}`} className="flex justify-between gap-2 rounded-2xl border border-neutral-300 p-3 text-sm dark:border-neutral-700">
+                        <span>{v.watchedOn ?? ""}{v.scope !== "episode" ? ` · with ${scopeLabel(v.season, null).toLowerCase()}` : ""}</span>
                         <span className="text-neutral-500">{oldestFirst.findIndex((x) => x.id === v.id) === 0 ? "First viewing" : `Rewatch #${oldestFirst.findIndex((x) => x.id === v.id)}`}</span>
                       </Link>
                     </li>
@@ -155,7 +155,7 @@ function EpisodeView() {
         )}
       </div>
 
-      {when && <WhenPopup what={`S${s} E${e}`} busy={busy} onToday={logNow} onForm={logWithForm} onClose={() => setWhen(false)} />}
+      {when && <WhenPopup what={`S${s} E${e}`} busy={busy} onToday={() => logNow()} onForm={logWithForm} onUndated={() => logNow(null)} onClose={() => setWhen(false)} />}
     </main>
   );
 }

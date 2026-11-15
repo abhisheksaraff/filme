@@ -228,7 +228,7 @@ export function draftFromEntry(entry: LogEntry): EntryDraft {
     location: text(entry.location),
     address: text(entry.address),
     auditorium: text(entry.auditorium),
-    date: /^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? "") ? (entry.date as string) : "",
+    date: /^\d{4}(-\d{2}(-\d{2})?)?$/.test(entry.date ?? "") ? (entry.date as string) : "",
     time: text(entry.time),
     totalTickets: numberText(entry.totalTickets),
     primaryFormat: entry.primaryFormat,

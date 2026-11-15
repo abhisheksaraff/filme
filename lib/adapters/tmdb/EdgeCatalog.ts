@@ -87,12 +87,12 @@ async function listHits(path: string, params: Record<string, string>, kind: Cata
   return ok(res.value.results.map((row) => toHit(row, kind)));
 }
 
-async function search(title: string, category: string): Promise<Result<CatalogHit[]>> {
+async function search(title: string, category: string, limit = 6): Promise<Result<CatalogHit[]>> {
   // TMDB only knows films and shows; concerts and live events are saved as custom titles.
   if (title.trim().length < 2 || (category !== "Movie" && category !== "TV Show")) return ok([]);
   const isTv = category === "TV Show";
   const hits = await listHits(`/search/${isTv ? "tv" : "movie"}`, { query: title, include_adult: "false" }, category);
-  return hits.ok ? ok(hits.value.slice(0, 6)) : hits;
+  return hits.ok ? ok(hits.value.slice(0, limit)) : hits;
 }
 
 /** Seasons already fetched this session; a season page and the progress bars share them. */
@@ -121,6 +121,13 @@ export const edgeCatalog: Catalog = {
     if (spec.crewAny?.length) params.with_crew = spec.crewAny.join("|");
     if (spec.keywordIds?.length) params.with_keywords = spec.keywordIds.join("|");
     if (spec.country) params.with_origin_country = spec.country;
+    if (spec.maxRuntime !== undefined && spec.kind === "Movie") params["with_runtime.lte"] = String(spec.maxRuntime);
+    if (spec.minRuntime !== undefined && spec.kind === "Movie") params["with_runtime.gte"] = String(spec.minRuntime);
+    if (spec.providerIds?.length) {
+      params.with_watch_providers = spec.providerIds.join("|");
+      params.watch_region = spec.region ?? "CA";
+      params.with_watch_monetization_types = "flatrate";
+    }
     return listHits(`/discover/${spec.kind === "TV Show" ? "tv" : "movie"}`, params, spec.kind);
   },
 

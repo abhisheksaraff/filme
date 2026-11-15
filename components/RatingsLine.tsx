@@ -1,5 +1,5 @@
 // components/RatingsLine.tsx
-// Under a title: a plain-text IMDb link, then IMDb's rating (or TMDB's as a stand-in) and your own.
+// Under a title: a plain-text IMDb link, then IMDb's rating and your own.
 import Icon from "@/components/Icon";
 import type { TitleLinks } from "@/lib/ports/ratings";
 
@@ -13,8 +13,8 @@ const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 export default function RatingsLine({ links, mine }: Props) {
   const shown = links?.imdbRating ?? null;
-  const stand = shown === null ? links?.tmdbRating ?? null : null;
-  const hasRatings = shown !== null || stand !== null || mine !== null;
+  // Only IMDb's rating and yours are shown; TMDB's score is never a stand-in.
+  const hasRatings = shown !== null || mine !== null;
 
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
@@ -31,7 +31,6 @@ export default function RatingsLine({ links, mine }: Props) {
       {hasRatings && (
         <span className="flex gap-3 text-neutral-500">
           {shown !== null && <span>★ {num(shown)}</span>}
-          {stand !== null && <span>★ {num(Math.round(stand * 10) / 10)} TMDB</span>}
           {mine !== null && <span>★ {num(mine)} yours</span>}
         </span>
       )}

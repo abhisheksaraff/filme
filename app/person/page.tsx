@@ -149,7 +149,7 @@ function PersonView() {
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="font-serif text-xl">More from {person.name}</h2>
                 {catalogId !== null && (
-                  <Link href={`/search/?personId=${catalogId}&name=${encodeURIComponent(person.name)}`} onClick={() => sessionStorage.removeItem("filme_seeall")} className="shrink-0 text-sm text-neutral-500 underline">
+                  <Link href={`/search/?personId=${catalogId}&name=${encodeURIComponent(person.name)}`} onClick={() => sessionStorage.removeItem("filme_seeall")} className="shrink-0 text-sm text-neutral-500">
                     See all
                   </Link>
                 )}

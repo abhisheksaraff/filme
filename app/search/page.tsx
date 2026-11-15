@@ -23,6 +23,14 @@ import type { WantedItem } from "@/lib/ports/wanted";
 import { services } from "@/lib/services";
 
 const DEBOUNCE_MS = 350;
+/** Merges lists by taking one from each in turn. */
+function interleave<T>(lists: T[][]): T[] {
+  const out: T[] = [];
+  for (let i = 0; i < Math.max(0, ...lists.map((l) => l.length)); i++) for (const l of lists) if (i < l.length) out.push(l[i]);
+  return out;
+}
+
+const NO_MATCH = "We couldn't find a match for that.";
 
 type Order = "default" | "newest" | "oldest" | "rating" | "az";
 const ORDERS: { id: Order; label: string }[] = [
@@ -77,20 +85,15 @@ function genreId(name: string | null): number | undefined {
 function ResultRow({ item }: { item: Item }) {
   return (
     <li>
-      <Link href={item.href} className="flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
+      <Link href={item.href} className="relative flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
+        {/* A quiet word in the corner says it is already in your log or on your Watchlist. */}
+        {(item.watched || item.wanted) && <span className="absolute right-3 top-2 text-[11px] text-neutral-500">{item.watched ? "Watched" : "Watchlist"}</span>}
         <span className="relative shrink-0">
           {item.poster ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={item.poster} alt="" loading="lazy" className="aspect-[2/3] w-16 rounded-xl object-cover" />
           ) : (
             <span className="block aspect-[2/3] w-16 rounded-xl bg-neutral-200 dark:bg-neutral-800" />
-          )}
-          {/* Top right of the poster: a grey tick once watched, a solid bookmark when on the Watchlist. */}
-          {(item.watched || item.wanted) && (
-            <span className="absolute right-1 top-1 flex gap-1">
-              {item.watched && <span role="img" aria-label="Watched" className="flex h-5 w-5 items-center justify-center rounded-full bg-neutral-300 text-neutral-700 shadow"><Icon name="check" size={12} /></span>}
-              {item.wanted && <span role="img" aria-label="On your Watchlist" className="flex h-5 w-5 items-center justify-center rounded-full bg-neutral-950 text-white shadow"><Icon name="bookmark" size={12} filled /></span>}
-            </span>
           )}
         </span>
         <span className="flex min-w-0 flex-col justify-center text-sm">
@@ -243,7 +246,7 @@ function SearchView() {
       const results = creditResult ? [creditResult] : await Promise.all(kinds.map(async (kind) => {
         if (q.length >= 2) {
           // Typed titles come from TMDB's search, which has no filters, so they are narrowed here.
-          const res = await services.catalog.search(q, kind);
+          const res = await services.catalog.search(q, kind, 20);
           if (!res.ok) return res;
           const narrowed = res.value.filter((h) => {
             const year = Number(h.year);
@@ -270,7 +273,8 @@ function SearchView() {
       const failed = results.find((r) => !r.ok);
       setFound({
         key: searchKey,
-        hits: results.flatMap((r) => (r.ok ? r.value : [])),
+        // Movies and shows are mixed, best match of each first, rather than all movies and then all shows.
+        hits: interleave(results.map((r) => (r.ok ? r.value : []))),
         people: people.slice(0, 12),
         problem: failed && !failed.ok ? failed.error : null,
       });
@@ -283,6 +287,13 @@ function SearchView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, active, searchKey]);
 
+  /** Switching Ask AI on or off carries what was typed over, so nothing has to be typed twice. Nothing runs until Return. */
+  function toggleAsk() {
+    if (askOn) setQuery(question || query);
+    else setQuestion(query || question);
+    setAskOn(!askOn);
+  }
+
   async function ask() {
     const text = question.trim();
     if (text.length < 3) return;
@@ -293,15 +304,18 @@ function SearchView() {
       // The question becomes ordinary filters and a plan; they show as chips, and Filters stays closed unless you open it.
       const { filter: f, plan: p } = res.value;
       setAskText(f.text ?? "");
-      setFilter({ ...f, text: null });
+      // People and genres live in the plan (and show as its chips) unless the question is about your own log.
+      const aboutLog = Boolean(f.venue || f.format || f.extra || f.dateFrom || f.dateTo || f.maxRating !== null || f.rewatchesOnly);
+      setFilter({ ...f, text: null, person: aboutLog || p.people.length === 0 ? f.person : null, genre: aboutLog || p.genres.length === 0 ? f.genre : null });
       setPlan(p);
-      setOrder(f.sort === "newest" ? "newest" : f.sort === "oldest" ? "oldest" : f.sort === "rating" ? "rating" : "default");
-      if (!hasFilter(f) && !hasPlan(p) && !f.text) setAskProblem("Couldn't understand that — try rephrasing.");
+      const by = p.sortBy ?? f.sort;
+      setOrder(by === "newest" ? "newest" : by === "oldest" ? "oldest" : by === "rating" ? "rating" : "default");
+      if (!hasFilter(f) && !hasPlan(p) && !f.text) setAskProblem(NO_MATCH);
     } else {
       // The typed words still search as they are; only a missing AI key keeps its own explanation.
       setAskText(text);
       setPlan(EMPTY_PLAN);
-      setAskProblem(/key/i.test(res.error) ? res.error : "Couldn't understand that — try rephrasing.");
+      setAskProblem(/key/i.test(res.error) ? res.error : NO_MATCH);
     }
     setAsking(false);
   }
@@ -314,7 +328,7 @@ function SearchView() {
 
     // Your log: one entry per title, however many times it was watched.
     // With only an AI plan (no log filter or typed words) the list is what TMDB found, not your whole log.
-    const logPart = !planOn || hasFilter(filter) || q.length >= 2;
+    const logPart = !planOn || logOnly;
     for (const row of logPart ? applyFilter(rows, { ...filter, text: q.length >= 2 ? q : null }) : []) {
       if (out.has(row.mediaId)) continue;
       out.set(row.mediaId, {
@@ -374,13 +388,11 @@ function SearchView() {
     }
 
     const list = [...out.values()];
-    // Watched and saved titles come first, then the rest keep TMDB's order, unless a sort is chosen.
-    const mine = (i: Item) => (i.watched || i.wanted ? 0 : 1);
     if (order === "newest") list.sort((a, b) => (b.year ?? "").localeCompare(a.year ?? ""));
     else if (order === "oldest") list.sort((a, b) => (a.year ?? "9999").localeCompare(b.year ?? "9999"));
     else if (order === "rating") list.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
     else if (order === "az") list.sort((a, b) => a.title.localeCompare(b.title));
-    else list.sort((a, b) => mine(a) - mine(b));
+    // Otherwise they stay in order of how well they matched; whether you have seen one does not move it.
     return list;
   }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn]);
 
@@ -402,6 +414,11 @@ function SearchView() {
     ...plan.languages.map((l) => ({ key: `lang:${l}`, label: LANGUAGE_NAMES[l] ?? l.toUpperCase(), remove: () => drop({ languages: plan.languages.filter((x) => x !== l) }) })),
     ...plan.countries.map((c) => ({ key: `c:${c}`, label: new Intl.DisplayNames(["en"], { type: "region" }).of(c) ?? c, remove: () => drop({ countries: plan.countries.filter((x) => x !== c) }) })),
     ...plan.keywords.map((k) => ({ key: `k:${k}`, label: k, remove: () => drop({ keywords: plan.keywords.filter((x) => x !== k) }) })),
+    ...(plan.sortBy && plan.sortBy !== "popular" ? [{ key: "sort", label: plan.sortBy === "oldest" ? "Oldest first" : plan.sortBy === "newest" ? "Newest first" : "Best rated", remove: () => { drop({ sortBy: null }); setOrder("default"); } }] : []),
+    ...(plan.maxRuntime !== null ? [{ key: "maxrt", label: `Under ${plan.maxRuntime >= 60 && plan.maxRuntime % 60 === 0 ? `${plan.maxRuntime / 60} h` : `${plan.maxRuntime} min`}`, remove: () => drop({ maxRuntime: null }) }] : []),
+    ...(plan.minRuntime !== null ? [{ key: "minrt", label: `Over ${plan.minRuntime} min`, remove: () => drop({ minRuntime: null }) }] : []),
+    ...plan.providers.map((x) => ({ key: `prov:${x}`, label: `On ${x}`, remove: () => drop({ providers: plan.providers.filter((y) => y !== x) }) })),
+    ...(plan.inTheatres ? [{ key: "theatres", label: plan.inTheatres === "now" ? "In cinemas now" : "Coming soon", remove: () => drop({ inTheatres: null }) }] : []),
     ...(plan.seen === "not-seen" ? [{ key: "seen", label: "Not seen yet", remove: () => drop({ seen: "either" }) }] : plan.seen === "seen" ? [{ key: "seen", label: "Seen", remove: () => drop({ seen: "either" }) }] : []),
   ];
   const set = (patch: Partial<LogFilter>) => setFilter({ ...filter, ...patch });
@@ -435,12 +452,12 @@ function SearchView() {
           <Icon name="filter" size={16} />{filtersOpen ? "Hide filters" : "Filters"}
         </button>
         {/* Black with white text and icon while on, like a pressed checkbox. */}
-        <button type="button" aria-pressed={askOn} onClick={() => setAskOn((o) => !o)}
+        <button type="button" aria-pressed={askOn} onClick={toggleAsk}
           className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 ${askOn ? "border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-neutral-950" : "border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"}`}>
           <Icon name="sparkle" size={16} />Ask AI
         </button>
         {(hasFilter(filter) || planOn) && (
-          <button type="button" onClick={() => { setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500 underline">Clear filters</button>
+          <button type="button" onClick={() => { setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500">Clear filters</button>
         )}
       </div>
       {askProblem && <p role="alert" className="text-sm text-red-600">{askProblem}</p>}

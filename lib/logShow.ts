@@ -73,8 +73,8 @@ export async function withCoverage(entry: LogEntry): Promise<LogEntry> {
   return res.ok ? { ...entry, episodesCovered: res.value.episodes, seasonsCovered: res.value.seasons, minutes: res.value.minutes } : entry;
 }
 
-/** Saves one viewing for the series (season and episode null), a season, or one episode, dated today. */
-export async function logShowNow(details: CatalogDetails, season: number | null, episode: number | null): Promise<Result<string>> {
+/** Saves one viewing for the series (season and episode null), a season, or one episode. Dated today unless a date, or null for "watched before", is given. */
+export async function logShowNow(details: CatalogDetails, season: number | null, episode: number | null, date: string | null = today()): Promise<Result<string>> {
   const draft = logEntrySchema.safeParse({
     category: "TV Show",
     title: details.title,
@@ -84,7 +84,7 @@ export async function logShowNow(details: CatalogDetails, season: number | null,
     location: null,
     address: null,
     auditorium: null,
-    date: today(),
+    date,
     time: null,
     seats: [],
     totalTickets: null,

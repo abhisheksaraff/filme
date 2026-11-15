@@ -29,7 +29,6 @@ function describe(n: AppNotification): { label: string; href: string; icon: Icon
     const [mediaId, , ...name] = n.period.split("|");
     return { label: name.join("|") || "New episode", href: `/title/?id=${mediaId}`, icon: "tv" };
   }
-  if (n.kind === "backup") return { label: "Backup", href: "/profile/", icon: "archive" };
   const kind: StoryKind = n.kind === "report-year" ? "year" : "month";
   return { label: kind === "year" ? "Year recap" : "Month recap", href: `/story/?kind=${kind}&period=${n.period}`, icon: "sparkle" };
 }
@@ -99,8 +98,10 @@ export default function HomeShortcuts({ nonce, onShuffle }: { nonce: number; onS
   }
 
   const toItem = (n: AppNotification): Item => ({ key: n.id, ...describe(n), unread: !n.readAt, onOpen: n.readAt ? undefined : () => open(n.id) });
-  const unread = notes.filter((n) => !n.readAt).map(toItem);
-  const read = notes.filter((n) => n.readAt).map(toItem);
+  // Backup reminders no longer get a circle on Home; Profile already has the backup tools.
+  const shown = notes.filter((n) => n.kind !== "backup");
+  const unread = shown.filter((n) => !n.readAt).map(toItem);
+  const read = shown.filter((n) => n.readAt).map(toItem);
   const map: Item = { key: "map", href: "/map/", icon: "map", label: "Map" };
 
   return (

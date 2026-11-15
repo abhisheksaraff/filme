@@ -7,13 +7,17 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { ConfirmPopup } from "@/components/Popup";
+import LogMenu from "@/components/LogMenu";
 import PersonCircle from "@/components/PersonCircle";
+import SeasonTiles from "@/components/SeasonTiles";
 import RatingsLine from "@/components/RatingsLine";
 import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
 import { clearHomeCache } from "@/lib/home/rows";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
+import { useShowData } from "@/hooks/useShowData";
+import { logShowNow } from "@/lib/logShow";
 import type { LastViewing } from "@/lib/domain/lastWatched";
 import { lastWatchedText } from "@/lib/domain/lastWatched";
 import type { CatalogDetails, CatalogKind } from "@/lib/ports/catalog";
@@ -39,6 +43,8 @@ function PreviewView() {
   const [hidden, setHidden] = useState<boolean | null>(null);
   const [confirmHide, setConfirmHide] = useState(false);
   const [last, setLast] = useState<LastViewing | null>(null);
+  const [menu, setMenu] = useState(false);
+  const showData = useShowData(kind === "TV Show" ? id : null, ready);
 
   useEffect(() => {
     if (!ready || kind === null || !Number.isInteger(id) || id <= 0) return;
@@ -99,8 +105,25 @@ function PreviewView() {
     else router.push("/home/");
   }
 
+  /** From the + on a show: the whole series or a season, today, on a chosen date, or with no date. */
+  async function logShow(season: number | null, today: boolean, undated = false) {
+    if (!details) return;
+    if (!today && !undated) {
+      startEntryFrom({ category: "TV Show", title: details.title, tmdbId: details.tmdbId, season });
+      return void router.push("/scan/");
+    }
+    setBusy(true);
+    const res = await logShowNow(details, season, null, undated ? null : new Date().toISOString().slice(0, 10));
+    setBusy(false);
+    setMenu(false);
+    if (!res.ok) return setProblem(res.error);
+    toast(season === null ? "Logged the whole series" : `Logged Season ${season}`);
+    router.replace(`/title/?id=${res.value}`);
+  }
+
   function logViewing() {
     if (!details) return;
+    if (details.category === "TV Show") return setMenu(true);
     startEntryFrom({ category: details.category, title: details.title, tmdbId: details.tmdbId });
     router.push("/scan/");
   }
@@ -138,12 +161,17 @@ function PreviewView() {
                   onLog={logViewing}
                 />
                 {status.logged && status.mediaId && (
-                  <Link href={`/title/?id=${status.mediaId}`} className="self-start text-sm underline">See your viewings</Link>
+                  <Link href={`/title/?id=${status.mediaId}`} className="self-start text-sm font-medium">See your viewings</Link>
                 )}
               </>
             )}
 
             {details.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{details.overview}</p>}
+
+            {/* Seasons are there before anything is logged, so one season or episode can be logged on its own. */}
+            {details.category === "TV Show" && !status?.logged && showData && (
+              <SeasonTiles data={showData} covers={[]} hrefFor={(n) => `/season/?tmdb=${details.tmdbId}&n=${n}`} />
+            )}
             {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}
 
             {ROLES.map(([role, label]) => {
@@ -164,9 +192,9 @@ function PreviewView() {
             {/* Only for titles you have not logged: a way to stop them coming up on Home. */}
             {status && !status.logged && hidden !== null && (
               hidden ? (
-                <p className="self-start text-sm text-neutral-500">Hidden from recommendations. Undo it under Profile, Not interested.</p>
+                <p className="self-center py-2 text-sm text-neutral-500">Hidden from recommendations.</p>
               ) : (
-                <button type="button" onClick={() => setConfirmHide(true)} className="self-start rounded-full border border-neutral-300 px-4 py-2 text-sm dark:border-neutral-700">
+                <button type="button" onClick={() => setConfirmHide(true)} className="self-center py-2 text-sm text-neutral-500">
                   Not interested
                 </button>
               )
@@ -175,12 +203,23 @@ function PreviewView() {
         )}
       </div>
 
+      {menu && details && (
+        <LogMenu
+          seasons={showData?.seasons.map((x) => x.season) ?? []}
+          busy={busy}
+          onClose={() => setMenu(false)}
+          onLog={(season, today) => void logShow(season, today)}
+          onLogUndated={(season) => void logShow(season, false, true)}
+          onEpisodeSeason={(n) => router.push(`/season/?tmdb=${details.tmdbId}&n=${n}`)}
+        />
+      )}
+
       {confirmHide && (
         <ConfirmPopup
           title="Not interested in this?"
           message="It will be hidden from your Home recommendations. You can undo this under Profile, Not interested."
           confirmLabel="Hide"
-          confirmIcon="close"
+          cancelLabel="Keep"
           busy={busy}
           onConfirm={hideTitle}
           onCancel={() => setConfirmHide(false)}

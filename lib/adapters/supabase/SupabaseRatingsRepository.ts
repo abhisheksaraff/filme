@@ -15,13 +15,15 @@ export const supabaseRatingsRepository: RatingsRepository = {
     let tmdbRating = known?.tmdbRating ?? null;
     let imdbRating: number | null = null;
     let checkedAt: string | null = null;
+    let releasedAt: string | null = null;
 
     if (mediaId) {
-      const row = await db.from("media_items").select("imdb_id, imdb_rating, imdb_rating_at, vote_average").eq("id", mediaId).maybeSingle();
+      const row = await db.from("media_items").select("imdb_id, imdb_rating, imdb_rating_at, vote_average, release_date").eq("id", mediaId).maybeSingle();
       if (row.data) {
         imdbId = imdbId ?? (row.data.imdb_id as string | null);
         imdbRating = row.data.imdb_rating === null ? null : Number(row.data.imdb_rating);
         checkedAt = row.data.imdb_rating_at as string | null;
+        releasedAt = row.data.release_date as string | null;
         tmdbRating = tmdbRating ?? (row.data.vote_average === null ? null : Number(row.data.vote_average));
       }
     }
@@ -36,7 +38,10 @@ export const supabaseRatingsRepository: RatingsRepository = {
       }
     }
 
-    const fresh = checkedAt !== null && Date.now() - Date.parse(checkedAt) < STALE_MS;
+    // A title out within the last year with no IMDb score yet is looked at again daily; ratings appear a few weeks after release.
+    const recent = releasedAt !== null && Date.now() - Date.parse(releasedAt) < 365 * 86_400_000;
+    const limit = recent && imdbRating === null ? 86_400_000 : STALE_MS;
+    const fresh = checkedAt !== null && Date.now() - Date.parse(checkedAt) < limit;
     if (imdbId && !fresh) {
       const res = await callFunction<{ rating: number | null }>("omdb", { imdbId });
       // Without a key (or when OMDb is down) the TMDB rating is shown instead, and nothing is saved.

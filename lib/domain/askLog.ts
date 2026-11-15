@@ -10,8 +10,8 @@ export const logFilterSchema = z.object({
   /** Release years (not the dates watched), such as 1950 to 1959 for "the 50s". */
   releaseFrom: z.number().int().min(1870).max(2200).nullable(),
   releaseTo: z.number().int().min(1870).max(2200).nullable(),
-  minRating: z.number().min(1).max(10).nullable(),
-  maxRating: z.number().min(1).max(10).nullable(),
+  minRating: z.number().min(0).max(10).nullable(),
+  maxRating: z.number().min(0).max(10).nullable(),
   format: z.string().nullable(),
   /** A format extra such as IMAX or D-BOX. */
   extra: z.string().nullable(),

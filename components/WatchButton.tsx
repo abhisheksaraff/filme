@@ -4,8 +4,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Icon from "@/components/Icon";
-import Popup, { NoticePopup, POPUP_PRIMARY, POPUP_SECONDARY } from "@/components/Popup";
+import Popup, { NoticePopup, POPUP_OPTION, POPUP_SECONDARY } from "@/components/Popup";
 import { toast } from "@/components/Toast";
 import RoundButton from "@/components/RoundButton";
 import type { WatchContext } from "@/lib/domain/watchLinks";
@@ -92,17 +91,12 @@ export default function WatchButton({ watch }: { watch: WatchContext }) {
         {waiting && <span aria-hidden className="pointer-events-none absolute -inset-1 animate-spin rounded-full border-2 border-transparent border-t-neutral-950 dark:border-t-white" />}
       </span>
       {popup === "choose" && url && (
-        <Popup title="Watch" icon="watch" onClose={() => setPopup(null)}>
-          <div className="flex flex-col gap-2">
-            <button type="button" className={POPUP_PRIMARY} onClick={() => { setPopup(null); openWatchLink(url); }}>
-              <Icon name="open" size={18} />
-              Open on this device
-            </button>
-            <button type="button" className={POPUP_SECONDARY} onClick={() => { setPopup(null); void sendLink(url, watch.title); }}>
-              <Icon name="upload" size={18} />
-              {canShare() ? "Send to another device" : "Copy link"}
-            </button>
+        <Popup title="Watch" onClose={() => setPopup(null)}>
+          <div className="flex flex-col">
+            <button type="button" className={POPUP_OPTION} onClick={() => { setPopup(null); openWatchLink(url); }}>Open on this device</button>
+            <button type="button" className={POPUP_OPTION} onClick={() => { setPopup(null); void sendLink(url, watch.title); }}>{canShare() ? "Send to another device" : "Copy link"}</button>
           </div>
+          <div className="flex justify-end"><button type="button" className={POPUP_SECONDARY} onClick={() => setPopup(null)}>Close</button></div>
         </Popup>
       )}
       {popup === "down" && <NoticePopup title="Server is down" icon="watch" message="That server is down right now. Try again in a little while." onClose={() => setPopup(null)} />}

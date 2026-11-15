@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } from "@/lib/domain/formats";
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
+import { useShowData } from "@/hooks/useShowData";
 import { services } from "@/lib/services";
 import Icon from "./Icon";
 import PeopleInput from "./PeopleInput";
@@ -25,6 +26,8 @@ interface Props {
   /** A round button kept at the right of the type choices, such as ticket upload. */
   typeAction?: React.ReactNode;
   disabled?: boolean;
+  /** The matched show on TMDB; when set, Season and Episode become lists of its real seasons and episodes. */
+  showTmdbId?: number | null;
 }
 
 // Shown A–Z; the lists in formats.ts stay in their own order.
@@ -59,7 +62,14 @@ async function findVenues(query: string): Promise<VenueSuggestion[]> {
   return [...mine, ...found];
 }
 
-export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, typeAction, disabled }: Props) {
+export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, typeAction, disabled, showTmdbId = null }: Props) {
+  const show = useShowData(showTmdbId, showTmdbId !== null);
+  const seasonList = show?.seasons ?? [];
+  const episodeList = seasonList.find((x) => String(x.season) === draft.season)?.episodes ?? [];
+  // How much of the date is known: the whole day, the month, only the year, or nothing.
+  const [when, setWhen] = useState<"day" | "month" | "year" | "none">(() => (draft.date.length === 7 ? "month" : draft.date.length === 4 ? "year" : "day"));
+  const shownWhen = draft.date ? (draft.date.length === 7 ? "month" : draft.date.length === 4 ? "year" : "day") : when;
+  const thisYear = new Date().getFullYear();
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => onChange({ ...draft, [key]: value });
   // Rarely used fields stay tucked away unless they already hold something.
   const [more, setMore] = useState(
@@ -165,13 +175,32 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
 
       {draft.category === "TV Show" && (
         <div className="grid grid-cols-2 gap-3">
-          <Labeled label="Season">
-            <input className={field} inputMode="numeric" value={draft.season} onChange={(e) => set("season", e.target.value)} />
-          </Labeled>
-          <Labeled label="Episode">
-            <input className={field} inputMode="numeric" value={draft.episode} onChange={(e) => set("episode", e.target.value)} />
-          </Labeled>
-          <p className="col-span-2 -mt-1 text-xs text-neutral-500">Leave both empty to log the whole series, or the episode empty to log the whole season.</p>
+          {seasonList.length > 0 ? (
+            <>
+              <Labeled label="Season">
+                <select className={field} value={draft.season} onChange={(e) => onChange({ ...draft, season: e.target.value, episode: "" })}>
+                  <option value="">Whole series</option>
+                  {seasonList.map((x) => <option key={x.season} value={String(x.season)}>Season {x.season}</option>)}
+                </select>
+              </Labeled>
+              <Labeled label="Episode">
+                <select className={field} value={draft.episode} disabled={!draft.season} onChange={(e) => set("episode", e.target.value)}>
+                  <option value="">Whole season</option>
+                  {episodeList.map((x) => <option key={x.episode} value={String(x.episode)}>E{x.episode}{x.name ? ` · ${x.name}` : ""}</option>)}
+                </select>
+              </Labeled>
+            </>
+          ) : (
+            <>
+              <Labeled label="Season">
+                <input className={field} inputMode="numeric" value={draft.season} onChange={(e) => set("season", e.target.value)} />
+              </Labeled>
+              <Labeled label="Episode">
+                <input className={field} inputMode="numeric" value={draft.episode} onChange={(e) => set("episode", e.target.value)} />
+              </Labeled>
+              <p className="col-span-2 -mt-1 text-xs text-neutral-500">Leave both empty to log the whole series, or the episode empty to log the whole season.</p>
+            </>
+          )}
           <div className="col-span-2">
             <Labeled label="Episode title">
               <input className={field} value={draft.episodeTitle} onChange={(e) => set("episodeTitle", e.target.value)} />
@@ -185,14 +214,35 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       </Labeled>
       {suggestionList("location")}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Labeled label="Date">
-          <input className={field} type="date" value={draft.date} onChange={(e) => set("date", e.target.value)} />
-        </Labeled>
-        <Labeled label="Rating (1–10)">
-          <input className={field} type="number" step="0.5" min="1" max="10" value={draft.rating} onChange={(e) => set("rating", e.target.value)} />
-        </Labeled>
-      </div>
+      {/* Each on its own row: a phone draws date fields wider than their box and they overlapped the rating. */}
+      <Labeled label="When">
+        <select className={field} value={shownWhen} onChange={(e) => {
+          const next = e.target.value as "day" | "month" | "year" | "none";
+          setWhen(next);
+          // Keep what is already known: the year of a full date stays when switching to month or year.
+          const keep = draft.date.slice(0, next === "year" ? 4 : next === "month" ? 7 : 10);
+          set("date", next === "none" ? "" : keep.length === (next === "year" ? 4 : next === "month" ? 7 : 10) ? keep : "");
+        }}>
+          <option value="day">Exact date</option>
+          <option value="month">Month and year</option>
+          <option value="year">Year only</option>
+          <option value="none">I don&apos;t remember</option>
+        </select>
+      </Labeled>
+      {shownWhen === "day" && <input className={`${field} min-w-0`} type="date" aria-label="Date" value={draft.date} onChange={(e) => set("date", e.target.value)} />}
+      {shownWhen === "month" && <input className={`${field} min-w-0`} type="month" aria-label="Month and year" value={draft.date} onChange={(e) => set("date", e.target.value)} />}
+      {shownWhen === "year" && (
+        <select className={field} aria-label="Year" value={draft.date} onChange={(e) => set("date", e.target.value)}>
+          <option value="">Choose a year</option>
+          {Array.from({ length: thisYear - 1899 }, (_, i) => String(thisYear - i)).map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      )}
+      <Labeled label="Rating">
+        <select className={field} value={draft.rating} onChange={(e) => set("rating", e.target.value)}>
+          <option value="">No rating</option>
+          {Array.from({ length: 21 }, (_, i) => i / 2).map((r) => <option key={r} value={String(r)}>{r}</option>)}
+        </select>
+      </Labeled>
 
       <Labeled label="Format">
         <select className={field} value={draft.primaryFormat} onChange={(e) => set("primaryFormat", e.target.value as PrimaryFormat)}>

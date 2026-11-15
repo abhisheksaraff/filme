@@ -5,6 +5,7 @@
 import { toast } from "@/components/Toast";
 import { useEffect, useState } from "react";
 import WatchedCard from "@/components/WatchedCard";
+import Icon from "@/components/Icon";
 import RoundButton from "@/components/RoundButton";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { DeletedEntry, RecentEntry } from "@/lib/ports/log";
@@ -16,6 +17,7 @@ export default function WatchlistPage() {
   const [deleted, setDeleted] = useState<DeletedEntry[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -41,31 +43,42 @@ export default function WatchlistPage() {
 
   if (!ready) return null;
 
+  // Viewings with no date come after the dated ones.
+  const ordered = [...recent].sort((a, b) => Number(a.watchedOn === null) - Number(b.watchedOn === null));
+
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
+        <RoundButton icon="map" label="Map" href="/map/" />
       </div>
 
       {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
 
       <ul className="flex flex-col gap-5">
-        {recent.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} />)}
+        {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} />)}
         {recent.length === 0 && !problem && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}
       </ul>
 
       {deleted.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="font-serif text-xl">Recently deleted</h2>
-          <p className="text-xs text-neutral-500">Kept for 24 hours, then removed for good.</p>
-          <ul className="flex flex-col gap-2">
-            {deleted.map((entry) => (
-              <li key={entry.id} className="flex items-center justify-between gap-2 text-sm">
-                <span>{entry.title} · deleted {entry.deletedAt.slice(0, 10)}</span>
-                <RoundButton icon="undo" label="Restore" size="sm" onClick={() => restore(entry.id)} />
-              </li>
-            ))}
-          </ul>
+        <section className="mt-10 flex flex-col gap-2">
+          <button type="button" aria-expanded={showDeleted} onClick={() => setShowDeleted((o) => !o)} className="flex items-center justify-between text-left">
+            <h2 className="font-serif text-xl">Recently deleted</h2>
+            <Icon name={showDeleted ? "minus" : "plus"} size={18} />
+          </button>
+          {showDeleted && (
+            <>
+              <p className="text-xs text-neutral-500">Kept for 24 hours.</p>
+              <ul className="flex flex-col gap-2">
+                {deleted.map((entry) => (
+                  <li key={entry.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span>{entry.title} · deleted {entry.deletedAt.slice(0, 10)}</span>
+                    <RoundButton icon="undo" label="Restore" size="sm" onClick={() => restore(entry.id)} />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </section>
       )}
 

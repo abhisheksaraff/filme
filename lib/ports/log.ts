@@ -36,6 +36,8 @@ export interface ViewingSummary {
   watchedAt: string | null;
   venue: string | null;
   venueId: string | null;
+  venueLatitude: number | null;
+  venueLongitude: number | null;
   auditorium: string | null;
   primaryFormat: string | null;
   addons: string[];

@@ -286,6 +286,7 @@ export default function ScanPage() {
 
       <form onSubmit={onSave} className="flex flex-col gap-5">
         <EntryForm
+          showTmdbId={draft.category === "TV Show" ? matchId : null}
           draft={draft}
           onChange={setDraft}
           onUserEdit={onUserEdit}

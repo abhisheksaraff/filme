@@ -15,10 +15,16 @@ export const askPlanSchema = z.object({
   like: z.array(z.string().min(1).max(80)).max(2),
   sortBy: z.enum(["popular", "newest", "oldest", "rating"]).nullable(),
   seen: z.enum(["not-seen", "seen", "either"]),
+  /** Minutes; movies only, since TMDB has no runtime filter for shows. */
+  maxRuntime: z.number().int().min(1).max(600).nullable(),
+  minRuntime: z.number().int().min(1).max(600).nullable(),
+  /** Streaming services by name, such as Netflix. */
+  providers: z.array(z.string().min(1).max(80)).max(3),
+  inTheatres: z.enum(["now", "soon"]).nullable(),
 });
 export type AskPlan = z.infer<typeof askPlanSchema>;
 
-export const EMPTY_PLAN: AskPlan = { people: [], titles: [], genres: [], languages: [], countries: [], keywords: [], like: [], sortBy: null, seen: "either" };
+export const EMPTY_PLAN: AskPlan = { people: [], titles: [], genres: [], languages: [], countries: [], keywords: [], like: [], sortBy: null, seen: "either", maxRuntime: null, minRuntime: null, providers: [], inTheatres: null };
 
 /** Cleans the AI's reply into a plan; anything unexpected becomes "nothing planned". */
 export function normalizePlan(value: unknown): AskPlan {
@@ -28,8 +34,8 @@ export function normalizePlan(value: unknown): AskPlan {
 
 /** True when the plan asks to find things on TMDB (as opposed to only narrowing the user's own log). */
 export function hasPlan(plan: AskPlan): boolean {
-  return plan.people.length + plan.titles.length + plan.genres.length + plan.languages.length + plan.countries.length + plan.keywords.length + plan.like.length > 0
-    || plan.seen === "not-seen";
+  return plan.people.length + plan.titles.length + plan.genres.length + plan.languages.length + plan.countries.length + plan.keywords.length + plan.like.length + plan.providers.length > 0
+    || plan.seen === "not-seen" || plan.maxRuntime !== null || plan.minRuntime !== null || plan.inTheatres !== null;
 }
 
 /** The language codes the app can name; the chip shows the name rather than the code. */

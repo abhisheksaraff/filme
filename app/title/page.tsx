@@ -7,14 +7,15 @@ import RoundButton from "@/components/RoundButton";
 import PicturesViewer from "@/components/PicturesViewer";
 import RatingsLine from "@/components/RatingsLine";
 import type { TitleLinks } from "@/lib/ports/ratings";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import TitleHero from "@/components/TitleHero";
 import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
-import { seatLabel } from "@/components/entryDraft";
+import ViewingPictures from "@/components/ViewingPictures";
+import WatchButton from "@/components/WatchButton";
+import WatchedCard from "@/components/WatchedCard";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { mediaCategorySchema } from "@/lib/domain/media";
@@ -25,7 +26,7 @@ import LogMenu from "@/components/LogMenu";
 import ShowSection from "@/components/ShowSection";
 import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
 import { useShowData } from "@/hooks/useShowData";
-import { scopeLabel, scopeRank, type Cover } from "@/lib/domain/tv";
+import { scopeRank, type Cover } from "@/lib/domain/tv";
 import type { TitleCredits } from "@/lib/ports/browse";
 import type { TitleDetail } from "@/lib/ports/log";
 import { services } from "@/lib/services";
@@ -37,7 +38,11 @@ const ORDINAL = (n: number) => (n === 1 ? "First viewing" : `Rewatch #${n - 1}`)
 function TitleView() {
   const ready = useRequireSession();
   const router = useRouter();
-  const id = useSearchParams().get("id");
+  const params = useSearchParams();
+  const id = params.get("id");
+  // A link to one viewing scrolls to its card and outlines it for a moment.
+  const targetViewing = params.get("v");
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
   const [detail, setDetail] = useState<TitleDetail | null>(null);
   const [credits, setCredits] = useState<TitleCredits | null>(null);
@@ -78,6 +83,19 @@ function TitleView() {
     };
   }, [ready, id, reload]);
 
+  useEffect(() => {
+    if (!targetViewing || !detail) return;
+    const el = document.getElementById(`v-${targetViewing}`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    const on = setTimeout(() => setHighlightId(targetViewing), 0);
+    const off = setTimeout(() => setHighlightId(null), 2500);
+    return () => {
+      clearTimeout(on);
+      clearTimeout(off);
+    };
+  }, [targetViewing, detail]);
+
   async function toggleWanted() {
     if (!detail || detail.tmdbId === null || (detail.category !== "Movie" && detail.category !== "TV Show")) return;
     setBusy(true);
@@ -111,13 +129,13 @@ function TitleView() {
   }
 
   /** From the + on a show: one viewing for the whole series or a season, dated today, or the form to choose a date. */
-  async function logShow(season: number | null, today: boolean) {
-    if (!today) return logAnother(season, null);
+  async function logShow(season: number | null, today: boolean, undated = false) {
+    if (!today && !undated) return logAnother(season, null);
     if (!detail?.tmdbId) return;
     setBusy(true);
     setProblem(null);
     const full = await services.catalog.details({ tmdbId: detail.tmdbId, kind: "TV Show" });
-    const res = full.ok ? await logShowNow(full.value, season, null) : full;
+    const res = full.ok ? await logShowNow(full.value, season, null, undated ? null : new Date().toISOString().slice(0, 10)) : full;
     setBusy(false);
     setMenu(false);
     if (!res.ok) return setProblem(res.error);
@@ -224,38 +242,29 @@ function TitleView() {
             </section>
 
             <h2 className="font-serif text-xl">Your viewings</h2>
-            <ul className="flex flex-col gap-4">
-              {viewings.map((v) => (
-                <li key={v.id}>
-                  {/* The whole row is one link: details, edit and delete live on the viewing's own page. */}
-                  <Link href={`/session/?id=${v.id}`} className="flex flex-col gap-2 rounded-2xl border border-neutral-300 p-4 dark:border-neutral-700">
-                    <span className="text-xs uppercase tracking-wide text-neutral-500">{isShow ? `${scopeLabel(v.season, v.episode)} · ` : ""}{ORDINAL(order.get(v.id) ?? 1)}</span>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium">{[v.watchedOn ?? "Date unknown", v.watchedAt].filter(Boolean).join(" · ")}</span>
-                      {v.rating !== null && <span className="text-sm">★ {v.rating}</span>}
-                    </div>
-                    <span className="text-sm text-neutral-500">
-                      {v.venue}
-                      {[v.auditorium, v.primaryFormat].filter(Boolean).length > 0 && ` · ${[v.auditorium, v.primaryFormat].filter(Boolean).join(" · ")}`}
-                    </span>
-                    {v.seats.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {v.seats.map((seat, i) => (
-                          <span key={i} className="rounded-full bg-neutral-950 px-3 py-0.5 text-sm text-white dark:bg-white dark:text-neutral-950">{seatLabel(seat)}</span>
-                        ))}
-                      </div>
-                    )}
-                    {v.notes && <p className="text-sm">{v.notes}</p>}
-                    {v.stubUrls.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto">
-                        {v.stubUrls.map((url) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={url} src={url} alt="Ticket stub" className="h-32 rounded-lg" />
-                        ))}
-                      </div>
-                    )}
-                  </Link>
-                </li>
+            <ul className="flex flex-col gap-5">
+              {viewings.map((v, i) => (
+                <WatchedCard
+                  key={v.id}
+                  index={i}
+                  showTitle={false}
+                  highlight={highlightId === v.id}
+                  href={`/title/?id=${detail.mediaId}&v=${v.id}`}
+                  label={ORDINAL(order.get(v.id) ?? 1)}
+                  rating={v.rating}
+                  notes={v.notes}
+                  editHref={`/entry/?id=${v.id}`}
+                  footer={<ViewingPictures sessionId={v.id} />}
+                  actions={v.season !== null && v.episode !== null && detail.tmdbId !== null && isShow ? (
+                    <WatchButton watch={{ tmdbId: detail.tmdbId, kind: "TV Show", title: detail.title, year: detail.releaseDate?.slice(0, 4) ?? null, season: v.season, episode: v.episode }} />
+                  ) : undefined}
+                  entry={{
+                    id: v.id, mediaId: detail.mediaId, title: detail.title, category: detail.category, posterPath: detail.posterPath,
+                    watchedOn: v.watchedOn, watchedAt: v.watchedAt, primaryFormat: v.primaryFormat, addons: v.addons,
+                    venueId: v.venueId, venue: v.venue, venueLatitude: v.venueLatitude, venueLongitude: v.venueLongitude,
+                    auditorium: v.auditorium, seats: v.seats, totalTickets: v.totalTickets, season: v.season, episode: v.episode,
+                  }}
+                />
               ))}
               {detail.viewings.length === 0 && <li className="text-sm text-neutral-500">No viewings left.</li>}
             </ul>
@@ -269,6 +278,7 @@ function TitleView() {
           busy={busy}
           onClose={() => setMenu(false)}
           onLog={logShow}
+          onLogUndated={(season) => void logShow(season, false, true)}
           onEpisodeSeason={(n) => router.push(`/season/?id=${detail.mediaId}&n=${n}`)}
         />
       )}

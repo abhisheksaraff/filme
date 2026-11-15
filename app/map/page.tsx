@@ -140,14 +140,18 @@ function MapView() {
           <ul className="grid grid-cols-3 gap-3">
             {shown.map((v) => (
               <li key={v.sessionId}>
-                <Link href={`/session/?id=${v.sessionId}`} className="relative block">
-                  {v.posterPath ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={tmdbImageUrl(v.posterPath, "w185") ?? ""} alt={v.title} loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover" />
-                  ) : (
-                    <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl bg-white/15"><Icon name={KIND_ICON[v.category] ?? "film"} size={22} /></span>
-                  )}
-                  {v.rating !== null && <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-1.5 text-[11px]">★ {v.rating}</span>}
+                <Link href={`/title/?id=${v.mediaId}&v=${v.sessionId}`} className="flex flex-col gap-1">
+                  <span className="relative block">
+                    {v.posterPath ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={tmdbImageUrl(v.posterPath, "w185") ?? ""} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover" />
+                    ) : (
+                      <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl bg-white/15"><Icon name={KIND_ICON[v.category] ?? "film"} size={22} /></span>
+                    )}
+                    {v.rating !== null && <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-1.5 text-[11px]">★ {v.rating}</span>}
+                  </span>
+                  <span className="line-clamp-2 text-xs font-medium leading-tight">{v.title}</span>
+                  {v.watchedOn && <span className="text-[11px] text-white/60">{v.watchedOn}</span>}
                 </Link>
               </li>
             ))}
