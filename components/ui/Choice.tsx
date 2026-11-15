@@ -25,11 +25,14 @@ export default function Choice({ type, checked, onChange, children, name, disabl
         checked={checked}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
+        // Safari restores form controls when you come back to a page; that must never override what the app holds.
+        autoComplete="off"
         className="peer sr-only"
       />
       <span
         aria-hidden
-        className="h-5 w-5 shrink-0 rounded-md border-[2.5px] border-neutral-950 transition-colors peer-checked:bg-neutral-950 peer-focus-visible:ring-2 peer-focus-visible:ring-neutral-950 peer-focus-visible:ring-offset-2 dark:border-white dark:peer-checked:bg-white dark:peer-focus-visible:ring-white dark:peer-focus-visible:ring-offset-neutral-950"
+        // Drawn from the value the app holds, not from the hidden input's own state.
+        className={`h-5 w-5 shrink-0 rounded-md border-[2.5px] border-neutral-950 transition-colors ${checked ? "bg-neutral-950 dark:bg-white" : ""} peer-focus-visible:ring-2 peer-focus-visible:ring-neutral-950 peer-focus-visible:ring-offset-2 dark:border-white dark:peer-focus-visible:ring-white dark:peer-focus-visible:ring-offset-neutral-950`}
       />
       <span className="flex-1">{children}</span>
     </label>

@@ -5,6 +5,7 @@ import { THEMES, activeHoliday, themeVars, type MovingDates } from "@/lib/domain
 
 const KEY = "filme-appearance";
 const MOVING_KEY = "filme-moving-dates";
+const PENDING_KEY = "filme-appearance-pending";
 /** Fired on window after a change so the page updates without a reload. */
 export const APPEARANCE_EVENT = "filme:appearance";
 
@@ -28,6 +29,24 @@ export function cacheAppearance(appearance: Appearance): void {
     localStorage.setItem(KEY, JSON.stringify(appearance));
   } catch {
     // Private browsing can refuse storage; the look then simply resets next visit.
+  }
+}
+
+/** True when the look was changed on this phone but could not be saved to the account yet. */
+export function appearancePending(): boolean {
+  try {
+    return localStorage.getItem(PENDING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setAppearancePending(pending: boolean): void {
+  try {
+    if (pending) localStorage.setItem(PENDING_KEY, "1");
+    else localStorage.removeItem(PENDING_KEY);
+  } catch {
+    // Nothing to do: without storage there is nothing to retry from either.
   }
 }
 

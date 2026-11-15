@@ -2,6 +2,7 @@
 // Titles marked "Not interested", with a way to bring each one back into Home's recommendations.
 "use client";
 
+import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -26,7 +27,7 @@ export default function HiddenPage() {
     let cancelled = false;
     services.hidden.list().then((res) => {
       if (cancelled) return;
-      if (res.ok) setTitles(res.value);
+      if (res.ok) setTitles((prev) => keepIfSame(prev, res.value));
       else setProblem(res.error);
     });
     return () => {

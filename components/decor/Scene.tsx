@@ -88,10 +88,75 @@ const GOLD = ["#ffd54a", "#ffe9a8", "#ff9bd0", "#9be7ff"];
 const MULTI = ["#ffb300", "#ff5c5c", "#5cc8ff", "#62d26f", "#c58bff", "#ff8fb1"];
 const RED = ["#e5322d", "#f4a3a1", "#ff7a76"];
 
-/** The burst itself: sparks flying out in a ring. */
-function Burst({ x, y, color }: { x: number; y: number; color: string }) {
+/** The shapes a firework can open into. */
+type Shape = "round" | "willow" | "ring" | "split" | "glitter" | "comet";
+const SHAPES: readonly Shape[] = ["round", "round", "willow", "ring", "split", "glitter", "comet"];
+
+const rad = (deg: number) => (deg * Math.PI) / 180;
+
+/** The burst itself, in one of several shapes: sparks flying out, drooping trails, a ring, a burst that splits again, glitter, or a comet. */
+function Burst({ x, y, color, shape }: { x: number; y: number; color: string; shape: Shape }) {
+  const at = { left: `${x}%`, top: `${y}%` };
+  if (shape === "willow") {
+    return (
+      <div className="absolute" style={at}>
+        {Array.from({ length: 22 }, (_, i) => (
+          <i key={i} className="spark shard" style={{ "--dx": `${Math.cos(rad(i * (360 / 22))) * (60 + (i % 3) * 14)}px`, "--dy": `${Math.sin(rad(i * (360 / 22))) * (60 + (i % 3) * 14)}px`, "--g": "84px", background: color } as CSSProperties} />
+        ))}
+      </div>
+    );
+  }
+  if (shape === "ring") {
+    return (
+      <div className="absolute" style={at}>
+        {Array.from({ length: 24 }, (_, i) => (
+          <i key={i} className="spark" style={{ "--a": `${i * 15}deg`, "--d": "62px", background: color } as CSSProperties} />
+        ))}
+      </div>
+    );
+  }
+  if (shape === "split") {
+    return (
+      <div className="absolute" style={at}>
+        {Array.from({ length: 8 }, (_, i) => (
+          <span key={i}>
+            <i className="spark" style={{ "--a": `${i * 45}deg`, "--d": "46px", background: color } as CSSProperties} />
+            <span className="absolute" style={{ left: Math.cos(rad(i * 45)) * 46, top: Math.sin(rad(i * 45)) * 46 }}>
+              {Array.from({ length: 6 }, (_, k) => (
+                <i key={k} className="spark spark-late" style={{ "--a": `${k * 60 + i * 11}deg`, "--d": "24px", background: "#fff3b0", width: 3, height: 3 } as CSSProperties} />
+              ))}
+            </span>
+          </span>
+        ))}
+      </div>
+    );
+  }
+  if (shape === "glitter") {
+    return (
+      <div className="absolute" style={at}>
+        {Array.from({ length: 30 }, (_, i) => {
+          const angle = seeded(i, 7) * 360;
+          const dist = 14 + seeded(i, 8) * 64;
+          return <i key={i} className="glit" style={{ left: Math.cos(rad(angle)) * dist, top: Math.sin(rad(angle)) * dist, animationDelay: `${(i % 8) * 0.13}s`, background: i % 3 ? color : "#fff" }} />;
+        })}
+      </div>
+    );
+  }
+  if (shape === "comet") {
+    const dir = x > 50 ? -1 : 1;
+    const dx = dir * 90;
+    const dy = 70;
+    return (
+      <div className="absolute" style={at}>
+        <i className="comet" style={{ "--c": color, "--dx": `${dx}px`, "--dy": `${dy}px`, "--rot": `${(Math.atan2(dx, -dy) * 180) / Math.PI}deg` } as CSSProperties} />
+        {Array.from({ length: 8 }, (_, i) => (
+          <i key={i} className="spark" style={{ "--a": `${i * 45}deg`, "--d": "20px", background: color } as CSSProperties} />
+        ))}
+      </div>
+    );
+  }
   return (
-    <div className="absolute" style={{ left: `${x}%`, top: `${y}%` }}>
+    <div className="absolute" style={at}>
       {Array.from({ length: 18 }, (_, i) => (
         <i key={i} className="spark" style={{ "--a": `${i * 20}deg`, "--d": `${i % 2 ? 44 : 66}px`, background: color } as CSSProperties} />
       ))}
@@ -103,7 +168,7 @@ function Burst({ x, y, color }: { x: number; y: number; color: string }) {
  * One firework: a rocket climbs, then bursts. Tap the rocket while it climbs and it goes off at once; about one in
  * four is a dud that sputters, puffs smoke and falls back down.
  */
-function Rocket({ x, y, color, onGone }: { x: number; y: number; color: string; onGone: () => void }) {
+function Rocket({ x, y, color, shape, delay, onGone }: { x: number; y: number; color: string; shape: Shape; delay: number; onGone: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [phase, setPhase] = useState<"rise" | "burst" | "dud">("rise");
   const [at, setAt] = useState({ x, y });
@@ -120,14 +185,14 @@ function Rocket({ x, y, color, onGone }: { x: number; y: number; color: string; 
 
   useEffect(() => {
     if (phase === "rise") return;
-    const timer = setTimeout(() => gone.current(), phase === "burst" ? 2200 : 1700);
+    const timer = setTimeout(() => gone.current(), phase === "burst" ? 2800 : 1700);
     return () => clearTimeout(timer);
   }, [phase]);
 
   if (phase === "rise") {
-    return <div ref={ref} data-slop={40} className="rocket" style={{ left: `${x}%`, top: `${y}%`, "--r": 100 - y, "--c": color } as CSSProperties} onAnimationEnd={() => setPhase("burst")} />;
+    return <div ref={ref} data-slop={40} className="rocket" style={{ left: `${x}%`, top: `${y}%`, "--r": 100 - y, "--c": color, animationDelay: `${delay}s` } as CSSProperties} onAnimationEnd={() => setPhase("burst")} />;
   }
-  if (phase === "burst") return <Burst x={at.x} y={at.y} color={color} />;
+  if (phase === "burst") return <Burst x={at.x} y={at.y} color={color} shape={shape} />;
   const side = at.x > 50 ? -1 : 1;
   return (
     <div className="absolute" style={{ left: `${at.x}%`, top: `${at.y}%` }}>
@@ -138,27 +203,36 @@ function Rocket({ x, y, color, onGone }: { x: number; y: number; color: string; 
   );
 }
 
-/** Small fireworks that open high up and fade, never more than a few at once. */
+/** Fireworks over the whole upper half of the screen: single shots, pairs and trios, and now and then a short finale. */
 function Fireworks({ colors, gap }: { colors: readonly string[]; gap: [number, number] }) {
-  const [rockets, setRockets] = useState<{ id: number; x: number; y: number; color: string }[]>([]);
+  const [rockets, setRockets] = useState<{ id: number; x: number; y: number; color: string; shape: Shape; delay: number }[]>([]);
 
   useEffect(() => {
     let next: ReturnType<typeof setTimeout>;
     const fire = () => {
       if (document.visibilityState === "visible") {
-        const id = Date.now() + Math.random();
-        setRockets((list) => [...list.slice(-2), { id, x: between(10, 90), y: between(8, 42), color: pick(colors) }]);
+        const roll = Math.random();
+        const batch = roll < 0.06 ? 5 : roll < 0.3 ? (Math.random() < 0.4 ? 3 : 2) : 1;
+        const fresh = Array.from({ length: batch }, (_, k) => ({
+          id: Date.now() + Math.random() + k,
+          x: between(8, 92),
+          y: between(8, 55),
+          color: pick(colors),
+          shape: pick(SHAPES),
+          delay: k * between(0.15, 0.5),
+        }));
+        setRockets((list) => [...list, ...fresh].slice(-6));
       }
       next = setTimeout(fire, between(gap[0], gap[1]) * 1000);
     };
-    next = setTimeout(fire, 1200);
+    next = setTimeout(fire, 900);
     return () => clearTimeout(next);
   }, [colors, gap]);
 
   return (
     <>
       {rockets.map((r) => (
-        <Rocket key={r.id} x={r.x} y={r.y} color={r.color} onGone={() => setRockets((list) => list.filter((q) => q.id !== r.id))} />
+        <Rocket key={r.id} x={r.x} y={r.y} color={r.color} shape={r.shape} delay={r.delay} onGone={() => setRockets((list) => list.filter((q) => q.id !== r.id))} />
       ))}
     </>
   );
@@ -312,8 +386,8 @@ function Walkers() {
 const WAIT_SLEIGH: [number, number] = [50, 90];
 const WAIT_CUPID: [number, number] = [60, 100];
 const WAIT_BATS: [number, number] = [30, 60];
-const GAP_FEW: [number, number] = [3.5, 7];
-const GAP_FEWER: [number, number] = [6, 12];
+const GAP_FEW: [number, number] = [1.2, 3];
+const GAP_FEWER: [number, number] = [2, 4.5];
 
 const PETALS = ["#ff7aa8", "#ff4d7d", "#ffb3cf"];
 const BALLOONS = ["#ff5c8a", "#5cc8ff", "#ffd54a", "#7ce0c3", "#c58bff", "#ff8a2a"];

@@ -12,7 +12,7 @@ import { DEFAULT_APPEARANCE, type Appearance } from "@/lib/domain/appearance";
 import { MONTH_NAMES } from "@/lib/domain/stats";
 import { THEMES } from "@/lib/domain/holidays";
 import { services } from "@/lib/services";
-import { changeAppearance, readCachedAppearance } from "@/lib/theme";
+import { appearancePending, changeAppearance, readCachedAppearance, setAppearancePending } from "@/lib/theme";
 
 const MODES: { value: Appearance["themeMode"]; label: string }[] = [
   { value: "system", label: "Match my phone" },
@@ -33,30 +33,32 @@ export default function AppearancePage() {
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
+    // Open on the look this phone already shows, so the controls always agree with it; the account's answer then replaces it if different.
+    const first = setTimeout(() => {
+      if (!cancelled) setAppearance(readCachedAppearance());
+    }, 0);
     services.settings.appearance().then((res) => {
       if (cancelled) return;
-      if (res.ok) setAppearance(res.value);
-      else {
-        setProblem(res.error);
-        setAppearance(readCachedAppearance());
-      }
+      // A change still waiting to be saved is newer than the account's copy, so the account's copy must not replace it.
+      if (res.ok && !appearancePending()) {
+        setAppearance(res.value);
+        changeAppearance(res.value);
+      } else if (!res.ok) setProblem(res.error);
     });
     return () => {
       cancelled = true;
+      clearTimeout(first);
     };
   }, [ready]);
 
   async function update(next: Appearance) {
-    const before = appearance;
     setAppearance(next);
     setProblem(null);
     changeAppearance(next);
     const res = await services.settings.saveAppearance(next);
-    if (!res.ok) {
-      setProblem(res.error);
-      setAppearance(before);
-      changeAppearance(before);
-    }
+    // A choice that could not be saved stays on this phone and is sent again the next time the app opens.
+    setAppearancePending(!res.ok);
+    if (!res.ok) setProblem(res.error);
   }
 
   function choose(choice: Choice) {

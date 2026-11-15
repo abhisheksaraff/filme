@@ -7,6 +7,7 @@ import type { StatRow } from "@/lib/domain/stats";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { CatalogHit, CatalogKind } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
+import { clearStored, readStored, writeStored } from "@/lib/persistentCache";
 import { services } from "@/lib/services";
 import { checkNewEpisodes, inProgress, withNewEpisodes } from "@/lib/shows";
 import { withShow } from "@/lib/domain/tv";
@@ -34,6 +35,8 @@ export interface RowResult {
 }
 
 const CACHE_MS = 3 * 60 * 60_000;
+/** How long a Home row stays on the phone before it is rebuilt. */
+const ROW_KEEP_MS = 6 * 60 * 60_000;
 /** About one slot in four of a genre row is swapped for a random pick. */
 const SURPRISE_RATE = 0.25;
 const ROW_SIZE = 16;
@@ -44,13 +47,23 @@ const cache = new Map<string, { at: number; value: Promise<Result<unknown>> }>()
 const usedSurprises = new Set<string>();
 
 /** Runs `make` once per key within `ttl` milliseconds; failures are not kept. */
-function cached<T>(key: string, make: () => Promise<Result<T>>, ttl = CACHE_MS): Promise<Result<T>> {
+function cached<T>(key: string, make: () => Promise<Result<T>>, ttl = CACHE_MS, persist = false): Promise<Result<T>> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < ttl) return hit.value as Promise<Result<T>>;
+  // Rows kept on the phone show at once when the app reopens, and are only rebuilt after a few hours or on Refresh.
+  if (persist) {
+    const stored = readStored<T>(key, ROW_KEEP_MS);
+    if (stored !== undefined) {
+      const value = Promise.resolve(ok(stored));
+      cache.set(key, { at: Date.now(), value });
+      return value;
+    }
+  }
   const value = make();
   cache.set(key, { at: Date.now(), value });
   value.then((res) => {
     if (!res.ok && cache.get(key)?.value === value) cache.delete(key);
+    else if (res.ok && persist) writeStored(key, res.value);
   });
   return value;
 }
@@ -58,6 +71,7 @@ function cached<T>(key: string, make: () => Promise<Result<T>>, ttl = CACHE_MS):
 /** Forgets every row so the next load picks fresh titles. */
 export function clearHomeCache(): void {
   cache.clear();
+  clearStored("row:");
   usedSurprises.clear();
 }
 
@@ -409,5 +423,5 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id.startsWith("holiday:")) return holidayRow(id.slice("holiday:".length));
     if (id.startsWith("genre-")) return genreRow(Number(id.slice("genre-".length)));
     return Promise.resolve(fail("Unknown row."));
-  }, id === "want" ? 0 : id === "new-episodes" || id === "continue" ? CACHE_MS : Infinity);
+  }, id === "want" ? 0 : id === "new-episodes" || id === "continue" ? CACHE_MS : Infinity, id !== "want" && id !== "new-episodes" && id !== "continue");
 }

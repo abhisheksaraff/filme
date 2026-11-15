@@ -7,7 +7,7 @@ import { useEffect, useRef } from "react";
 import type { Appearance } from "@/lib/domain/appearance";
 import { services } from "@/lib/services";
 import { MOVING_SLUGS, fallbackMovingDates } from "@/lib/domain/holidays";
-import { APPEARANCE_EVENT, applyAppearance, cacheAppearance, cacheMoving, readCachedAppearance, readCachedMoving } from "@/lib/theme";
+import { APPEARANCE_EVENT, appearancePending, applyAppearance, cacheAppearance, cacheMoving, readCachedAppearance, readCachedMoving, setAppearancePending } from "@/lib/theme";
 
 export default function ThemeApplier() {
   const pathname = usePathname();
@@ -38,8 +38,13 @@ export default function ThemeApplier() {
     let cancelled = false;
     services.auth.hasSession().then(async (signedIn) => {
       if (!signedIn || cancelled) return;
-      const res = await services.settings.appearance();
-      if (cancelled || !res.ok) return;
+      // A change that could not be saved earlier goes up first, so the old account copy never replaces it.
+      if (appearancePending()) {
+        const sent = await services.settings.saveAppearance(readCachedAppearance());
+        if (sent.ok) setAppearancePending(false);
+      }
+      const res = appearancePending() ? null : await services.settings.appearance();
+      if (cancelled || !res || !res.ok) return;
       fromServer.current = true;
       current.current = res.value;
       cacheAppearance(res.value);

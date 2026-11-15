@@ -1,101 +1,133 @@
 // components/decor/PageAccents.tsx
-// Now and then, a small piece of the theme appears on a page: a charm by the top corner or a strip above the bottom bar.
-// It is picked fresh on each visit, so it feels found, never fixed; some visits have nothing at all.
+// Now and then, a small festival charm perches on something already on the page: the end of a heading, the corner of
+// a text field, or the corner of a card. They are picked fresh on each visit, so it feels found, never fixed; some
+// visits have nothing at all. Each charm lives inside the thing it sits on, so it scrolls with it and never covers text.
 "use client";
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import ThemeIcon from "@/components/ThemeIcon";
-import { Accent, Garland } from "./art";
-import { Falls, Flickers } from "./Touchy";
+import { Accent } from "./art";
+import { CHARMS } from "./charms";
+import { Falls, Piece } from "./Touchy";
 import { useDecor } from "./useDecor";
 
-/** Pages that already have their own picture or crowd the top corner. */
-const HIDE = ["/", "/login/", "/story/", "/map/", "/home/", "/title/", "/preview/", "/season/", "/episode/"];
+/** Pages that carry their own picture or have nothing to perch on. */
+const HIDE = ["/", "/login/", "/story/", "/map/"];
+/** Pages that open on a cover photo: their big title sits over it, so only the smaller headings are used. */
+const OVER_COVER = ["/title/", "/preview/", "/season/", "/episode/"];
 
-type Strip = "garland" | "diyas" | "icons";
-interface Art {
-  /** Names from the accent library, or `icon` for the theme's own picture. */
-  corner: string[];
-  strip: Strip;
+type Kind = "heading" | "field" | "card";
+interface Spot {
+  id: number;
+  kind: Kind;
+  host: HTMLElement;
+  /** Where inside the host a field or card charm sits, in pixels. */
+  x: number;
+  y: number;
+  name: string;
+  size: number;
 }
 
-const ART: Record<string, Art> = {
-  christmas: { corner: ["snowman", "snowglobe", "wreath", "icon"], strip: "garland" },
-  valentines: { corner: ["cupid", "icon"], strip: "icons" },
-  easter: { corner: ["egg", "icon"], strip: "icons" },
-  halloween: { corner: ["litPumpkin", "icon"], strip: "icons" },
-  birthday: { corner: ["cake", "beach", "rocket", "satellite", "planet", "icon"], strip: "icons" },
-  diwali: { corner: ["diya", "icon"], strip: "diyas" },
-  "new-year": { corner: ["icon"], strip: "icons" },
-  "lunar-new-year": { corner: ["icon"], strip: "icons" },
-  "st-patricks": { corner: ["icon"], strip: "icons" },
-  "canada-day": { corner: ["icon"], strip: "icons" },
-  "eid-al-fitr": { corner: ["icon"], strip: "icons" },
-  "eid-al-adha": { corner: ["icon"], strip: "icons" },
-  hanukkah: { corner: ["icon"], strip: "icons" },
+const FIELD_SELECTOR = 'main input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), main textarea, main select';
+const CARD_SELECTOR = 'main ul > li[class*="rounded"], main section[class*="rounded"]';
+
+const shuffle = <T,>(list: T[]): T[] => {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+};
+const visible = (el: HTMLElement) => {
+  const box = el.getBoundingClientRect();
+  return box.width > 24 && box.height > 8 && !el.closest('nav, [role="dialog"], [aria-hidden="true"]');
 };
 
-type Pick = { kind: "corner"; name: string } | { kind: "strip" } | null;
+/** Page elements that were made positioning anchors for a charm, so they can be put back when the charms leave. */
+const anchored = new Set<HTMLElement>();
+function anchor(host: HTMLElement) {
+  if (getComputedStyle(host).position !== "static") return;
+  host.style.position = "relative";
+  anchored.add(host);
+}
+function releaseAnchors() {
+  anchored.forEach((host) => {
+    host.style.position = "";
+  });
+  anchored.clear();
+}
 
-const roll = (art: Art): Pick => {
-  const r = Math.random();
-  if (r < 0.3) return null;
-  if (r < 0.65) return { kind: "corner", name: art.corner[Math.floor(Math.random() * art.corner.length)] };
-  return { kind: "strip" };
-};
+/** Chooses up to three things on the page to hang charms on. */
+function chooseSpots(slug: string, path: string): Spot[] {
+  const names = CHARMS[slug];
+  if (!names) return [];
+  const pickName = () => names[Math.floor(Math.random() * names.length)];
+  const headings = [...document.querySelectorAll<HTMLElement>(OVER_COVER.includes(path) ? "main h2" : "main h1, main h2")].filter(visible);
+  const fields = [...document.querySelectorAll<HTMLElement>(FIELD_SELECTOR)].filter(visible);
+  const cards = [...document.querySelectorAll<HTMLElement>(CARD_SELECTOR)].filter(visible);
+  let id = 0;
+
+  const spots: Spot[] = [
+    ...shuffle(headings).slice(0, 2).map((el): Spot => ({ id: id++, kind: "heading", host: el, x: 0, y: 0, name: pickName(), size: el.tagName === "H1" ? 34 : 26 })),
+    ...shuffle(fields).slice(0, 1).map((el): Spot => {
+      const host = (el.parentElement ?? el) as HTMLElement;
+      const box = el.getBoundingClientRect();
+      const around = host.getBoundingClientRect();
+      return { id: id++, kind: "field", host, x: box.right - around.left - 34, y: box.top - around.top - 20, name: pickName(), size: 30 };
+    }),
+    ...shuffle(cards).slice(0, 1).map((el): Spot => ({ id: id++, kind: "card", host: el, x: el.getBoundingClientRect().width - 52, y: -16, name: pickName(), size: 34 })),
+  ];
+  const chosen = shuffle(spots).slice(0, 1 + Math.floor(Math.random() * 3));
+  chosen.filter((spot) => spot.kind !== "heading").forEach((spot) => anchor(spot.host));
+  return chosen;
+}
+
+function Charm({ spot, slug }: { spot: Spot; slug: string }) {
+  const body = spot.name === "icon" ? <ThemeIcon slug={slug} size={spot.size} /> : <Accent name={spot.name} size={spot.size} />;
+  // A string of firecrackers pops instead of falling.
+  const inner = spot.name === "firecrackers"
+    ? <Piece colors={["#ffd54a", "#e5322d", "#ff8a2a", "#fff3b0"]} back={600000} slop={14} className="relative inline-block">{body}</Piece>
+    : <Falls slop={14}>{body}</Falls>;
+
+  if (spot.kind === "heading") return <span aria-hidden className="pointer-events-none ml-2 inline-block align-middle">{inner}</span>;
+  return <span aria-hidden className="pointer-events-none absolute z-[1]" style={{ left: spot.x, top: spot.y }}>{inner}</span>;
+}
+
+/** Puts a charm inside its host. */
+function PerchedCharm({ spot, slug }: { spot: Spot; slug: string }) {
+  return createPortal(<Charm spot={spot} slug={slug} />, spot.host);
+}
 
 export default function PageAccents() {
   const path = usePathname() ?? "/";
   const { theme, decorations } = useDecor();
-  const [pick, setPick] = useState<Pick>(null);
-  // Counts visits, so pieces that fell off the screen on one page are back on the next.
-  const [visit, setVisit] = useState(0);
+  const [spots, setSpots] = useState<Spot[]>([]);
   const slug = theme?.slug ?? null;
 
   useEffect(() => {
-    const art = slug ? ART[slug] : null;
-    const timer = setTimeout(() => {
-      setPick(art ? roll(art) : null);
-      setVisit((n) => n + 1);
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [path, slug]);
+    if (!slug || !decorations || HIDE.includes(path)) {
+      const clear = setTimeout(() => setSpots([]), 0);
+      return () => {
+        clearTimeout(clear);
+        releaseAnchors();
+      };
+    }
+    // Some visits get nothing at all; the page is also given a moment to fill in before things are chosen.
+    const nothing = Math.random() < 0.2;
+    const timers: ReturnType<typeof setTimeout>[] = [setTimeout(() => setSpots([]), 0)];
+    if (!nothing) {
+      const scan = () => setSpots((now) => (now.length > 0 ? now : chooseSpots(slug, path)));
+      timers.push(setTimeout(scan, 900), setTimeout(scan, 2600));
+    }
+    return () => {
+      timers.forEach(clearTimeout);
+      releaseAnchors();
+    };
+  }, [path, slug, decorations]);
 
-  const art = slug ? ART[slug] : null;
-  if (!decorations || !slug || !art || !pick || HIDE.includes(path)) return null;
-
-  if (pick.kind === "corner") {
-    return (
-      <div
-        key={visit}
-        aria-hidden
-        className="reveal pointer-events-none fixed right-4 z-10"
-        style={{ top: "calc(max(0.75rem, env(safe-area-inset-top)) + 0.15rem)" }}
-      >
-        <Falls slop={18}>{pick.name === "icon" ? <ThemeIcon slug={slug} size={40} /> : <Accent name={pick.name} size={44} />}</Falls>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      key={visit}
-      aria-hidden
-      className="reveal pointer-events-none fixed inset-x-0 z-10 mx-auto w-full max-w-md px-4"
-      style={{ bottom: "calc(env(safe-area-inset-bottom) + 5.1rem)" }}
-    >
-      {art.strip === "garland" && <Flickers>{(on) => <Garland flicker={on} />}</Flickers>}
-      {art.strip === "diyas" && (
-        <div className="flex justify-around">
-          {[0, 1, 2, 3, 4].map((i) => <Falls key={i}><Accent name="diya" size={34} /></Falls>)}
-        </div>
-      )}
-      {art.strip === "icons" && (
-        <div className="flex justify-around">
-          {[0, 1, 2, 3, 4, 5, 6].map((i) => <Falls key={i} style={{ marginTop: i % 2 ? 6 : 0 }} slop={10}><ThemeIcon slug={slug} size={28} /></Falls>)}
-        </div>
-      )}
-    </div>
-  );
+  if (!slug || !decorations || HIDE.includes(path)) return null;
+  return <>{spots.map((spot) => <PerchedCharm key={spot.id} spot={spot} slug={slug} />)}</>;
 }

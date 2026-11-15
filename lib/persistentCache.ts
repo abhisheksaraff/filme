@@ -48,3 +48,12 @@ export function writeStored(key: string, value: unknown): void {
     // Private browsing can refuse storage; the answer is simply asked for again next time.
   }
 }
+
+/** Forgets every saved answer whose key starts with `prefix`. */
+export function clearStored(prefix: string): void {
+  try {
+    entries().filter((e) => e.key.startsWith(PREFIX + prefix)).forEach((e) => localStorage.removeItem(e.key));
+  } catch {
+    // Nothing to forget without storage.
+  }
+}

@@ -3,6 +3,7 @@
 // results: people first as round photos, then titles as one list.
 "use client";
 
+import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
@@ -180,7 +181,7 @@ function SearchView() {
       if (cancelled) return;
       if (w.ok) setWanted(w.value);
       if (s.ok) setSeen(new Set(s.value));
-      if (r.ok) setRows(r.value);
+      if (r.ok) setRows((prev) => keepIfSame(prev, r.value));
     });
     return () => {
       cancelled = true;

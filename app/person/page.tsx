@@ -2,6 +2,7 @@
 // A cast or crew member: what you have seen them in, and what else they have done.
 "use client";
 
+import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -73,7 +74,7 @@ function PersonView() {
         const res = await services.browse.person(personId);
         if (cancelled) return;
         if (!res.ok) return setProblem(res.error);
-        setPerson(res.value);
+        setPerson((prev) => keepIfSame(prev, res.value));
         loadRelated(personId, res.value.tmdbId).then((list) => !cancelled && setRelated(list));
         if (res.value.tmdbId !== null) {
           services.catalog.person(res.value.tmdbId).then((c) => !cancelled && c.ok && setOther(c.value));

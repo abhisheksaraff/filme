@@ -1,5 +1,6 @@
 // components/decor/art.tsx
 // The drawings used by theme backgrounds and accents. Flat colour, rounded shapes, one highlight; each is an inline SVG.
+import { MORE_ACCENTS } from "./charms";
 import type { CSSProperties, ReactNode } from "react";
 
 const svg = (viewBox: string, children: ReactNode, size: number, className?: string) => (
@@ -138,6 +139,7 @@ const piece = (viewBox: string, body: ReactNode) => ({ viewBox, body });
 
 /** Small accent pieces for beside a page title, drawn on a 48px grid. */
 export const ACCENTS: Record<string, { viewBox: string; body: ReactNode }> = {
+  ...MORE_ACCENTS,
   snowman: piece("0 0 48 48", (
     <>
       <circle cx="24" cy="34" r="11" fill="#f4f8ff" stroke="#c9d6ea" />

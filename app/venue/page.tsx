@@ -2,6 +2,7 @@
 // A cinema, theatre or arena: where it is, and everything you have seen there.
 "use client";
 
+import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -27,7 +28,7 @@ function VenueView() {
     services.browse.venue(id).then(async (res) => {
       if (cancelled) return;
       if (!res.ok) return setProblem(res.error);
-      setVenue(res.value);
+      setVenue((prev) => keepIfSame(prev, res.value));
       // A venue with no position yet is looked up once, then remembered.
       const v = res.value;
       if (v.latitude === null && !(v.type === "home" && !v.address)) {

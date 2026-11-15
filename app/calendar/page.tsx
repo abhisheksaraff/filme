@@ -4,6 +4,7 @@
 // viewings listed underneath.
 "use client";
 
+import { keepIfSame } from "@/lib/same";
 import RatingSlider from "@/components/ui/RatingSlider";
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
@@ -126,7 +127,7 @@ export default function CalendarPage() {
     let cancelled = false;
     loadStatRows().then((res) => {
       if (cancelled) return;
-      if (res.ok) setRows(res.value);
+      if (res.ok) setRows((prev) => keepIfSame(prev, res.value));
       else setProblem(res.error);
     });
     return () => {

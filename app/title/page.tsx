@@ -2,6 +2,7 @@
 // One title: a hero picture, credits, posters and every time it has been watched.
 "use client";
 
+import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
 import { toast } from "@/components/Toast";
 import RoundButton from "@/components/RoundButton";
@@ -59,7 +60,7 @@ function TitleView() {
     Promise.all([services.log.titleDetail(id), services.browse.titleCredits(id)]).then(([res, cr]) => {
       if (cancelled) return;
       if (res.ok) {
-        setDetail(res.value);
+        setDetail((prev) => keepIfSame(prev, res.value));
         setProblem(null);
         if (res.value.tmdbId !== null && (res.value.category === "Movie" || res.value.category === "TV Show")) {
           services.wanted.status(res.value.category, res.value.tmdbId).then((s) => !cancelled && s.ok && setWanted(s.value.wanted));

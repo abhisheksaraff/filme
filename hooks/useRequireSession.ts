@@ -2,25 +2,32 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { hasStoredSession } from "@/lib/storedSession";
 import { services } from "@/lib/services";
 
-/** Sends visitors who are not signed in to the login page; returns true once a session is confirmed. */
+const noSubscription = () => () => {};
+
+/**
+ * Sends visitors who are not signed in to the login page; returns true once the page may be drawn.
+ * A saved sign-in on the phone lets the page draw at once, with no blank moment, while the real check runs behind it.
+ */
 export function useRequireSession(): boolean {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const saved = useSyncExternalStore(noSubscription, hasStoredSession, () => false);
+  const [confirmed, setConfirmed] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     services.auth.hasSession().then((signedIn) => {
       if (cancelled) return;
-      if (signedIn) setReady(true);
-      else router.replace("/login/");
+      setConfirmed(signedIn);
+      if (!signedIn) router.replace("/login/");
     });
     return () => {
       cancelled = true;
     };
   }, [router]);
 
-  return ready;
+  return confirmed ?? saved;
 }

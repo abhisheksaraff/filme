@@ -2,6 +2,7 @@
 // Totals and charts over everything you have logged, for all time or one year.
 "use client";
 
+import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
@@ -54,7 +55,7 @@ export default function StatsPage() {
     let cancelled = false;
     loadStatRows().then((res) => {
       if (cancelled) return;
-      if (res.ok) setRows(res.value);
+      if (res.ok) setRows((prev) => keepIfSame(prev, res.value));
       else setProblem(res.error);
     });
     services.wanted.cleared().then((res) => !cancelled && res.ok && setCleared(res.value));

@@ -172,7 +172,8 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
           <div key={img.id ?? img.url} className="flex h-full w-full shrink-0 snap-center items-center justify-center px-3">
             {/* Only the pictures next to the current one are loaded, so a long list stays light. */}
             {Math.abs(i - at) <= 1 && (
-              <div className="relative inline-flex max-h-full max-w-full transition-transform" style={i === at ? { transform: `scale(${zoom})` } : undefined}>
+              // The box fills the space it is given, so the picture is measured against something definite and shows at full size.
+              <div className="relative flex h-full w-full items-center justify-center transition-transform" style={i === at ? { transform: `scale(${zoom})` } : undefined}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.url} alt={img.note ?? "Picture"} className="max-h-full max-w-full object-contain" />
                 {/* The main picture wears a star on its corner. */}

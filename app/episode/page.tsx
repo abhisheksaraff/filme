@@ -2,6 +2,7 @@
 // One episode: its still, details and every viewing that covered it, with bookmark, tick, Watch and +.
 "use client";
 
+import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -43,7 +44,7 @@ function EpisodeView() {
       const res = await services.log.titleDetail(id);
       if (cancelled) return;
       if (!res.ok || res.value.tmdbId === null) return setProblem(res.ok ? "This show has no catalogue page." : res.error);
-      setDetail(res.value);
+      setDetail((prev) => keepIfSame(prev, res.value));
       const [season, w] = await Promise.all([
         services.catalog.season(res.value.tmdbId, s),
         services.wanted.status("TV Show", res.value.tmdbId, { season: s, episode: e }),

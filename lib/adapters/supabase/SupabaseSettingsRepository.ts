@@ -11,6 +11,15 @@ import { getSupabase } from "./client";
 
 const rowIds = z.array(z.string());
 
+/** Says why a settings call failed, in words that point at the fix; a missing column means a migration has not been run. */
+function settingsProblem(error: { code?: string; message?: string }, action: "load" | "save"): string {
+  const text = error.message ?? "";
+  if (error.code === "PGRST204" || error.code === "42703" || /column/i.test(text)) {
+    return `Your appearance couldn't be ${action === "save" ? "saved" : "loaded"}: the database is missing a newer setting. Run the latest migration, then try again.`;
+  }
+  return action === "save" ? "Could not save your appearance settings." : "Could not load your appearance settings.";
+}
+
 export const supabaseSettingsRepository: SettingsRepository = {
   async homeRows() {
     const db = getSupabase();
@@ -46,7 +55,7 @@ export const supabaseSettingsRepository: SettingsRepository = {
       .from("user_settings")
       .select("theme_mode, holiday_theme, holiday_theme_enabled, decorations_enabled, animations_enabled, birthday")
       .maybeSingle();
-    if (error) return fail("Could not load your appearance settings.");
+    if (error) return fail(settingsProblem(error, "load"));
     if (!data) return ok(DEFAULT_APPEARANCE);
     const parsed = appearanceSchema.safeParse({
       themeMode: data.theme_mode,
@@ -56,7 +65,8 @@ export const supabaseSettingsRepository: SettingsRepository = {
       decorationsEnabled: data.decorations_enabled,
       birthday: data.birthday,
     });
-    return ok(parsed.success ? parsed.data : DEFAULT_APPEARANCE);
+    // An answer that cannot be read is a failure, not a reset: callers then keep the look already on the phone.
+    return parsed.success ? ok(parsed.data) : fail("Your saved appearance could not be read, so the look on this phone was kept.");
   },
 
   async saveAppearance(appearance) {
@@ -77,7 +87,7 @@ export const supabaseSettingsRepository: SettingsRepository = {
       },
       { onConflict: "user_id" },
     );
-    return error ? fail("Could not save your appearance settings.") : ok(undefined);
+    return error ? fail(settingsProblem(error, "save")) : ok(undefined);
   },
 
   async location() {
