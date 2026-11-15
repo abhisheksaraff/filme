@@ -457,7 +457,7 @@ function SearchView() {
           enterKeyHint={askOn ? "go" : "search"}
           // 16px keeps iOS Safari from zooming the page when the field is focused.
           aria-busy={asking}
-          className={`h-11 w-full rounded-full bg-neutral-100 pl-12 pr-5 text-base transition-opacity dark:bg-neutral-800 ${asking ? "opacity-60" : ""}`}
+          className={`h-11 w-full rounded-full bg-neutral-100 pl-12 pr-5 text-base placeholder:text-sm transition-opacity dark:bg-neutral-800 ${asking ? "opacity-60" : ""}`}
         />
       </form>
       <div className="flex items-center gap-3 text-sm">

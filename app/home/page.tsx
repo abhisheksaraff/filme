@@ -66,7 +66,7 @@ export default function HomePage() {
       <div className="flex items-center gap-2">
         <Link href="/search/" onClick={() => searchFocus.prime()} className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-neutral-100 px-4 text-base text-[color-mix(in_srgb,var(--foreground)_50%,transparent)] dark:bg-neutral-800">
           <span className="shrink-0"><Icon name="search" size={24} /></span>
-          <span className="truncate">Search movies, shows, concerts…</span>
+          <span className="truncate text-sm">Search movies, shows, concerts…</span>
         </Link>
         <RoundButton icon="refresh" label="Refresh" onClick={() => { clearHomeCache(); setSettled(new Set()); setNonce((n) => n + 1); }} />
         <RoundButton icon="sliders" label="Customize Home" href="/home/customize/" />

@@ -1,7 +1,7 @@
 // components/ui/RatingSlider.tsx
 // A 0 to 10 rating in half steps. The track fills black as you slide, and a round black handle carries the score.
 // No rating is its own state, separate from 0: the track is empty and the handle shows a dash.
-// While a finger is down, a bubble with the score floats above the handle so the finger never hides it.
+// While a finger is down, a round bubble with the score floats above the handle (and the handle goes blank) so the finger never hides it.
 "use client";
 
 import { useState } from "react";
@@ -27,7 +27,7 @@ export default function RatingSlider({ value, onChange, label = "Rating" }: Prop
   return (
     <div className="flex flex-col gap-1">
       {/* The room above is for the bubble, so it never covers the label. */}
-      <div className="relative mt-12 h-9 select-none touch-pan-y">
+      <div className="relative mt-14 h-9 select-none touch-pan-y">
         <div aria-hidden className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-neutral-200 dark:bg-neutral-700" />
         <div aria-hidden className="absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-neutral-950 dark:bg-white" style={{ width: `calc(${slide} + ${THUMB / 2}px)` }} />
         <div
@@ -35,14 +35,14 @@ export default function RatingSlider({ value, onChange, label = "Rating" }: Prop
           className="absolute top-0 flex items-center justify-center rounded-full bg-neutral-950 text-sm font-medium text-white shadow-md dark:bg-white dark:text-neutral-950"
           style={{ width: THUMB, height: THUMB, left: `calc(${slide})` }}
         >
-          {value === null ? "–" : show(value)}
+          {holding ? "" : value === null ? "–" : show(value)}
         </div>
         <div
           aria-hidden
-          className={`pointer-events-none absolute -top-11 flex flex-col items-center transition-opacity duration-150 ${holding ? "opacity-100" : "opacity-0"}`}
+          className={`pointer-events-none absolute -top-[3.25rem] flex flex-col items-center transition-opacity duration-150 ${holding ? "opacity-100" : "opacity-0"}`}
           style={{ width: THUMB, left: `calc(${slide})` }}
         >
-          <span className="flex h-9 min-w-12 items-center justify-center rounded-2xl bg-neutral-950 px-3 text-base font-medium text-white dark:bg-white dark:text-neutral-950">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-950 text-sm font-medium text-white dark:bg-white dark:text-neutral-950">
             {value === null ? "–" : show(value)}
           </span>
           <span className="-mt-px h-2 w-3 bg-neutral-950 [clip-path:polygon(0_0,100%_0,50%_100%)] dark:bg-white" />

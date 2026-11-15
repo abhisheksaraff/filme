@@ -226,7 +226,7 @@ function TitleView() {
             </section>
 
             <h2 className="font-serif text-xl">Your viewings</h2>
-            <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
+            <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 lg:grid-cols-3">
               {viewings.map((v, i) => (
                 <WatchedCard
                   key={v.id}

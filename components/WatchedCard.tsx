@@ -93,7 +93,7 @@ function PictureStack({ images }: { images: StoredImage[] }) {
       <ul className="relative top-[3px] z-10 ml-auto flex items-center pl-3" aria-label="Photos and stubs">
         {shown.map((image, i) => (
           <li key={image.id} className={i > 0 ? "-ml-3" : ""}>
-            <button type="button" onClick={() => setStart(i)} aria-label={image.note ?? `Picture ${i + 1}`}
+            <button type="button" onClick={() => setStart(0)} aria-label={image.note ?? `Picture ${i + 1}`}
               className="block h-8 w-8 overflow-hidden rounded-full bg-neutral-200 shadow-md ring-2 ring-white dark:bg-neutral-800 dark:ring-neutral-900">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={image.url} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -102,7 +102,7 @@ function PictureStack({ images }: { images: StoredImage[] }) {
         ))}
         {many && [2, 3].map((n) => (
           <li key={n} className="-ml-3">
-            <button type="button" onClick={() => setStart(n)} aria-label="More pictures"
+            <button type="button" onClick={() => setStart(0)} aria-label="More pictures"
               className="block h-8 w-8 rounded-full bg-neutral-950 shadow-[0_3px_8px_rgba(0,0,0,0.45)] ring-2 ring-white dark:ring-neutral-900" />
           </li>
         ))}
@@ -159,7 +159,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
 
   return (
     <li ref={root} id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8) } as React.CSSProperties}
-      className={`${animate ? "rise-item" : ""} relative scroll-mt-24 rounded-3xl bg-white p-1 ${smooth ? "transition-[box-shadow,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" : ""} dark:bg-neutral-900 ${
+      className={`${animate ? "rise-item" : ""} relative flex flex-col scroll-mt-24 rounded-3xl bg-white p-1 ${smooth ? "transition-[box-shadow,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" : ""} dark:bg-neutral-900 ${
         open
           ? `shadow-[0_2px_4px_rgba(0,0,0,0.08),0_24px_44px_-10px_rgba(0,0,0,0.45),0_8px_16px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_44px_-10px_rgba(0,0,0,0.95)] ${more ? "-translate-y-0.5" : "scale-[1.025]"}`
           : "shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]"
@@ -206,7 +206,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
         )}
       </div>
 
-      <div className="mt-2 px-3">
+      <div className="mt-auto px-3 pt-2">
         <ViewingDetails view="summary" auditorium={entry.auditorium} seats={entry.seats} totalTickets={entry.totalTickets} format={entry.primaryFormat} addons={entry.addons} watchedOn={entry.watchedOn} watchedAt={entry.watchedAt} trailing={<PictureStack images={images} />} />
       </div>
 

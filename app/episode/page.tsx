@@ -205,10 +205,10 @@ function EpisodeView() {
       <nav aria-label="Episodes" className="pointer-events-none fixed inset-x-0 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-20">
         <div className="mx-auto flex w-full max-w-md items-center justify-between px-4 md:max-w-3xl lg:max-w-5xl">
           {previous ? (
-            <Link replace href={`/episode/?${showQuery}&s=${s}&e=${previous.episode}`} aria-label="Previous episode" className="pointer-events-auto flex h-12 w-12 items-center justify-center text-neutral-950 dark:text-white"><Icon name="left" size={30} /></Link>
+            <Link replace href={`/episode/?${showQuery}&s=${s}&e=${previous.episode}`} aria-label="Previous episode" className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-950 shadow-[0_6px_16px_rgba(0,0,0,0.25)] dark:bg-neutral-800 dark:text-white dark:shadow-[0_6px_16px_rgba(0,0,0,0.7)]"><Icon name="left" size={30} /></Link>
           ) : <span className="h-12 w-12" />}
           {next ? (
-            <Link replace href={`/episode/?${showQuery}&s=${s}&e=${next.episode}`} aria-label="Next episode" className="pointer-events-auto flex h-12 w-12 items-center justify-center text-neutral-950 dark:text-white"><Icon name="right" size={30} /></Link>
+            <Link replace href={`/episode/?${showQuery}&s=${s}&e=${next.episode}`} aria-label="Next episode" className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-950 shadow-[0_6px_16px_rgba(0,0,0,0.25)] dark:bg-neutral-800 dark:text-white dark:shadow-[0_6px_16px_rgba(0,0,0,0.7)]"><Icon name="right" size={30} /></Link>
           ) : <span className="h-12 w-12" />}
         </div>
       </nav>
