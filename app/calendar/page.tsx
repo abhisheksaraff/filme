@@ -230,7 +230,7 @@ export default function CalendarPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-4 pt-6">
       <h1 className="px-1 font-serif text-3xl tracking-tight">Calendar</h1>
 
-      <header className="flex items-center justify-between px-1">
+      <header className="mt-3 flex items-center justify-between px-1">
         <div className="flex items-center gap-1">
           <RoundButton icon="left" label="Previous month" size="sm" onClick={() => goTo(current - 1)} />
           <button type="button" onClick={() => setPickerOpen(true)} aria-label="Choose month and year" className="rounded-full px-2 py-1 font-serif text-xl tracking-tight">

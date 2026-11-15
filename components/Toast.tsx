@@ -3,14 +3,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast, TOAST_EVENT } from "@/lib/toast";
 
 const SHOW_MS = 2000;
-const EVENT = "filme-toast";
-
-/** Shows a short message from anywhere; ToastHost (mounted once in the layout) draws it. */
-export function toast(message: string) {
-  window.dispatchEvent(new CustomEvent<string>(EVENT, { detail: message }));
-}
+export { toast };
 
 export default function ToastHost() {
   const [current, setCurrent] = useState<{ id: number; message: string } | null>(null);
@@ -23,9 +19,9 @@ export default function ToastHost() {
       setCurrent({ id: ++n, message: (e as CustomEvent<string>).detail });
       timer = setTimeout(() => setCurrent(null), SHOW_MS);
     };
-    window.addEventListener(EVENT, onToast);
+    window.addEventListener(TOAST_EVENT, onToast);
     return () => {
-      window.removeEventListener(EVENT, onToast);
+      window.removeEventListener(TOAST_EVENT, onToast);
       clearTimeout(timer);
     };
   }, []);

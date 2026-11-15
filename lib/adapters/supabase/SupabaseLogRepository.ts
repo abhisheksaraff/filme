@@ -178,6 +178,15 @@ export const supabaseLogRepository: LogRepository = {
     if (session.error) return fail("Could not save the viewing.");
     const sessionId = session.data.id as string;
 
+    // Watching a title takes it off the Watchlist; it is marked cleared (not deleted) so it can be counted.
+    const cleared = await db
+      .from("want_to_watch")
+      .update({ cleared_at: new Date().toISOString() })
+      .eq("media_id", media.value)
+      .is("cleared_at", null)
+      .select("id");
+    const clearedWatchlist = !cleared.error && (cleared.data?.length ?? 0) > 0;
+
     // Upload the stubs; if anything goes wrong, undo the viewing and the files already sent.
     const uploaded: { path: string; store: string }[] = [];
     try {
@@ -198,7 +207,7 @@ export const supabaseLogRepository: LogRepository = {
       return fail("Could not upload the ticket images. Nothing was saved.");
     }
 
-    return ok({ sessionId, mediaId: media.value });
+    return ok({ sessionId, mediaId: media.value, clearedWatchlist });
   },
 
   async recent(limit) {

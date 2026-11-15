@@ -11,6 +11,12 @@ export interface WantedItem {
   posterPath: string | null;
 }
 
+/** A Watchlist item that was cleared by watching the title. */
+export interface ClearedItem {
+  addedAt: string;
+  clearedAt: string;
+}
+
 /** Where a catalogue title stands in the user's own data. */
 export interface TitleStatus {
   /** Our own id for the title, once it has been saved for any reason. */
@@ -26,4 +32,6 @@ export interface WantedRepository {
   add(details: CatalogDetails): Promise<Result<string>>;
   remove(mediaId: string): Promise<Result<void>>;
   status(kind: CatalogKind, tmdbId: number): Promise<Result<TitleStatus>>;
+  /** Items taken off the list by watching them, with when they were added and cleared. */
+  cleared(): Promise<Result<ClearedItem[]>>;
 }

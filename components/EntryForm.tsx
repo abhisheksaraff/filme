@@ -22,6 +22,8 @@ interface Props {
   titleExtra?: React.ReactNode;
   /** Hides the type and title, for editing a viewing of a title that is already saved. */
   lockTitle?: boolean;
+  /** A round button kept at the right of the type choices, such as ticket upload. */
+  typeAction?: React.ReactNode;
   disabled?: boolean;
 }
 
@@ -57,7 +59,7 @@ async function findVenues(query: string): Promise<VenueSuggestion[]> {
   return [...mine, ...found];
 }
 
-export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, disabled }: Props) {
+export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, typeAction, disabled }: Props) {
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => onChange({ ...draft, [key]: value });
   // Rarely used fields stay tucked away unless they already hold something.
   const [more, setMore] = useState(
@@ -135,7 +137,9 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
     <fieldset disabled={disabled} className="flex flex-col gap-4">
       {!lockTitle && (
         <>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Type">
+        {/* The button keeps its own column, top-aligned with the first row of choices however many rows they take. */}
+        <div className="flex items-start gap-2">
+        <div className="flex flex-1 flex-wrap gap-2" role="radiogroup" aria-label="Type">
           {MEDIA_CATEGORIES.map((c) => (
             <button key={c} type="button" role="radio" aria-checked={draft.category === c}
               onClick={() => edit("category", { ...draft, category: c as MediaCategory })}
@@ -143,6 +147,8 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
               {c}
             </button>
           ))}
+        </div>
+        {typeAction && <div className="shrink-0">{typeAction}</div>}
         </div>
 
         <div className="flex flex-col gap-2">

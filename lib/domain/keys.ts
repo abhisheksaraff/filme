@@ -1,7 +1,7 @@
 // lib/domain/keys.ts
 // Vocabulary for the API keys screen.
 
-export const KEY_PROVIDERS = ["gemini", "openai", "claude", "tmdb"] as const;
+export const KEY_PROVIDERS = ["gemini", "openai", "claude", "tmdb", "omdb"] as const;
 export type KeyProvider = (typeof KEY_PROVIDERS)[number];
 
 /** Providers that read tickets; they have a model list and a place in the fallback order. */
@@ -13,10 +13,11 @@ export const PROVIDER_LABELS: Record<KeyProvider, string> = {
   openai: "OpenAI",
   claude: "Anthropic Claude",
   tmdb: "TMDB",
+  omdb: "OMDb (IMDb ratings)",
 };
 
 export function isAiProvider(provider: KeyProvider): provider is AiKeyProvider {
-  return provider !== "tmdb";
+  return provider !== "tmdb" && provider !== "omdb";
 }
 
 /** A saved key as the app sees it: never the key itself, only a hint to recognise it. */

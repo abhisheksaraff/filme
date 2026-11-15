@@ -1,6 +1,6 @@
 // lib/watch.ts
 // Works out where the Watch button should go: builds the candidate links, asks the server which
-// ones exist, and opens the result in Brave on iPhone. Results are kept for a few minutes.
+// ones exist, and opens the result in Brave on iPhone, iPad and Android. Results are kept for a few minutes.
 import { callFunction } from "@/lib/adapters/supabase/functions";
 import { watchCandidates, type WatchContext } from "@/lib/domain/watchLinks";
 import { fail, ok, type Result } from "@/lib/ports/result";
@@ -59,8 +59,20 @@ export function forgetWatchChecks(): void {
 
 const onIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-/** Opens a link in Brave on iPhone and iPad; anywhere else Brave's link type does not exist, so it opens normally. */
+const onAndroid = () => /Android/i.test(navigator.userAgent);
+
+/** Android's own kind of link: names Brave as the app, and the page itself to use if Brave is not installed. */
+function braveIntent(url: URL): string {
+  const rest = `${url.host}${url.pathname}${url.search}`;
+  return `intent://${rest}#Intent;scheme=${url.protocol.replace(":", "")};package=com.brave.browser;S.browser_fallback_url=${encodeURIComponent(url.href)};end`;
+}
+
+/**
+ * Opens a link in Brave on iPhone, iPad and Android. A computer's browser cannot hand a page to another
+ * browser, so there it opens in a new tab.
+ */
 export function openWatchLink(url: string): void {
   if (onIos()) window.location.href = `brave://open-url?url=${encodeURIComponent(url)}`;
+  else if (onAndroid()) window.location.href = braveIntent(new URL(url));
   else window.open(url, "_blank", "noopener,noreferrer");
 }

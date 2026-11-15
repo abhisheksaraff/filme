@@ -53,6 +53,8 @@ export interface CatalogHit extends CatalogMatch {
 export interface CatalogPerson {
   name: string;
   biography: string | null;
+  /** null when the catalogue has no IMDb page for them. */
+  imdbId: string | null;
   profileUrl: string | null;
   works: CatalogHit[];
 }
@@ -109,6 +111,8 @@ export interface Catalog {
   /** Titles the catalogue suggests for people who liked this one. */
   recommendations(match: CatalogMatch): Promise<Result<CatalogHit[]>>;
   person(tmdbId: number): Promise<Result<CatalogPerson>>;
+  /** The people credited most often alongside this person, from their best-known titles. */
+  relatedPeople(tmdbId: number): Promise<Result<CatalogPersonHit[]>>;
   /** A few people whose name fits what has been typed. */
   searchPeople(query: string): Promise<Result<CatalogPersonHit[]>>;
   /** Every episode of one season, or of the whole show when season is null. */

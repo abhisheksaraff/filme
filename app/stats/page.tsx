@@ -8,6 +8,8 @@ import { usePageState } from "@/lib/pageMemory";
 import BarList from "@/components/BarList";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { computeStats, formatDuration, statYears, type StatRow } from "@/lib/domain/stats";
+import type { ClearedItem } from "@/lib/ports/wanted";
+import { services } from "@/lib/services";
 import { languageName, loadStatRows } from "@/lib/home/rows";
 
 function Tile({ label, value }: { label: string; value: string }) {
@@ -17,6 +19,14 @@ function Tile({ label, value }: { label: string; value: string }) {
       <span className="text-xs text-neutral-500">{label}</span>
     </div>
   );
+}
+
+/** How long something waited on the Watchlist, in the largest sensible unit. */
+function waitText(days: number): string {
+  if (days < 1) return "<1 day";
+  if (days < 60) return `${Math.round(days)} ${Math.round(days) === 1 ? "day" : "days"}`;
+  if (days < 730) return `${Math.round(days / 30)} months`;
+  return `${(days / 365).toFixed(1)} years`;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -32,6 +42,7 @@ export default function StatsPage() {
   const ready = useRequireSession();
   const [rows, setRows] = useState<StatRow[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [cleared, setCleared] = useState<ClearedItem[]>([]);
   const [year, setYear] = usePageState<number | null>("stats.year", null);
   const [from, setFrom] = usePageState("stats.from", "");
   const [to, setTo] = usePageState("stats.to", "");
@@ -44,6 +55,7 @@ export default function StatsPage() {
       if (res.ok) setRows(res.value);
       else setProblem(res.error);
     });
+    services.wanted.cleared().then((res) => !cancelled && res.ok && setCleared(res.value));
     return () => {
       cancelled = true;
     };
@@ -55,6 +67,13 @@ export default function StatsPage() {
   // A custom range overrides the year chips.
   const custom = from !== "" || to !== "";
   const stats = rows ? computeStats(rows, custom ? null : year, custom ? { from: from || null, to: to || null } : undefined) : null;
+  // Watchlist items cleared by watching them, within the same period as everything else on the page.
+  const clearedHere = cleared.filter((c) => {
+    const day = c.clearedAt.slice(0, 10);
+    if (custom) return (!from || day >= from) && (!to || day <= to);
+    return year === null || day.startsWith(String(year));
+  });
+  const waitDays = clearedHere.length === 0 ? null : clearedHere.reduce((sum, c) => sum + Math.max(0, Date.parse(c.clearedAt) - Date.parse(c.addedAt)), 0) / clearedHere.length / 86_400_000;
   const chip = (active: boolean) =>
     `rounded-full border px-3 py-1 text-sm ${active ? "border-[var(--accent,#171717)] font-medium" : "border-neutral-300 dark:border-neutral-700"}`;
 
@@ -90,6 +109,8 @@ export default function StatsPage() {
                 <Tile label="Avg rating" value={stats.averageRating === null ? "—" : stats.averageRating.toFixed(1)} />
                 <Tile label="Rewatches" value={String(stats.rewatches)} />
                 <Tile label="Venues" value={stats.uniqueVenues > 0 ? String(stats.uniqueVenues) : "—"} />
+                <Tile label="Watchlist cleared" value={String(clearedHere.length)} />
+                <Tile label="Avg on Watchlist" value={waitDays === null ? "—" : waitText(waitDays)} />
               </div>
 
               {year === null && !custom ? (

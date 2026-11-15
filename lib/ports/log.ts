@@ -69,7 +69,7 @@ export interface LogRepository {
    * Saves one viewing with its title, venue and ticket images. If any part fails, the viewing is
    * removed again so nothing half-saved is left behind.
    */
-  saveEntry(entry: LogEntry, stubs: Blob[]): Promise<Result<{ sessionId: string; mediaId: string }>>;
+  saveEntry(entry: LogEntry, stubs: Blob[]): Promise<Result<{ sessionId: string; mediaId: string; clearedWatchlist: boolean }>>;
   recent(limit: number): Promise<Result<RecentEntry[]>>;
 
   titleDetail(mediaId: string): Promise<Result<TitleDetail>>;

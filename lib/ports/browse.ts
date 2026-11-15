@@ -106,6 +106,11 @@ export interface BrowseRepository {
   searchPeople(query: string): Promise<Result<PersonPick[]>>;
   /** Our own id for a person TMDB knows, or null if they are not saved yet. */
   personIdByTmdb(tmdbId: number): Promise<Result<string | null>>;
+  /** Related people saved from an earlier look at this person; null when there is none yet. */
+  savedRelated(tmdbId: number): Promise<Result<PersonPick[] | null>>;
+  saveRelated(tmdbId: number, people: PersonPick[]): Promise<Result<void>>;
+  /** People who share titles with this person in the user's own log, most shared first. */
+  relatedFromLog(personId: string): Promise<Result<PersonPick[]>>;
   venue(id: string): Promise<Result<VenueDetail>>;
   venuePoints(): Promise<Result<VenuePoint[]>>;
   /** Venues that have no position yet. */

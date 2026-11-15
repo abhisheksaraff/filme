@@ -3,6 +3,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 interface Props {
   /** Makes the title a link, such as from a viewing back to its movie. */
@@ -13,9 +14,11 @@ interface Props {
   /** Year, runtime and kind, shown under the title. */
   subtitle: string;
   loading?: boolean;
+  /** Shown under the subtitle, such as the IMDb link and ratings. */
+  extra?: ReactNode;
 }
 
-export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loading, titleHref }: Props) {
+export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loading, titleHref, extra }: Props) {
   return (
     <header>
       <div className="relative h-56 w-full overflow-hidden bg-neutral-300 dark:bg-neutral-800">
@@ -38,6 +41,7 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
         <div className="flex min-w-0 flex-col gap-1 pb-1">
           <h1 className="font-serif text-2xl leading-tight tracking-tight">{titleHref ? <Link href={titleHref}>{title}</Link> : title}</h1>
           <span className="text-sm text-neutral-500">{subtitle}</span>
+          {extra}
         </div>
       </div>
     </header>

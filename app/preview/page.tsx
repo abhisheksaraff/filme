@@ -7,11 +7,13 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import PersonCircle from "@/components/PersonCircle";
+import RatingsLine from "@/components/RatingsLine";
 import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { CatalogDetails, CatalogKind } from "@/lib/ports/catalog";
+import type { TitleLinks } from "@/lib/ports/ratings";
 import type { TitleStatus } from "@/lib/ports/wanted";
 import { services } from "@/lib/services";
 
@@ -28,6 +30,7 @@ function PreviewView() {
   const [status, setStatus] = useState<TitleStatus | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [links, setLinks] = useState<TitleLinks | null>(null);
 
   useEffect(() => {
     if (!ready || kind === null || !Number.isInteger(id) || id <= 0) return;
@@ -37,6 +40,11 @@ function PreviewView() {
       if (d.ok) setDetails(d.value);
       else setProblem(d.error);
       if (s.ok) setStatus(s.value);
+      if (d.ok) {
+        services.ratings
+          .forTitle({ mediaId: s.ok ? s.value.mediaId : null, kind, tmdbId: id, known: { imdbId: d.value.imdbId, tmdbRating: d.value.voteAverage } })
+          .then((r) => !cancelled && r.ok && setLinks(r.value));
+      }
     });
     return () => {
       cancelled = true;
@@ -82,6 +90,7 @@ function PreviewView() {
         title={details?.title ?? ""}
         subtitle={details ? [details.releaseYear, details.runtime ? `${details.runtime} min` : null, details.category].filter(Boolean).join(" · ") : ""}
         loading={!details && !problem}
+        extra={details && <RatingsLine links={links} mine={null} />}
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">

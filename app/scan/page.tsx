@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import PosterChooser, { type CoverChoice } from "@/components/PosterChooser";
 import RoundButton from "@/components/RoundButton";
+import { toast } from "@/lib/toast";
 import UploadToImages, { type FileProcessingError } from "@/components/UploadToImages";
 import { OcrClient } from "@/lib/ocrClient";
 import EntryForm from "@/components/EntryForm";
@@ -197,6 +198,7 @@ export default function ScanPage() {
         setBusy(null);
         return;
       }
+      if (saved.value.clearedWatchlist) toast("Removed from watchlist");
       // Chosen posters and covers are applied to the title; a custom upload replaces any earlier one.
       for (const [choice, kind] of [[poster, "poster"], [backdrop, "backdrop"]] as const) {
         if (choice?.kind === "tmdb") await services.images.useTmdbCover(saved.value.mediaId, kind, choice.path);
@@ -252,10 +254,7 @@ export default function ScanPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-6">
       {busy && <LoadingOverlay label={busy} />}
 
-      <header className="flex items-center justify-between gap-3">
-        <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
-        <RoundButton icon="stubUpload" label="Upload ticket stubs" tone="dark" size="lg" className="translate-y-1" onClick={() => document.getElementById("stub-upload")?.click()} />
-      </header>
+      <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
       <UploadToImages
         id="stub-upload"
         onUpload={(imgs, errs) => {
@@ -279,7 +278,14 @@ export default function ScanPage() {
       )}
 
       <form onSubmit={onSave} className="flex flex-col gap-5">
-        <EntryForm draft={draft} onChange={setDraft} onUserEdit={onUserEdit} titleExtra={suggestions} disabled={busy !== null} />
+        <EntryForm
+          draft={draft}
+          onChange={setDraft}
+          onUserEdit={onUserEdit}
+          titleExtra={suggestions}
+          typeAction={<RoundButton icon="stubUpload" label="Upload ticket stubs" tone="dark" size="lg" onClick={() => document.getElementById("stub-upload")?.click()} />}
+          disabled={busy !== null}
+        />
 
         {!match && canSearch && draft.title.trim() && hits.length === 0 && (
           <p className="px-1 text-xs text-neutral-500">Pick a title from the list to use TMDB posters. Otherwise it is saved as a custom title.</p>

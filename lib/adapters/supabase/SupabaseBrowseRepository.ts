@@ -1,6 +1,6 @@
 // lib/adapters/supabase/SupabaseBrowseRepository.ts
 // Reads people, venues and credits for the pages that link between them.
-import type { BrowseRepository, PersonWork } from "@/lib/ports/browse";
+import type { BrowseRepository, PersonPick, PersonWork } from "@/lib/ports/browse";
 import { fail, ok } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 import { lastHomeVenue, literal } from "./venues";
@@ -89,6 +89,40 @@ export const supabaseBrowseRepository: BrowseRepository = {
   async personIdByTmdb(tmdbId) {
     const { data, error } = await getSupabase().from("people").select("id").eq("tmdb_id", tmdbId).maybeSingle();
     return error ? fail("Could not look up that person.") : ok((data?.id as string | undefined) ?? null);
+  },
+
+  async savedRelated(tmdbId) {
+    const { data, error } = await getSupabase().from("related_people").select("people").eq("tmdb_id", tmdbId).maybeSingle();
+    if (error) return fail("Could not load related people.");
+    return ok(data ? (data.people as PersonPick[]) : null);
+  },
+
+  async saveRelated(tmdbId, people) {
+    const { error } = await getSupabase().from("related_people").upsert({ tmdb_id: tmdbId, people, computed_at: new Date().toISOString() }, { onConflict: "user_id,tmdb_id" });
+    return error ? fail("Could not save related people.") : ok(undefined);
+  },
+
+  async relatedFromLog(personId) {
+    const db = getSupabase();
+    const mine = await db.from("media_people").select("media_id").eq("person_id", personId);
+    if (mine.error) return fail("Could not load related people.");
+    const mediaIds = [...new Set(mine.data.map((r) => r.media_id as string))];
+    if (mediaIds.length === 0) return ok([]);
+    const others = await db
+      .from("media_people")
+      .select("person_id, person:people(id, tmdb_id, name, profile_path)")
+      .in("media_id", mediaIds)
+      .neq("person_id", personId);
+    if (others.error) return fail("Could not load related people.");
+    const counts = new Map<string, { pick: PersonPick; n: number }>();
+    for (const row of others.data) {
+      const p = one<{ id: string; tmdb_id: number | null; name: string; profile_path: string | null }>(row.person);
+      if (!p) continue;
+      const entry = counts.get(p.id) ?? { pick: { personId: p.id, tmdbId: p.tmdb_id, name: p.name, profilePath: p.profile_path }, n: 0 };
+      entry.n++;
+      counts.set(p.id, entry);
+    }
+    return ok([...counts.values()].sort((a, b) => b.n - a.n || a.pick.name.localeCompare(b.pick.name)).slice(0, 14).map((c) => c.pick));
   },
 
   async venue(id) {

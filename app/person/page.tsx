@@ -9,9 +9,31 @@ import Icon from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { previewHref } from "@/lib/home/rows";
-import type { PersonDetail } from "@/lib/ports/browse";
+import PersonCircle from "@/components/PersonCircle";
+import type { PersonDetail, PersonPick } from "@/lib/ports/browse";
 import type { CatalogPerson } from "@/lib/ports/catalog";
 import { services } from "@/lib/services";
+
+/** People who work with this person: saved from TMDB, worked out once if not, or from your own log as a fallback. */
+async function loadRelated(personId: string | null, tmdbId: number | null): Promise<PersonPick[]> {
+  if (tmdbId !== null) {
+    const saved = await services.browse.savedRelated(tmdbId);
+    if (saved.ok && saved.value && saved.value.length > 0) return saved.value;
+    if (!(saved.ok && saved.value)) {
+      const fresh = await services.catalog.relatedPeople(tmdbId);
+      if (fresh.ok) {
+        const picks = fresh.value.map((p): PersonPick => ({ personId: null, tmdbId: p.tmdbId, name: p.name, profilePath: p.profilePath }));
+        await services.browse.saveRelated(tmdbId, picks);
+        if (picks.length > 0) return picks;
+      }
+    }
+  }
+  if (personId) {
+    const own = await services.browse.relatedFromLog(personId);
+    if (own.ok) return own.value;
+  }
+  return [];
+}
 
 function PersonView() {
   const ready = useRequireSession();
@@ -22,6 +44,7 @@ function PersonView() {
   const [person, setPerson] = useState<PersonDetail | null>(null);
   const [other, setOther] = useState<CatalogPerson | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [related, setRelated] = useState<PersonPick[]>([]);
 
   useEffect(() => {
     if (!ready || (!id && !tmdbParam)) return;
@@ -39,6 +62,7 @@ function PersonView() {
         if (cancelled) return;
         if (!res.ok) return setProblem(res.error);
         setPerson(res.value);
+        loadRelated(personId, res.value.tmdbId).then((list) => !cancelled && setRelated(list));
         if (res.value.tmdbId !== null) {
           services.catalog.person(res.value.tmdbId).then((c) => !cancelled && c.ok && setOther(c.value));
         }
@@ -48,6 +72,7 @@ function PersonView() {
         if (!c.ok) return setProblem(c.error);
         setOther(c.value);
         setPerson({ id: "", tmdbId: tmdbParam, name: c.value.name, profilePath: null, works: [] });
+        loadRelated(null, tmdbParam).then((list) => !cancelled && setRelated(list));
       }
     })();
     return () => {
@@ -78,6 +103,16 @@ function PersonView() {
             <h1 className="font-serif text-3xl tracking-tight">{person.name}</h1>
           </div>
           {other?.biography && <p className="line-clamp-6 text-sm text-neutral-600 dark:text-neutral-400">{other.biography}</p>}
+          {/* Dark text with a share arrow, like the one on a title; grey when IMDb has no page for them. */}
+          {(other || person.tmdbId === null) && (other?.imdbId ? (
+            <a href={`https://www.imdb.com/name/${other.imdbId}/`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 self-start text-sm font-medium text-neutral-950 dark:text-white">
+              IMDb<Icon name="open" size={14} />
+            </a>
+          ) : (
+            <span aria-disabled="true" title="No IMDb page for this person" className="flex items-center gap-1 self-start text-sm text-neutral-400 dark:text-neutral-600">
+              IMDb<Icon name="open" size={14} />
+            </span>
+          ))}
 
           {person.id !== "" && <h2 className="font-serif text-xl">In your log ({seen.length})</h2>}
           {person.id !== "" && seen.length === 0 && <p className="text-sm text-neutral-500">Nothing you have watched lists them yet.</p>}
@@ -115,6 +150,17 @@ function PersonView() {
                       {hit.year && <span className="text-xs text-neutral-500">{hit.year}</span>}
                     </Link>
                   </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {related.length > 0 && (
+            <>
+              <h2 className="font-serif text-xl">Related</h2>
+              <ul className="-mx-5 flex gap-3 overflow-x-auto px-5">
+                {related.map((p) => (
+                  <PersonCircle key={`${p.personId ?? p.tmdbId}`} href={p.personId ? `/person/?id=${p.personId}` : `/person/?tmdb=${p.tmdbId}`} name={p.name} profilePath={p.profilePath} />
                 ))}
               </ul>
             </>

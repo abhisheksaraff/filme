@@ -3,6 +3,8 @@
 "use client";
 
 import { toast } from "@/components/Toast";
+import RatingsLine from "@/components/RatingsLine";
+import type { TitleLinks } from "@/lib/ports/ratings";
 import RoundButton from "@/components/RoundButton";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -38,6 +40,7 @@ function TitleView() {
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
   const [wanted, setWanted] = useState(false);
+  const [links, setLinks] = useState<TitleLinks | null>(null);
   const [seasonPick, setSeasonPick] = useState("all");
   const [seasonDate, setSeasonDate] = useState("");
 
@@ -51,6 +54,9 @@ function TitleView() {
         setProblem(null);
         if (res.value.tmdbId !== null && (res.value.category === "Movie" || res.value.category === "TV Show")) {
           services.wanted.status(res.value.category, res.value.tmdbId).then((s) => !cancelled && s.ok && setWanted(s.value.wanted));
+        }
+        if (res.value.category === "Movie" || res.value.category === "TV Show") {
+          services.ratings.forTitle({ mediaId: res.value.mediaId, kind: res.value.category, tmdbId: res.value.tmdbId }).then((r) => !cancelled && r.ok && setLinks(r.value));
         }
         // Titles saved before credits existed get them the first time they are opened.
         if (cr.ok && cr.value.people.length === 0 && res.value.tmdbId !== null && (res.value.category === "Movie" || res.value.category === "TV Show")) {
@@ -128,6 +134,7 @@ function TitleView() {
         title={detail?.title ?? ""}
         subtitle={detail ? [detail.releaseDate?.slice(0, 4), detail.runtime ? `${detail.runtime} min` : null, detail.category].filter(Boolean).join(" · ") : ""}
         loading={!detail && !problem}
+        extra={detail && !isLive && <RatingsLine links={links} mine={detail.viewings.find((v) => v.rating !== null)?.rating ?? null} />}
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">

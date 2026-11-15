@@ -5,7 +5,7 @@ import { adminClient } from "./auth.ts";
 import { HttpError } from "./http.ts";
 
 export const AI_PROVIDERS = ["gemini", "openai", "claude"] as const;
-export const PROVIDERS = [...AI_PROVIDERS, "tmdb"] as const;
+export const PROVIDERS = [...AI_PROVIDERS, "tmdb", "omdb"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 export type Provider = (typeof PROVIDERS)[number];
 
@@ -69,6 +69,12 @@ export async function validateKey(provider: Provider, secret: string): Promise<K
     case "claude":
       request = fetch("https://api.anthropic.com/v1/models?limit=1", {
         headers: { "x-api-key": secret, "anthropic-version": "2023-06-01" },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      break;
+    case "omdb":
+      // A known title costs one lookup; a wrong key answers 401.
+      request = fetch(`https://www.omdbapi.com/?apikey=${encodeURIComponent(secret)}&i=tt0111161`, {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       break;

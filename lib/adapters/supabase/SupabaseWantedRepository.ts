@@ -20,6 +20,7 @@ export const supabaseWantedRepository: WantedRepository = {
     const { data, error } = await getSupabase()
       .from("want_to_watch")
       .select("media_id, media:media_items(title, category, tmdb_id, poster_path)")
+      .is("cleared_at", null)
       .order("added_at", { ascending: false });
     if (error) return fail("Could not load your want-to-watch list.");
 
@@ -60,12 +61,23 @@ export const supabaseWantedRepository: WantedRepository = {
 
     const { error } = await db.from("want_to_watch").insert({ media_id: media.value });
     if (error && error.code !== DUPLICATE) return fail("Could not add it to your list.");
+    // A title cleared earlier by watching it goes back on the list as new.
+    if (error) {
+      const again = await db.from("want_to_watch").update({ cleared_at: null, added_at: new Date().toISOString() }).eq("media_id", media.value).not("cleared_at", "is", null);
+      if (again.error) return fail("Could not add it to your list.");
+    }
     return ok(media.value);
   },
 
   async remove(mediaId) {
     const { error } = await getSupabase().from("want_to_watch").delete().eq("media_id", mediaId);
     return error ? fail("Could not remove it from your list.") : ok(undefined);
+  },
+
+  async cleared() {
+    const { data, error } = await getSupabase().from("want_to_watch").select("added_at, cleared_at").not("cleared_at", "is", null);
+    if (error) return fail("Could not load your cleared Watchlist items.");
+    return ok(data.map((row) => ({ addedAt: row.added_at as string, clearedAt: row.cleared_at as string })));
   },
 
   async status(kind, tmdbId) {
@@ -76,7 +88,7 @@ export const supabaseWantedRepository: WantedRepository = {
 
     const id = media.data.id as string;
     const [want, logged] = await Promise.all([
-      db.from("want_to_watch").select("id", { count: "exact", head: true }).eq("media_id", id),
+      db.from("want_to_watch").select("id", { count: "exact", head: true }).eq("media_id", id).is("cleared_at", null),
       db.from("watch_sessions").select("id", { count: "exact", head: true }).eq("media_id", id).is("deleted_at", null),
     ]);
     if (want.error || logged.error) return fail("Could not check this title.");

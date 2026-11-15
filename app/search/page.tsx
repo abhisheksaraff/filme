@@ -103,8 +103,11 @@ function SearchView() {
   const [filter, setFilter] = usePageState<LogFilter>("search.filter", EMPTY_FILTER);
   const [order, setOrder] = usePageState<Order>("search.order", "default");
   const [filtersOpen, setFiltersOpen] = usePageState("search.filtersOpen", false);
-  const [askOpen, setAskOpen] = usePageState("search.askOpen", false);
+  // With Ask AI on, the same box takes a question instead of searching as you type.
+  const [askOn, setAskOn] = usePageState("search.askOn", false);
   const [question, setQuestion] = usePageState("search.question", "");
+  // Any title words the AI pulled out of the question; they stand in for typed text while asking.
+  const [askText, setAskText] = usePageState("search.askText", "");
   const [asking, setAsking] = useState(false);
   const [askProblem, setAskProblem] = useState<string | null>(null);
   const [found, setFound] = useState<Found | null>(null);
@@ -112,7 +115,7 @@ function SearchView() {
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<StatRow[]>([]);
 
-  const q = query.trim();
+  const q = (askOn ? askText : query).trim();
   // Nothing is shown until something is typed or a filter is set, so opening Filters alone lists nothing.
   const active = q.length >= 2 || hasFilter(filter);
   // Venue, format, watch dates and rewatches exist only in your log, so TMDB has nothing to say about them.
@@ -205,11 +208,10 @@ function SearchView() {
     setAskProblem(null);
     const res = await services.ai.askLog(text);
     if (res.ok) {
-      // The question becomes ordinary filters, shown in the panel so they can be seen and changed.
-      setQuery(res.value.text ?? "");
+      // The question becomes ordinary filters; they show as chips, and Filters stays closed unless you open it.
+      setAskText(res.value.text ?? "");
       setFilter({ ...res.value, text: null });
       setOrder(res.value.sort === "newest" ? "newest" : res.value.sort === "oldest" ? "oldest" : res.value.sort === "rating" ? "rating" : "default");
-      setFiltersOpen(true);
     } else setAskProblem(res.error);
     setAsking(false);
   }
@@ -302,43 +304,39 @@ function SearchView() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Search</h1>
 
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="A film, show, person or place"
-        autoComplete="off"
-        // 16px keeps iOS Safari from zooming the page when the field is focused.
-        className="rounded-full bg-neutral-100 px-5 py-3 text-base dark:bg-neutral-800"
-      />
-      <div className="flex gap-4 text-sm">
-        <button type="button" aria-pressed={filtersOpen} onClick={() => setFiltersOpen((o) => !o)} className="flex items-center gap-1.5 text-neutral-500">
+      <form onSubmit={(e) => { e.preventDefault(); if (askOn) void ask(); }} className="relative">
+        <input
+          type={askOn ? "text" : "search"}
+          value={askOn ? question : query}
+          onChange={(e) => (askOn ? setQuestion(e.target.value) : setQuery(e.target.value))}
+          maxLength={askOn ? 300 : undefined}
+          placeholder={askOn ? "Ask anything, like comedy movies from the 50s" : "A film, show, person or place"}
+          autoComplete="off"
+          enterKeyHint={askOn ? "go" : "search"}
+          // 16px keeps iOS Safari from zooming the page when the field is focused.
+          className={`w-full rounded-full bg-neutral-100 py-3 pl-5 text-base dark:bg-neutral-800 ${askOn ? "pr-14" : "pr-5"}`}
+        />
+        {askOn && (
+          <button type="submit" aria-label="Ask" disabled={asking || question.trim().length < 3}
+            className="absolute right-1.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-neutral-950 text-white disabled:opacity-40 dark:bg-white dark:text-neutral-950">
+            <Icon name={asking ? "sparkle" : "right"} size={18} />
+          </button>
+        )}
+      </form>
+      <div className="flex items-center gap-3 text-sm">
+        <button type="button" aria-pressed={filtersOpen} onClick={() => setFiltersOpen((o) => !o)} className="flex items-center gap-1.5 py-1.5 text-neutral-500">
           <Icon name="filter" size={16} />{filtersOpen ? "Hide filters" : "Filters"}
         </button>
-        <button type="button" aria-pressed={askOpen} onClick={() => setAskOpen((o) => !o)} className="flex items-center gap-1.5 text-neutral-500">
+        {/* Black with white text and icon while on, like a pressed checkbox. */}
+        <button type="button" aria-pressed={askOn} onClick={() => setAskOn((o) => !o)}
+          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 ${askOn ? "border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-neutral-950" : "border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"}`}>
           <Icon name="sparkle" size={16} />Ask AI
         </button>
         {hasFilter(filter) && (
-          <button type="button" onClick={() => { setFilter(EMPTY_FILTER); setOrder("default"); }} className="ml-auto text-neutral-500 underline">Clear filters</button>
+          <button type="button" onClick={() => { setFilter(EMPTY_FILTER); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500 underline">Clear filters</button>
         )}
       </div>
-
-      {askOpen && (
-        <form onSubmit={(e) => { e.preventDefault(); void ask(); }} className="flex flex-col gap-2">
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            rows={2}
-            maxLength={300}
-            placeholder="Comedy movies from the 50s"
-            className="rounded-xl border border-neutral-300 bg-transparent px-4 py-3 text-base dark:border-neutral-700"
-          />
-          <button type="submit" disabled={asking || question.trim().length < 3} className="rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
-            {asking ? "Thinking…" : "Ask"}
-          </button>
-          {askProblem && <p role="alert" className="text-sm text-red-600">{askProblem}</p>}
-        </form>
-      )}
+      {askProblem && <p role="alert" className="text-sm text-red-600">{askProblem}</p>}
 
       {filtersOpen && (
         <div className="grid grid-cols-2 gap-2 text-sm">
@@ -374,7 +372,7 @@ function SearchView() {
         </ul>
       )}
 
-      {!active && <p className="text-sm text-neutral-500">Type a title or person, set a filter, or ask AI.</p>}
+      {!active && <p className="text-sm text-neutral-500">{askOn ? "Ask a question and press Return." : "Type a title or person, set a filter, or turn on Ask AI."}</p>}
 
       {active && current && current.people.length > 0 && (
         <ul className="-mx-6 flex gap-3 overflow-x-auto px-6 pb-1" aria-label="People">

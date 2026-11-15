@@ -18,3 +18,6 @@ verify_jwt = false
 
 [functions.link-check]
 verify_jwt = false
+
+[functions.omdb]
+verify_jwt = false

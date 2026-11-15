@@ -2,7 +2,7 @@
 // The round Watch button: checks the link as soon as it appears, then opens it in one tap.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NoticePopup } from "@/components/Popup";
 import RoundButton from "@/components/RoundButton";
@@ -14,6 +14,9 @@ type Popup = "down" | "unset" | "failed" | null;
 export default function WatchButton({ watch }: { watch: WatchContext }) {
   const [target, setTarget] = useState<WatchTarget | "checking" | "failed">("checking");
   const [popup, setPopup] = useState<Popup>(null);
+  // Set when the button is tapped before the check has finished; the link then opens as soon as it has.
+  const [waiting, setWaiting] = useState(false);
+  const tapped = useRef(false);
   const router = useRouter();
 
   // Checked as soon as the button appears, so tapping it can open the link at once.
@@ -21,7 +24,14 @@ export default function WatchButton({ watch }: { watch: WatchContext }) {
   useEffect(() => {
     let cancelled = false;
     resolveWatch(watch).then((res) => {
-      if (!cancelled) setTarget(res.ok ? res.value : "failed");
+      if (cancelled) return;
+      const next = res.ok ? res.value : "failed";
+      setTarget(next);
+      if (tapped.current) {
+        tapped.current = false;
+        setWaiting(false);
+        act(next);
+      }
     });
     return () => {
       cancelled = true;
@@ -30,20 +40,29 @@ export default function WatchButton({ watch }: { watch: WatchContext }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  const checking = target === "checking";
   const down = typeof target === "object" && target.kind === "down";
 
+  function act(result: WatchTarget | "failed") {
+    if (result === "failed") return setPopup("failed");
+    if (result.kind === "ready") return openWatchLink(result.url);
+    setPopup(result.kind);
+  }
+
   function onWatch() {
-    if (target === "checking") return;
-    if (target === "failed") return setPopup("failed");
-    if (target.kind === "ready") return openWatchLink(target.url);
-    setPopup(target.kind);
+    if (target === "checking") {
+      tapped.current = true;
+      setWaiting(true);
+      return;
+    }
+    act(target);
   }
 
   return (
     <>
-      <span className={checking ? "animate-pulse" : ""}>
+      <span className="relative">
         <RoundButton icon="watch" label={down ? "Server is down" : "Watch"} tone="dark" size="lg" onClick={onWatch} className={down ? "!opacity-40" : ""} />
+        {/* A thin ring turns around the button only after it is tapped while the check is still running. */}
+        {waiting && <span aria-hidden className="pointer-events-none absolute -inset-1 animate-spin rounded-full border-2 border-transparent border-t-neutral-950 dark:border-t-white" />}
       </span>
       {popup === "down" && <NoticePopup title="Server is down" icon="watch" message="That server is down right now. Try again in a little while." onClose={() => setPopup(null)} />}
       {popup === "failed" && <NoticePopup title="Could not check" icon="watch" message="The link could not be checked. Check your connection and try again." onClose={() => setPopup(null)} />}

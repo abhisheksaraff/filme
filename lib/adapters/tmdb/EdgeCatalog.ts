@@ -1,6 +1,6 @@
 // lib/adapters/tmdb/EdgeCatalog.ts
 // Asks TMDB questions through the `tmdb` Edge Function so the key never reaches the phone.
-import type { BrowseSpec, Catalog, CatalogCredit, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch, CatalogPerson, EpisodeRef, ShowStatus } from "@/lib/ports/catalog";
+import type { BrowseSpec, Catalog, CatalogCredit, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch, CatalogPerson, CatalogPersonHit, EpisodeRef, ShowStatus } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { callFunction } from "../supabase/functions";
 import { tmdbImageUrl } from "./images";
@@ -78,7 +78,7 @@ export const edgeCatalog: Catalog = {
 
   async person(tmdbId) {
     const [info, credits] = await Promise.all([
-      callFunction<{ name: string; biography?: string; profile_path?: string | null }>("tmdb", { path: `/person/${tmdbId}` }),
+      callFunction<{ name: string; biography?: string; imdb_id?: string | null; profile_path?: string | null }>("tmdb", { path: `/person/${tmdbId}` }),
       callFunction<{ cast?: CreditRow[]; crew?: CreditRow[] }>("tmdb", { path: `/person/${tmdbId}/combined_credits` }),
     ]);
     if (!info.ok) return fail(info.error);
@@ -94,10 +94,43 @@ export const edgeCatalog: Catalog = {
     const person: CatalogPerson = {
       name: info.value.name,
       biography: info.value.biography || null,
+      imdbId: info.value.imdb_id || null,
       profileUrl: tmdbImageUrl(info.value.profile_path, "w342"),
       works,
     };
     return ok(person);
+  },
+
+  async relatedPeople(tmdbId) {
+    const credits = await callFunction<{ cast?: (CreditRow & { vote_count?: number })[]; crew?: (CreditRow & { vote_count?: number })[] }>("tmdb", { path: `/person/${tmdbId}/combined_credits` });
+    if (!credits.ok) return fail(credits.error);
+    const unique = new Map<string, CreditRow & { vote_count?: number }>();
+    for (const row of [...(credits.value.cast ?? []), ...(credits.value.crew ?? [])]) {
+      if (row.media_type === "movie" || row.media_type === "tv") unique.set(`${row.media_type}:${row.id}`, row);
+    }
+    // Their best-known titles, by how many people voted on them.
+    const best = [...unique.values()].sort((a, b) => (b.vote_count ?? 0) - (a.vote_count ?? 0)).slice(0, 10);
+    const lists = await Promise.all(best.map((row) =>
+      callFunction<{ cast?: { id: number; name: string; profile_path?: string | null }[]; crew?: { id: number; name: string; job: string; profile_path?: string | null }[] }>("tmdb", { path: `/${row.media_type}/${row.id}/credits` })));
+    if (lists.every((l) => !l.ok)) return fail("Could not look up who they work with.");
+
+    const counts = new Map<number, { hit: CatalogPersonHit; n: number }>();
+    for (const list of lists) {
+      if (!list.ok) continue;
+      const people = [
+        ...(list.value.cast ?? []).slice(0, 10),
+        ...(list.value.crew ?? []).filter((p) => p.job === "Director"),
+      ];
+      // One title counts a person once, even if they were both in it and directed it.
+      for (const p of new Map(people.map((x) => [x.id, x])).values()) {
+        if (p.id === tmdbId) continue;
+        const entry = counts.get(p.id) ?? { hit: { tmdbId: p.id, name: p.name, profilePath: p.profile_path ?? null }, n: 0 };
+        entry.n++;
+        counts.set(p.id, entry);
+      }
+    }
+    // Someone who appears alongside them only once is a coincidence, not a regular.
+    return ok([...counts.values()].filter((c) => c.n >= 2).sort((a, b) => b.n - a.n || a.hit.name.localeCompare(b.hit.name)).slice(0, 14).map((c) => c.hit));
   },
 
   async searchPeople(query) {
@@ -178,7 +211,7 @@ export const edgeCatalog: Catalog = {
     const isMovie = match.kind === "Movie";
     const res = await callFunction<Record<string, any>>("tmdb", { // eslint-disable-line @typescript-eslint/no-explicit-any
       path: `/${isMovie ? "movie" : "tv"}/${match.tmdbId}`,
-      params: { append_to_response: isMovie ? "credits" : "aggregate_credits" },
+      params: { append_to_response: isMovie ? "credits" : "aggregate_credits,external_ids" },
     });
     if (!res.ok) return fail(res.error);
     const d = res.value;
@@ -211,7 +244,7 @@ export const edgeCatalog: Catalog = {
 
     const details: CatalogDetails = {
       tmdbId: d.id,
-      imdbId: d.imdb_id ?? null,
+      imdbId: d.imdb_id ?? d.external_ids?.imdb_id ?? null,
       category: match.kind,
       title: isMovie ? d.title : d.name,
       originalTitle: (isMovie ? d.original_title : d.original_name) || null,

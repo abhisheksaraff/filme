@@ -2,6 +2,7 @@
 // Logs a whole season, or a whole show, as one viewing per episode.
 import { mediaFromCatalog } from "@/components/entryDraft";
 import { logEntrySchema } from "@/lib/domain/entry";
+import { toast } from "@/lib/toast";
 import { services } from "@/lib/services";
 import { syncCredits } from "@/lib/credits";
 import { fail, ok, type Result } from "@/lib/ports/result";
@@ -42,6 +43,7 @@ export async function logWholeSeason(tmdbId: number, season: number | null, date
     const res = await services.log.saveEntry(entry.data, []);
     if (!res.ok) return fail(`${res.error} (${saved} of ${episodes.value.length} episodes were saved.)`);
     mediaId = res.value.mediaId;
+    if (res.value.clearedWatchlist) toast("Removed from watchlist");
     saved++;
   }
   if (mediaId) void syncCredits(mediaId, "TV Show", tmdbId);
