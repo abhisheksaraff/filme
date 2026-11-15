@@ -48,6 +48,8 @@ const csp = [
     "https://*.supabase.co wss://*.supabase.co",
     "https://musicbrainz.org https://nominatim.openstreetmap.org https://api.openverse.org",
     "https://cdn.jsdelivr.net https://tessdata.projectnaptha.com",
+    // Story music is downloaded ahead of time from whichever site hosts it (Openverse links to the original hosts), so any secure address may be read.
+    "https:",
     isDev ? "ws://localhost:* ws://10.0.0.169:*" : "",
   ].filter(Boolean).join(" "),
   "object-src 'none'",

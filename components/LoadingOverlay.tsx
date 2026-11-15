@@ -86,7 +86,7 @@ function Reel({ spec, animate }: { spec: ReelSpec; animate: boolean }) {
 function LoadingOverlayInner({ label }: { label: string }) {
   const [animate] = useState(() => readCachedAppearance().animationsEnabled);
   return (
-    <div role="status" aria-live="polite" className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/85 backdrop-blur-sm">
+    <div role="status" aria-live="polite" className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-2xl">
       <span className="sr-only">{label}</span>
       <svg viewBox="0 0 400 300" aria-hidden className="w-[min(88vw,440px)]">
         <defs>

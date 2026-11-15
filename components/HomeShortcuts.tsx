@@ -11,6 +11,7 @@ import { loadStatRows } from "@/lib/home/rows";
 import { homeSnapshot, type ShortcutStory } from "@/lib/home/session";
 import { keepIfSame } from "@/lib/same";
 import type { AppNotification } from "@/lib/ports/notifications";
+import { prepareStories } from "@/lib/storyLoaders";
 import { services } from "@/lib/services";
 
 /** Read notifications disappear after this long. */
@@ -83,8 +84,10 @@ export default function HomeShortcuts({ nonce }: { nonce: number }) {
         { kind: "year", period: previousPeriod("year", now), label: "Your year", icon: "star", recap: "year" },
       ];
       // Recaps with nothing in them are left out.
-      const next = candidates
-        .filter((c) => buildStory(res.value, c.kind, c.period).length > 0)
+      const withContent = candidates.filter((c) => buildStory(res.value, c.kind, c.period).length > 0);
+      // A little later, get these stories' themes, pictures and music ready so they open and play cleanly.
+      setTimeout(() => void prepareStories(res.value, withContent), 4000);
+      const next = withContent
         .map((c) => ({ key: `${c.kind}-${c.period}`, href: `/story/?kind=${c.kind}&period=${c.period}`, icon: c.icon, label: c.label, recap: c.recap }));
       homeSnapshot.stories = next;
       setStories((prev) => keepIfSame(prev, next));

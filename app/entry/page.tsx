@@ -14,6 +14,7 @@ import { useRequireSession } from "@/hooks/useRequireSession";
 import type { LogEntry } from "@/lib/domain/entry";
 import { savePeople, syncCredits } from "@/lib/credits";
 import { withCoverage } from "@/lib/logShow";
+import { previousPath } from "@/lib/pageMemory";
 import { services } from "@/lib/services";
 
 function EditView() {
@@ -63,6 +64,12 @@ function EditView() {
     };
   }, [ready, id]);
 
+  /** Goes back to the page that opened this one, keeping its scroll and open card; `fallback` is used when there is no such page. */
+  function leave(fallback: string) {
+    if (window.history.length > 1) router.back();
+    else router.replace(fallback);
+  }
+
   async function onSave(e: FormEvent) {
     e.preventDefault();
     if (!id || !draft || !original) return;
@@ -89,7 +96,9 @@ function EditView() {
     if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {
       void syncCredits(saved.value.mediaId, entry.value.category, tmdbId);
     }
-    router.replace(`/title/?id=${saved.value.mediaId}`);
+    // Back to the page the edit was opened from, at the same place; a changed title has no such page to go back to.
+    if (sameTitle) leave(`/title/?id=${saved.value.mediaId}`);
+    else router.replace(`/title/?id=${saved.value.mediaId}`);
   }
 
   async function onDelete() {
@@ -103,7 +112,10 @@ function EditView() {
     }
     // Back to the title, unless that was its only viewing; then the title has nothing to show.
     const left = await services.log.titleDetail(mediaId);
-    router.replace(left.ok && left.value.viewings.length > 0 ? `/title/?id=${mediaId}` : "/watchlist/");
+    // Back to where the edit began, unless that was this title's page and its only viewing is gone.
+    if (left.ok && left.value.viewings.length > 0) leave(`/title/?id=${mediaId}`);
+    else if (previousPath().startsWith("/title/")) router.replace("/watchlist/");
+    else leave("/watchlist/");
   }
 
   if (!ready) return null;

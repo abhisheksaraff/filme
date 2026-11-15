@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import BottomNav from "@/components/BottomNav";
 import FocusProxy from "@/components/FocusProxy";
 import RoundButton from "@/components/RoundButton";
-import { recallScroll, saveScroll } from "@/lib/pageMemory";
+import { notePath, recallScroll, saveScroll } from "@/lib/pageMemory";
 
 /** No bottom bar: signed-out pages and the full-screen recap. */
 const NO_NAV = ["/", "/login/", "/story/"];
@@ -29,6 +29,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   // Keeps each page's scroll position, and returns to it when the page is reached with Back.
   useEffect(() => {
+    notePath(path);
     const key = () => window.location.pathname + window.location.search;
     const onScroll = () => saveScroll(key(), window.scrollY);
     window.addEventListener("scroll", onScroll, { passive: true });

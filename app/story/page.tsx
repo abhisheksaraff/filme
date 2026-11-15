@@ -17,6 +17,7 @@ import { useStoryMedia } from "@/hooks/useStoryMedia";
 import { useStoryMemories } from "@/hooks/useStoryMemories";
 import { useStoryMusic } from "@/hooks/useStoryMusic";
 import { useStoryTheme } from "@/hooks/useStoryTheme";
+import { storyThemeInput } from "@/lib/storyLoaders";
 import { gradientFor, gradientFromPicture, type Gradient } from "@/lib/color";
 import { moodFor } from "@/lib/domain/storyMood";
 import { readDebugLog, setDebugBypass } from "@/lib/debug";
@@ -84,15 +85,7 @@ function StoryView() {
   // What the AI is told: the story's own headlines, once they are known. The searches wait for its answer.
   const themeInput = useMemo(
     () =>
-      slides && mood
-        ? {
-            label: isDebug ? "Everything watched" : isKind(kind) ? storyTitle(kind, period) : "",
-            titles: slides.filter((s) => s.heading !== "Checks").map((s) => `${s.heading}: ${s.big}`).slice(0, 25),
-            places: [],
-            festival: mood.holiday?.name ?? null,
-            season: mood.season,
-          }
-        : null,
+      slides && mood ? storyThemeInput(slides, mood, isDebug ? "Everything watched" : isKind(kind) ? storyTitle(kind, period) : "") : null,
     [slides, mood, isDebug, kind, period],
   );
   const themeState = useStoryTheme(storyKey, themeInput, isDebug);
@@ -290,6 +283,8 @@ function StoryView() {
     }
     return (
       <>
+        {/* Nothing of the story is ready to show, so the overlay blurs the story's own colours. */}
+        <div aria-hidden className="fixed inset-0" style={{ background: `linear-gradient(160deg, ${gradientFor(mood?.hue ?? 220).from}, ${gradientFor(mood?.hue ?? 220).to})` }} />
         <LoadingOverlay label="Getting your story ready…" />
         <button type="button" aria-label="Close" onClick={close} className="fixed right-4 top-[max(1rem,env(safe-area-inset-top))] z-[60] p-2 text-white"><Icon name="close" size={22} /></button>
       </>
@@ -355,7 +350,7 @@ function StoryView() {
           </div>
         ))}
       </div>
-      <div className="relative z-10 flex items-center justify-between px-4 py-3 text-sm text-white/70">
+      <div className="relative z-50 flex items-center justify-between px-4 py-3 text-sm text-white/70">
         <span>{isDebug ? "Debug · all time" : isKind(kind) ? storyTitle(kind, period) : ""}{mood?.holiday ? ` · ${mood.holiday.name}` : ""}</span>
         <span className="flex items-center gap-3">
           {music.available && (
@@ -377,12 +372,6 @@ function StoryView() {
         {slides && slides.length === 0 && <p className="text-white/70">Nothing to show for this one yet.</p>}
         {!slides && !problem && <p className="text-white/70">Loading…</p>}
 
-        {slide && !started && (
-          // The tap lets the phone play sound; it reaches the page's own tap handler, which starts the music.
-          <button type="button" aria-label="Tap to play" onClick={() => setStarted(true)} className="absolute inset-0 z-30 flex items-end justify-center bg-black/30 pb-[max(4rem,env(safe-area-inset-bottom))] backdrop-blur-[2px]">
-            <span className="rounded-full border border-white/60 px-6 py-2 text-sm tracking-wide text-white">Tap to play</span>
-          </button>
-        )}
         {slide && (
           <>
             <p className="text-sm uppercase tracking-widest text-white/60">{slide.heading}</p>
@@ -411,6 +400,12 @@ function StoryView() {
           </>
         )}
       </div>
+      {slide && !started && (
+        // Its own top layer over the whole story, so nothing drawn on a slide can sit above it. The tap lets the phone play sound and reaches the page's own tap handler, which starts the music.
+        <button type="button" aria-label="Tap to play" onClick={() => setStarted(true)} className="absolute inset-0 z-40 flex items-end justify-center bg-black/30 pb-[max(4rem,env(safe-area-inset-bottom))] backdrop-blur-[2px]">
+          <span className="rounded-full border border-white/60 px-6 py-2 text-sm tracking-wide text-white">Tap to play</span>
+        </button>
+      )}
     </main>
   );
 }

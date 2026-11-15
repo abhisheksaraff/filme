@@ -31,6 +31,19 @@ if (typeof window !== "undefined") {
   );
 }
 
+let currentPath = "";
+let lastPath = "";
+
+/** Called by the page frame whenever the page changes, so a page can tell which one sent the visitor to it. */
+export function notePath(path: string): void {
+  if (path === currentPath) return;
+  lastPath = currentPath;
+  currentPath = path;
+}
+
+/** The page the visitor was on before this one ("" when there was none, such as after a reload). */
+export const previousPath = (): string => lastPath;
+
 /** True while the page on screen was reached with Back. */
 export const isGoingBack = (): boolean => goingBack;
 
