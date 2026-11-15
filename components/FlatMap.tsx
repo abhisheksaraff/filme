@@ -54,9 +54,15 @@ interface Props {
   className?: string;
   /** Fills the screen behind the page chrome: one finger drags the map, and controls sit below the top bar. */
   fullScreen?: boolean;
+  /** Start centred here instead of framing every pin. */
+  focus?: { lon: number; lat: number; zoom: number };
+  /** A small picture of the map: no controls, no gestures; the page puts a link over it. */
+  still?: boolean;
+  /** The icon on the pin of a still map. */
+  pinIcon?: IconName;
 }
 
-export default function FlatMap({ points, onPick, className = "h-[60vh]", fullScreen = false }: Props) {
+export default function FlatMap({ points, onPick, className = "h-[60vh]", fullScreen = false, focus, still = false, pinIcon }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const [custom, setCustom] = useState<View | null>(null);
@@ -79,6 +85,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
 
   // Until the user moves the map, it is framed around all pins.
   const fitted = useMemo<View>(() => {
+    if (focus) return focus;
     if (points.length === 0 || !size) return { lon: -79.4, lat: 43.7, zoom: 3 };
     const xs = points.map((p) => mx(p.longitude));
     const ys = points.map((p) => my(p.latitude));
@@ -90,7 +97,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
       lat: latOf((Math.max(...ys) + Math.min(...ys)) / 2),
       zoom: clampZoom(Math.min(zoomFor(spanX, size.w), zoomFor(spanY, size.h), 13)),
     };
-  }, [points, size]);
+  }, [points, size, focus]);
 
   const view = custom ?? fitted;
   useEffect(() => {
@@ -181,6 +188,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
         return [{ key: `c-${g.items[0].point.id}`, x: g.x, y: g.y, icon: "layers", count: g.items.reduce((n, i) => n + i.point.count, 0), members: g.items.map((i) => i.point) }];
       }
       const { point } = g.items[0];
+      if (still) return [{ key: point.id, x: g.x, y: g.y, icon: pinIcon ?? "film", count: point.count, point }];
       // A home is one pin; any other venue gets a pin per kind of thing watched there.
       const kinds = point.type === "home" ? [{ category: "home", count: point.count }] : point.kinds;
       return kinds.map((kind, i) => ({
@@ -193,7 +201,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
         category: kind.category === "home" ? undefined : kind.category,
       }));
     });
-  }, [points, size, view]);
+  }, [points, size, view, still, pinIcon]);
 
   const tiles = useMemo(() => {
     if (!size || !CARTO_KEY) return [];
@@ -226,6 +234,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
       className={`relative w-full select-none overflow-hidden bg-neutral-200 dark:bg-neutral-800 ${fullScreen ? "" : "rounded-3xl"} ${className}`}
       // Inline, one finger keeps scrolling the page and two fingers are taken over above.
       style={{ touchAction: fullScreen ? "none" : "pan-y" }}
+      aria-hidden={still || undefined}
       onPointerDown={(e) => {
         if (e.pointerType === "mouse") drag.current = { x: e.clientX, y: e.clientY };
       }}
@@ -251,6 +260,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
 
       {pins.map((pin) => (
         <button
+          tabIndex={still ? -1 : undefined}
           key={pin.key}
           type="button"
           aria-label={pin.point ? `${pin.point.name}, ${pin.count}` : `${pin.count} venues`}
@@ -268,7 +278,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-950 text-white shadow-lg ring-2 ring-white">
             {pin.point ? <Icon name={pin.icon} size={18} /> : <span className="text-sm font-medium">{pin.count}</span>}
           </span>
-          {pin.point && (
+          {pin.point && !still && (
             <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-semibold text-neutral-950 shadow">
               {pin.count}
             </span>
@@ -276,10 +286,10 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
         </button>
       ))}
 
-      <div className={`absolute right-3 flex flex-col gap-2 ${fullScreen ? "top-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)]" : "top-3"}`}>
+      {!still && <div className={`absolute right-3 flex flex-col gap-2 ${fullScreen ? "top-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)]" : "top-3"}`}>
         <RoundButton icon="plus" label="Zoom in" onClick={() => zoomBy(1)} />
         <RoundButton icon="minus" label="Zoom out" onClick={() => zoomBy(-1)} />
-      </div>
+      </div>}
       <span className={`pointer-events-none absolute left-2 rounded bg-white/70 ${fullScreen ? "bottom-24" : "bottom-1"} px-1 text-[10px] text-neutral-700 dark:bg-black/50 dark:text-neutral-300`}>
         © OpenStreetMap © CARTO
       </span>

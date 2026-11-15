@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import TitleHero from "@/components/TitleHero";
 import CoverPicker from "@/components/CoverPicker";
-import Icon from "@/components/Icon";
+import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
 import { seatLabel } from "@/components/entryDraft";
@@ -36,6 +36,7 @@ function TitleView() {
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
+  const [wanted, setWanted] = useState(false);
   const [seasonPick, setSeasonPick] = useState("all");
   const [seasonDate, setSeasonDate] = useState("");
 
@@ -47,6 +48,9 @@ function TitleView() {
       if (res.ok) {
         setDetail(res.value);
         setProblem(null);
+        if (res.value.tmdbId !== null && (res.value.category === "Movie" || res.value.category === "TV Show")) {
+          services.wanted.status(res.value.category, res.value.tmdbId).then((s) => !cancelled && s.ok && setWanted(s.value.wanted));
+        }
         // Titles saved before credits existed get them the first time they are opened.
         if (cr.ok && cr.value.people.length === 0 && res.value.tmdbId !== null && (res.value.category === "Movie" || res.value.category === "TV Show")) {
           syncCredits(res.value.mediaId, res.value.category, res.value.tmdbId).then(() => {
@@ -60,6 +64,23 @@ function TitleView() {
       cancelled = true;
     };
   }, [ready, id, reload]);
+
+  async function toggleWanted() {
+    if (!detail || detail.tmdbId === null || (detail.category !== "Movie" && detail.category !== "TV Show")) return;
+    setBusy(true);
+    setProblem(null);
+    if (wanted) {
+      const res = await services.wanted.remove(detail.mediaId);
+      if (res.ok) setWanted(false);
+      else setProblem(res.error);
+    } else {
+      const full = await services.catalog.details({ tmdbId: detail.tmdbId, kind: detail.category });
+      const res = full.ok ? await services.wanted.add(full.value) : full;
+      if (res.ok) setWanted(true);
+      else setProblem(res.error);
+    }
+    setBusy(false);
+  }
 
   function logAnother() {
     if (!detail) return;
@@ -126,16 +147,15 @@ function TitleView() {
 
             {detail.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{detail.overview}</p>}
 
-            <div className="flex gap-3">
-              <span className="relative">
-                <RoundButton icon="plus" label="Log another viewing" tone="dark" size="lg" onClick={logAnother} />
-                {detail.viewings.length > 0 && (
-                  <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-500 text-white ring-2 ring-white dark:ring-neutral-950">
-                    <Icon name="check" size={12} />
-                  </span>
-                )}
-              </span>
-            </div>
+            <TitleActions
+              wanted={wanted}
+              canBookmark={detail.tmdbId !== null && (detail.category === "Movie" || detail.category === "TV Show")}
+              watched={detail.viewings.length > 0}
+              watch={isLive ? null : { tmdbId: detail.tmdbId, kind: isShow ? "TV Show" : "Movie", title: detail.title, year: detail.releaseDate?.slice(0, 4) ?? null }}
+              busy={busy}
+              onToggleWanted={toggleWanted}
+              onLog={logAnother}
+            />
 
             {isShow && detail.tmdbId !== null && (
               <section className={card}>
@@ -188,7 +208,7 @@ function TitleView() {
                     {v.seats.length > 0 && (
                       <div className="flex flex-wrap gap-2">
                         {v.seats.map((seat, i) => (
-                          <span key={i} className="rounded-full border border-neutral-300 px-3 py-0.5 text-sm dark:border-neutral-700">{seatLabel(seat)}</span>
+                          <span key={i} className="rounded-full bg-neutral-950 px-3 py-0.5 text-sm text-white dark:bg-white dark:text-neutral-950">{seatLabel(seat)}</span>
                         ))}
                       </div>
                     )}

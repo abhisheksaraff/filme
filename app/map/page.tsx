@@ -3,7 +3,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { usePageState } from "@/lib/pageMemory";
 import FlatMap, { KIND_ICON } from "@/components/FlatMap";
 import Icon, { type IconName } from "@/components/Icon";
@@ -38,8 +39,11 @@ function Chip({ icon, label, on, onClick, count }: { icon: IconName; label: stri
   );
 }
 
-export default function MapPage() {
+function MapView() {
   const ready = useRequireSession();
+  // A link from a viewing names the venue to open on.
+  const venueParam = useSearchParams().get("venue");
+  const [focus, setFocus] = useState<{ lon: number; lat: number; zoom: number } | undefined>(undefined);
   const [points, setPoints] = useState<VenuePoint[]>([]);
   const [finding, setFinding] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -52,8 +56,14 @@ export default function MapPage() {
     (async () => {
       const first = await services.browse.venuePoints();
       if (cancelled) return;
-      if (first.ok) setPoints(first.value);
-      else setProblem(first.error);
+      if (first.ok) {
+        setPoints(first.value);
+        const target = venueParam ? first.value.find((p) => p.id === venueParam) : undefined;
+        if (target) {
+          setFocus({ lon: target.longitude, lat: target.latitude, zoom: 15 });
+          pick(target, null);
+        }
+      } else setProblem(first.error);
 
       // Venues without a position are looked up a few at a time, politely spaced out.
       const missing = await services.browse.unlocatedVenues(6);
@@ -71,7 +81,7 @@ export default function MapPage() {
     return () => {
       cancelled = true;
     };
-  }, [ready]);
+  }, [ready, venueParam]);
 
   function pick(point: VenuePoint, category: string | null) {
     setOpen({ point, detail: null, tab: category ?? "all" });
@@ -98,7 +108,7 @@ export default function MapPage() {
 
   return (
     <main className="fixed inset-0 z-10">
-      <FlatMap points={points} onPick={pick} fullScreen className="h-full" />
+      <FlatMap points={points} onPick={pick} fullScreen focus={focus} className="h-full" />
       {/* Sits beside the back button, which Shell floats at the top left of the column. */}
       <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20">
         <div className="mx-auto flex h-10 w-full max-w-md items-center gap-3 pl-[4.25rem] pr-4">
@@ -143,5 +153,13 @@ export default function MapPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function MapPage() {
+  return (
+    <Suspense>
+      <MapView />
+    </Suspense>
   );
 }

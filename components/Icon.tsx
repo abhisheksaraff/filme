@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 export type IconName =
   | "home" | "calendar" | "ticket" | "bookmark" | "plus" | "close" | "download" | "upload" | "star"
-  | "note" | "trash" | "edit" | "filter" | "shuffle" | "refresh" | "database" | "sliders" | "image" | "bell" | "archive"
+  | "note" | "trash" | "edit" | "filter" | "shuffle" | "refresh" | "database" | "watch" | "sliders" | "image" | "bell" | "archive"
   | "calendarPlus" | "check" | "back" | "search" | "user" | "undo" | "open" | "sparkle" | "globe" | "chart"
   | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers";
 
@@ -93,6 +93,7 @@ export default function Icon({ name, size = 20, filled = false, detail = "white"
     film: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4" /></>,
     mic: <path d="M12 4a3 3 0 0 1 3 3v4a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3zM6 11a6 6 0 0 0 12 0M12 17v3M9 20h6" />,
     masks: <path d="M4 5h9v6a4.500 4.500 0 0 1-9 0zM7 9h.01M10 9h.01M6.500 12.500c1 1 3 1 4 0M11 8h9v6a4.500 4.500 0 0 1-7 3.700M16 12h.01M19 12h.01" />,
+    watch: <><rect x="3" y="4" width="18" height="12" rx="3" /><path d="M10 8l5 2-5 2z" /><path d="M8 20h8M12 16v4" /></>,
     tv: <path d="M4 7h16v11H4zM9 3l3 4 3-4" />,
     stubUpload: <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4zM12 15V9M9.500 11.500L12 9l2.500 2.500" />,
     clock: <><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></>,

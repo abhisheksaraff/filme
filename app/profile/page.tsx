@@ -10,18 +10,33 @@ import RoundButton from "@/components/RoundButton";
 import Icon, { type IconName } from "@/components/Icon";
 import CropDialog from "@/components/CropDialog";
 import DataSync from "@/components/DataSync";
+import { ConfirmPopup } from "@/components/Popup";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { allStores } from "@/lib/files";
 import { services } from "@/lib/services";
 
 const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
   { href: "/stats/", icon: "chart", label: "Stats", note: "Totals and charts for everything you have logged" },
-  { href: "/map/", icon: "map", label: "Map", note: "Every venue you have been to" },
   { href: "/collections/", icon: "layers", label: "Collections", note: "Your own lists of titles" },
   { href: "/profile/appearance/", icon: "palette", label: "Appearance", note: "Light or dark, themes and decorations" },
   { href: "/profile/data/", icon: "archive", label: "Import and export", note: "Letterboxd and Trakt files" },
+  { href: "/profile/watch/", icon: "watch", label: "Watch link", note: "Which website the Watch button opens" },
   { href: "/profile/keys/", icon: "key", label: "API keys", note: "AI and TMDB keys, models and order" },
 ];
+
+const ROW = "flex items-center gap-4 rounded-full bg-neutral-100 py-2 pl-2 pr-5 dark:bg-neutral-900";
+
+function RowBody({ icon, label, note }: { icon: IconName; label: string; note: string }) {
+  return (
+    <>
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"><Icon name={icon} size={20} /></span>
+      <span className="flex flex-col">
+        <span className="font-medium">{label}</span>
+        <span className="text-xs text-neutral-500">{note}</span>
+      </span>
+    </>
+  );
+}
 
 /** The free 10 GB of the image store; the meter is measured against that. */
 const FREE_BYTES = 10_000_000_000;
@@ -35,6 +50,7 @@ export default function ProfilePage() {
   const [crop, setCrop] = useState<File | null>(null);
   const [avatarKey, setAvatarKey] = useState(0);
   const [problem, setProblem] = useState<string | null>(null);
+  const [confirmOut, setConfirmOut] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -86,19 +102,22 @@ export default function ProfilePage() {
       <ul className="flex flex-col gap-3">
         {LINKS.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="flex items-center gap-4 rounded-full bg-neutral-100 py-2 pl-2 pr-5 dark:bg-neutral-900">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"><Icon name={link.icon} size={20} /></span>
-              <span className="flex flex-col">
-                <span className="font-medium">{link.label}</span>
-                <span className="text-xs text-neutral-500">{link.note}</span>
-              </span>
+            <Link href={link.href} className={ROW}>
+              <RowBody icon={link.icon} label={link.label} note={link.note} />
             </Link>
           </li>
         ))}
+        <li>
+          <button type="button" onClick={() => setConfirmOut(true)} className={`${ROW} w-full text-left`}>
+            <RowBody icon="logout" label="Sign out" note="Sign out of this device" />
+          </button>
+        </li>
       </ul>
       <DataSync />
 
-      <RoundButton icon="logout" label="Sign out" onClick={onSignOut} className="self-center" size="lg" />
+      {confirmOut && (
+        <ConfirmPopup title="Sign out?" message="You will need to sign in again to see your log on this device." confirmLabel="Sign out" confirmIcon="logout" onConfirm={onSignOut} onCancel={() => setConfirmOut(false)} />
+      )}
 
       {crop && <CropDialog file={crop} aspect={1} maxEdge={512} title="Frame your picture" onCancel={() => setCrop(null)} onDone={saveAvatar} />}
     </main>

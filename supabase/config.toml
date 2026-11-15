@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.files]
 verify_jwt = false
+
+[functions.link-check]
+verify_jwt = false

@@ -79,7 +79,7 @@ export interface LogRepository {
   updateViewing(id: string, entry: LogEntry): Promise<Result<{ mediaId: string }>>;
   /** Permanently removes viewings deleted more than 30 days ago, together with their stored images. */
   purgeExpired(): Promise<Result<number>>;
-  /** Hides a viewing; it can be restored for 30 days, after which the weekly cleanup removes it. */
+  /** Hides a viewing; it can be restored for 24 hours, after which the next cleanup removes it. */
   deleteViewing(id: string): Promise<Result<void>>;
   restoreViewing(id: string): Promise<Result<void>>;
   deleted(limit: number): Promise<Result<DeletedEntry[]>>;

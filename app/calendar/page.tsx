@@ -1,11 +1,13 @@
 // app/calendar/page.tsx
-// A month grid of everything you watched: posters (stacked like a deck on busy days), a filter, a
-// calendar download, and the picked day's viewings listed underneath.
+// Months of everything you watched as one long strip you swipe along, with posters (stacked like a
+// deck on busy days), a month and year picker, a filter, a calendar download, and the picked day's
+// viewings listed underneath.
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePageState } from "@/lib/pageMemory";
+import MonthPicker from "@/components/MonthPicker";
 import RoundButton from "@/components/RoundButton";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -23,6 +25,79 @@ const CATEGORIES = ["Movie", "TV Show", "Concert", "Live Event"];
 const pad = (n: number) => String(n).padStart(2, "0");
 const dayLabel = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
+/** Months kept in the strip on each side of the middle one; the strip is re-centred when you near an end. */
+const HALF = 36;
+const PANELS = HALF * 2 + 1;
+/** Panels this close to the visible one draw their days; the rest are empty placeholders. */
+const DRAWN = 2;
+/** Months ahead of today the picker offers. */
+const YEARS_AHEAD = 5;
+
+const abs = (year: number, month: number) => year * 12 + month;
+
+interface GridProps {
+  /** Months since year 0: year * 12 + month. */
+  index: number;
+  byDay: Map<string, StatRow[]>;
+  picked: string | null;
+  onPick: (date: string) => void;
+}
+
+/** One month's seven-column grid. Memoised so swiping does not redraw months that did not change. */
+const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: GridProps) {
+  const year = Math.floor(index / 12);
+  const month = index % 12;
+  const prefix = `${year}-${pad(month + 1)}`;
+  // Sunday is the first column, so the first of the month sits at its weekday number.
+  const offset = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells = Array.from({ length: Math.ceil((offset + days) / 7) * 7 }, (_, i) => (i >= offset && i < offset + days ? i - offset + 1 : null));
+
+  return (
+    <div className="grid grid-cols-7 gap-1">
+      {WEEKDAYS.map((name) => (
+        <div key={name} className="pb-1 text-center text-xs text-neutral-950 dark:text-white">{name}</div>
+      ))}
+      {cells.map((day, i) => {
+        if (day === null) return <div key={i} />;
+        const date = `${prefix}-${pad(day)}`;
+        // Newest first, so the latest viewing of the day is the card on top.
+        const list = [...(byDay.get(date) ?? [])].reverse();
+        const deck = list.slice(0, DECK);
+        const single = list.length === 1;
+        return (
+          <button
+            key={i}
+            type="button"
+            disabled={list.length === 0}
+            onClick={() => onPick(date)}
+            className={`relative aspect-[2/3] rounded-lg text-xs ${picked === date ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${list.length ? "" : "cursor-default"}`}
+          >
+            {deck.map((row, n) => {
+              const poster = tmdbImageUrl(row.posterPath, "w185");
+              // A lone viewing fills the square; a busy day cascades down and to the right, each card under the last.
+              const box = single ? { left: 0, top: 0, width: "100%", height: "100%" } : { left: `${n * STEP}%`, top: `${n * STEP}%`, width: `${CARD}%`, height: `${CARD}%` };
+              return (
+                <span key={row.id} className="absolute overflow-hidden rounded-md bg-neutral-300 shadow-[0_2px_5px_rgba(0,0,0,0.4)] ring-1 ring-white/70 dark:bg-neutral-700 dark:ring-black/60" style={{ ...box, zIndex: DECK - n }}>
+                  {poster && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={poster} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  )}
+                </span>
+              );
+            })}
+            <span className={`absolute left-0.5 top-0.5 z-10 rounded px-1 font-medium leading-tight text-neutral-950 ${list.length ? "bg-white/85" : "dark:text-white"}`}>{day}</span>
+            {list.length > DECK && <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-white">+{list.length - DECK}</span>}
+            {single && list[0].rating !== null && (
+              <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {list[0].rating}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
 export default function CalendarPage() {
   const ready = useRequireSession();
   const today = new Date();
@@ -34,6 +109,14 @@ export default function CalendarPage() {
   const [minRating, setMinRating] = usePageState("calendar.minRating", 0);
   const [filterOpen, setFilterOpen] = usePageState("calendar.filterOpen", false);
   const [picked, setPicked] = usePageState<string | null>("calendar.picked", null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  /** The month in the middle of the strip; the strip is rebuilt around a new one when you near its end. */
+  const [middle, setMiddle] = useState(() => abs(year, month));
+  const strip = useRef<HTMLDivElement>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /** Set while the strip is being moved by the code, so those scroll events are not mistaken for swipes. */
+  const moving = useRef(false);
 
   useEffect(() => {
     if (!ready) return;
@@ -59,25 +142,78 @@ export default function CalendarPage() {
     return map;
   }, [rows, category, minRating]);
 
+  const firstYear = useMemo(() => {
+    const years = (rows ?? []).flatMap((r) => (r.watchedOn ? [Number(r.watchedOn.slice(0, 4))] : [])).filter(Number.isFinite);
+    return years.length > 0 ? Math.min(...years) : today.getFullYear() - 5;
+    // `today` only matters when there are no rows, and the year does not change mid-visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
+
+  const current = abs(year, month);
   const prefix = `${year}-${pad(month + 1)}`;
-  const first = new Date(year, month, 1);
-  // Sunday is the first column, so the first of the month sits at its weekday number.
-  const offset = first.getDay();
-  const days = new Date(year, month + 1, 0).getDate();
-  const cells = Array.from({ length: Math.ceil((offset + days) / 7) * 7 }, (_, i) => (i >= offset && i < offset + days ? i - offset + 1 : null));
+  const first = middle - HALF;
+
+  /** Puts the strip so the given panel is in view, without animation. */
+  function jump(panel: number) {
+    const el = strip.current;
+    if (!el) return;
+    moving.current = true;
+    el.scrollTo({ left: panel * el.clientWidth, behavior: "instant" });
+    // Scroll events from this jump arrive on the next frames; they are ignored until then.
+    requestAnimationFrame(() => requestAnimationFrame(() => { moving.current = false; }));
+  }
+
+  // Shows the chosen month when the strip first appears and after it has been rebuilt around a new middle.
+  useLayoutEffect(() => {
+    jump(current - first);
+    // Only a new middle (or the first draw) repositions the strip; ordinary swipes move it themselves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [middle, rows !== null]);
+
+  function onScroll() {
+    const el = strip.current;
+    if (!el || moving.current || el.clientWidth === 0) return;
+    const panel = Math.round(el.scrollLeft / el.clientWidth);
+    const index = first + panel;
+    if (index !== current) {
+      setYear(Math.floor(index / 12));
+      setMonth(index % 12);
+      // The list under the grid belongs to a month, so it closes when you move to another.
+      setPicked(null);
+    }
+    // Near either end, rebuild the strip around the month in view once the swiping has stopped.
+    clearTimeout(settle.current);
+    settle.current = setTimeout(() => {
+      if (panel < 6 || panel > PANELS - 7) setMiddle(index);
+    }, 160);
+  }
+
+  useEffect(() => () => clearTimeout(settle.current), []);
+
+  /** Glides to a month; a long way off, it jumps instead of scrolling past every month between. */
+  function goTo(index: number) {
+    const el = strip.current;
+    if (!el) return;
+    const panel = index - first;
+    setPicked(null);
+    if (panel < 0 || panel >= PANELS) {
+      setYear(Math.floor(index / 12));
+      setMonth(index % 12);
+      setMiddle(index);
+    } else if (Math.abs(panel - Math.round(el.scrollLeft / el.clientWidth)) > 3) {
+      jump(panel);
+      setYear(Math.floor(index / 12));
+      setMonth(index % 12);
+    } else {
+      el.scrollTo({ left: panel * el.clientWidth, behavior: "smooth" });
+    }
+  }
 
   function pickDay(date: string) {
     const next = picked === date ? null : date;
     setPicked(next);
     // The list is under the grid, so bring it into view once it has been drawn.
     if (next) requestAnimationFrame(() => document.getElementById("picked-day")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
-  }
-
-  function shift(by: number) {
-    const next = new Date(year, month + by, 1);
-    setYear(next.getFullYear());
-    setMonth(next.getMonth());
-    setPicked(null);
   }
 
   function download() {
@@ -97,6 +233,7 @@ export default function CalendarPage() {
 
   if (!ready) return null;
   const pickedRows = picked ? byDay.get(picked) ?? [] : [];
+  const visible = current - first;
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-4 px-4 pb-4 pt-6">
@@ -104,9 +241,11 @@ export default function CalendarPage() {
 
       <header className="flex items-center justify-between px-1">
         <div className="flex items-center gap-1">
-          <RoundButton icon="left" label="Previous month" size="sm" onClick={() => shift(-1)} />
-          <h2 className="font-serif text-xl tracking-tight">{MONTH_NAMES[month]} {year}</h2>
-          <RoundButton icon="right" label="Next month" size="sm" onClick={() => shift(1)} />
+          <RoundButton icon="left" label="Previous month" size="sm" onClick={() => goTo(current - 1)} />
+          <button type="button" onClick={() => setPickerOpen(true)} aria-label="Choose month and year" className="rounded-full px-2 py-1 font-serif text-xl tracking-tight">
+            {MONTH_NAMES[month]} {year}
+          </button>
+          <RoundButton icon="right" label="Next month" size="sm" onClick={() => goTo(current + 1)} />
         </div>
         <div className="flex gap-2">
           <RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} />
@@ -136,51 +275,22 @@ export default function CalendarPage() {
       {!rows && !problem && <div className="skeleton h-96 rounded-2xl" />}
 
       {rows && (
-        <div className="grid grid-cols-7 gap-1">
-          {WEEKDAYS.map((name) => (
-            <div key={name} className="pb-1 text-center text-xs text-neutral-950 dark:text-white">{name}</div>
+        // One long strip of months: dragging moves the strip itself, and it settles on the nearest month when you let go.
+        <div
+          ref={strip}
+          onScroll={onScroll}
+          className="-mx-4 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {Array.from({ length: PANELS }, (_, panel) => (
+            <div key={first + panel} className="w-full shrink-0 snap-start px-4">
+              {Math.abs(panel - visible) <= DRAWN ? <MonthGrid index={first + panel} byDay={byDay} picked={picked} onPick={pickDay} /> : null}
+            </div>
           ))}
-          {cells.map((day, i) => {
-            if (day === null) return <div key={i} />;
-            const date = `${prefix}-${pad(day)}`;
-            // Newest first, so the latest viewing of the day is the card on top.
-            const list = [...(byDay.get(date) ?? [])].reverse();
-            const deck = list.slice(0, DECK);
-            const single = list.length === 1;
-            return (
-              <button
-                key={i}
-                type="button"
-                disabled={list.length === 0}
-                onClick={() => pickDay(date)}
-                className={`relative aspect-[2/3] rounded-lg text-xs ${picked === date ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${list.length ? "" : "cursor-default"}`}
-              >
-                {deck.map((row, n) => {
-                  const poster = tmdbImageUrl(row.posterPath, "w185");
-                  // A lone viewing fills the square; a busy day cascades down and to the right, each card under the last.
-                  const box = single ? { left: 0, top: 0, width: "100%", height: "100%" } : { left: `${n * STEP}%`, top: `${n * STEP}%`, width: `${CARD}%`, height: `${CARD}%` };
-                  return (
-                    <span key={row.id} className="absolute overflow-hidden rounded-md bg-neutral-300 shadow-[0_2px_5px_rgba(0,0,0,0.4)] ring-1 ring-white/70 dark:bg-neutral-700 dark:ring-black/60" style={{ ...box, zIndex: DECK - n }}>
-                      {poster && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={poster} alt="" loading="lazy" className="h-full w-full object-cover" />
-                      )}
-                    </span>
-                  );
-                })}
-                <span className={`absolute left-0.5 top-0.5 z-10 rounded px-1 font-medium leading-tight text-neutral-950 ${list.length ? "bg-white/85" : "dark:text-white"}`}>{day}</span>
-                {list.length > DECK && <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-white">+{list.length - DECK}</span>}
-                {single && list[0].rating !== null && (
-                  <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {list[0].rating}</span>
-                )}
-              </button>
-            );
-          })}
         </div>
       )}
 
       {pickedRows.length > 0 && picked && (
-        <section id="picked-day" className="flex flex-col gap-3 scroll-mt-4">
+        <section id="picked-day" className="flex scroll-mt-4 flex-col gap-3">
           <h2 className="px-1 font-serif text-xl">{dayLabel(picked)}</h2>
           <ul className="flex flex-col gap-3">
             {pickedRows.map((row) => {
@@ -204,6 +314,20 @@ export default function CalendarPage() {
             })}
           </ul>
         </section>
+      )}
+
+      {pickerOpen && (
+        <MonthPicker
+          month={month}
+          year={year}
+          firstYear={firstYear}
+          lastYear={today.getFullYear() + YEARS_AHEAD}
+          onClose={() => setPickerOpen(false)}
+          onPick={(y, m) => {
+            setPickerOpen(false);
+            goTo(abs(y, m));
+          }}
+        />
       )}
     </main>
   );

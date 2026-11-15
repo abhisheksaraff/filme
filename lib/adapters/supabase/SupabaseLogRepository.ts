@@ -362,7 +362,8 @@ export const supabaseLogRepository: LogRepository = {
 
   async purgeExpired() {
     const db = getSupabase();
-    const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    // A deleted viewing can be restored for 24 hours, then it is removed for good.
+    const cutoff = new Date(Date.now() - 86_400_000).toISOString();
     const old = await db.from("watch_sessions").select("id").lt("deleted_at", cutoff).limit(100);
     if (old.error) return fail("Could not check deleted viewings.");
     if (old.data.length === 0) return ok(0);

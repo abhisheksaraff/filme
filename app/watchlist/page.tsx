@@ -71,7 +71,7 @@ export default function WatchlistPage() {
       {deleted.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="font-serif text-xl">Recently deleted</h2>
-          <p className="text-xs text-neutral-500">Kept for 30 days, then removed for good.</p>
+          <p className="text-xs text-neutral-500">Kept for 24 hours, then removed for good.</p>
           <ul className="flex flex-col gap-2">
             {deleted.map((entry) => (
               <li key={entry.id} className="flex items-center justify-between gap-2 text-sm">

@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { ConfirmPopup } from "@/components/Popup";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { interleave, previewHref } from "@/lib/home/rows";
@@ -204,13 +205,20 @@ function CollectionView() {
             type="button"
             disabled={busy}
             className="mt-4 rounded-xl border border-red-300 px-4 py-3 text-sm text-red-600 dark:border-red-900"
-            onClick={() => {
-              if (!confirmDelete) return setConfirmDelete(true);
-              run(() => services.collections.remove(detail.id), () => router.replace("/collections/"));
-            }}
+            onClick={() => setConfirmDelete(true)}
           >
-            {confirmDelete ? "Tap again to delete this collection (titles are kept)" : "Delete collection"}
+            Delete collection
           </button>
+          {confirmDelete && (
+            <ConfirmPopup
+              title="Delete this collection?"
+              message="Its titles stay in your log; only the list is deleted."
+              confirmLabel="Delete"
+              busy={busy}
+              onConfirm={() => run(() => services.collections.remove(detail.id), () => router.replace("/collections/"))}
+              onCancel={() => setConfirmDelete(false)}
+            />
+          )}
         </>
       )}
     </main>

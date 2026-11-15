@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { DEFAULT_APPEARANCE, appearanceSchema } from "@/lib/domain/appearance";
 import type { MovingDates } from "@/lib/domain/holidays";
+import { EMPTY_WATCH_LINKS, watchLinksSchema } from "@/lib/domain/watchLinks";
 import type { SettingsRepository } from "@/lib/ports/settings";
 import { fail, ok } from "@/lib/ports/result";
 import { getSupabase } from "./client";
@@ -82,6 +83,17 @@ export const supabaseSettingsRepository: SettingsRepository = {
 
   async markBackup() {
     return upsertSettings({ last_backup_at: new Date().toISOString() }, "Could not record the backup.");
+  },
+
+  async watchLinks() {
+    const { data, error } = await getSupabase().from("user_settings").select("watch_links").maybeSingle();
+    if (error) return fail("Could not load your Watch links.");
+    const parsed = watchLinksSchema.safeParse(data?.watch_links ?? {});
+    return ok(parsed.success ? parsed.data : EMPTY_WATCH_LINKS);
+  },
+
+  async saveWatchLinks(links) {
+    return upsertSettings({ watch_links: links }, "Could not save your Watch links.");
   },
 
   async movingDates(year) {

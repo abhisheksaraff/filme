@@ -162,7 +162,7 @@ export default function WantPage() {
       )}
 
       {!wanted && <div className="skeleton h-40 rounded-2xl" />}
-      {wanted?.length === 0 && <p className="text-sm text-neutral-500">Nothing here yet. Open any title and tap the bookmark.</p>}
+      {wanted?.length === 0 && <p className="text-sm text-neutral-500">Nothing here yet</p>}
       <ul className="grid grid-cols-2 gap-4">
         {wanted?.map((item) => {
           const poster = tmdbImageUrl(item.posterPath, "w342");

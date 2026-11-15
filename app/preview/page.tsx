@@ -2,12 +2,12 @@
 // A catalogue title you have not logged (or have): details, plus add or remove from your watchlist.
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import PersonCircle from "@/components/PersonCircle";
-import RoundButton from "@/components/RoundButton";
+import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
-import Icon from "@/components/Icon";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { CatalogDetails, CatalogKind } from "@/lib/ports/catalog";
@@ -85,28 +85,20 @@ function PreviewView() {
             {details.genres.length > 0 && <span className="text-sm text-neutral-500">{details.genres.join(", ")}</span>}
 
             {status && (
-              <div className="flex gap-3">
-                <RoundButton
-                  icon="bookmark"
-                  filled={status.wanted}
-                  label={status.wanted ? "Remove from watchlist" : "Add to watchlist"}
-                  tone="dark"
-                  size="lg"
-                  disabled={busy}
-                  onClick={toggleWanted}
+              <>
+                <TitleActions
+                  wanted={status.wanted}
+                  canBookmark
+                  watched={status.logged}
+                  watch={{ tmdbId: details.tmdbId, kind: details.category === "TV Show" ? "TV Show" : "Movie", title: details.title, year: details.releaseYear ? String(details.releaseYear) : null }}
+                  busy={busy}
+                  onToggleWanted={toggleWanted}
+                  onLog={logViewing}
                 />
-                <span className="relative">
-                  <RoundButton icon="plus" label="Log a viewing" tone="dark" size="lg" onClick={logViewing} />
-                  {status.logged && (
-                    <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-neutral-500 text-white ring-2 ring-white dark:ring-neutral-950">
-                      <Icon name="check" size={12} />
-                    </span>
-                  )}
-                </span>
                 {status.logged && status.mediaId && (
-                  <RoundButton icon="ticket" label="See your viewings" size="lg" href={`/title/?id=${status.mediaId}`} />
+                  <Link href={`/title/?id=${status.mediaId}`} className="self-start text-sm underline">See your viewings</Link>
                 )}
-              </div>
+              </>
             )}
 
             {details.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{details.overview}</p>}

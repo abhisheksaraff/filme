@@ -1,6 +1,7 @@
 // lib/ports/settings.ts
 import type { Appearance } from "@/lib/domain/appearance";
 import type { MovingDates } from "@/lib/domain/holidays";
+import type { WatchLinks } from "@/lib/domain/watchLinks";
 import type { Result } from "./result";
 
 /** Where the user is, for theatre listings and the "Current location" label. */
@@ -22,6 +23,9 @@ export interface SettingsRepository {
   /** When the user last made a backup, as an ISO time, or null. */
   lastBackup(): Promise<Result<string | null>>;
   markBackup(): Promise<Result<void>>;
+  /** The link templates the Watch button uses. */
+  watchLinks(): Promise<Result<WatchLinks>>;
+  saveWatchLinks(links: WatchLinks): Promise<Result<void>>;
   movingDates(year: number): Promise<Result<MovingDates>>;
   saveMovingDates(year: number, dates: MovingDates): Promise<Result<void>>;
 }

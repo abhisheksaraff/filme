@@ -73,6 +73,13 @@ html[data-holiday] nav [aria-current="page"] {
   to { opacity: 1; transform: perspective(900px) rotateX(0) scale(1); }
 }
 
+/* Popups rise and settle in, as if lifted off the page. */
+.popup-in { animation: popup-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1); transform-origin: center; }
+@keyframes popup-in {
+  from { opacity: 0; transform: perspective(900px) translateY(18px) rotateX(14deg) scale(0.92); }
+  to { opacity: 1; transform: perspective(900px) translateY(0) rotateX(0) scale(1); }
+}
+
 /* A lighter grey for cards, chips and pills in light mode. */
 html:not(.dark) {
   --color-neutral-100: #f8f8f8;
