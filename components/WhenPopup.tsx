@@ -23,7 +23,7 @@ export default function WhenPopup({ what, busy, onToday, onForm, onUndated, onCl
         <button type="button" className={POPUP_OPTION} onClick={onForm} disabled={busy}>Choose a date</button>
         {onUndated && <button type="button" className={POPUP_OPTION} onClick={onUndated} disabled={busy}>Watched before</button>}
       </div>
-      <div className="flex justify-end"><button type="button" className={POPUP_SECONDARY} onClick={onClose} disabled={busy}>Close</button></div>
+      <div className="flex justify-center"><button type="button" className={POPUP_SECONDARY} onClick={onClose} disabled={busy}>Cancel</button></div>
     </Popup>
   );
 }

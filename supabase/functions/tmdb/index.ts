@@ -4,7 +4,12 @@ import { enforceLimit, requireUser } from "../_shared/auth.ts";
 import { HttpError, readJson, serve } from "../_shared/http.ts";
 import { loadSlots } from "../_shared/providers.ts";
 
-const DAILY_LIMIT = 2000;
+// SECURITY: a runaway loop or a stolen session must not be able to burn through the saved keys or the project's call allowance.
+const DAILY_LIMIT = 10_000;
+/** How long a key that was refused or rate limited is passed over, so a backup key is used straight away. */
+const COOLDOWN_MS = 10 * 60_000;
+/** Kept in memory per running instance, which is plenty: it only saves wasted attempts. */
+const cooling = new Map<string, number>();
 const TIMEOUT_MS = 15_000;
 
 // SECURITY: only these TMDB paths can be requested, so the function cannot be used as a general proxy.
@@ -59,7 +64,10 @@ serve(async (req) => {
 
   // Try each saved key in order; move on when one is rejected, rate limited or the service errors.
   let lastStatus = 0;
-  for (const slot of slots) {
+  // Keys that were just refused are skipped, unless every key is cooling, in which case all are tried again.
+  const now = Date.now();
+  const ready = slots.filter((slot) => (cooling.get(slot.id) ?? 0) <= now);
+  for (const slot of ready.length > 0 ? ready : slots) {
     const bearer = slot.secret.startsWith("eyJ");
     const url = new URL(`https://api.themoviedb.org/3${path}`);
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
@@ -79,6 +87,8 @@ serve(async (req) => {
     if (res.ok) return await res.json();
     if (res.status === 404) throw new HttpError(404, "Not found on TMDB.");
     lastStatus = res.status;
+    // Rate limited or refused: this key is out for a while, but a 5xx is TMDB's trouble, not the key's.
+    if (res.status === 429 || res.status === 401 || res.status === 403) cooling.set(slot.id, Date.now() + COOLDOWN_MS);
     await res.body?.cancel();
   }
   throw new HttpError(502, lastStatus === 0 ? "Could not reach TMDB." : `TMDB refused the request (status ${lastStatus}).`);

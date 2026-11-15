@@ -2,6 +2,7 @@
 // One season of a show: its episodes with progress, and the same bookmark, tick, Watch and + as the show.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -177,7 +178,7 @@ function SeasonView() {
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">
-        {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+        <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
         {detail && season && (
           <>
@@ -283,8 +284,8 @@ function SeasonView() {
         <Popup title="Which day?" onClose={() => !busy && setPickWhen(null)}
           actions={
             <>
-              <button type="button" className={POPUP_PRIMARY} disabled={busy || !pickDate} onClick={() => logPicked(pickDate)}>Log</button>
               <button type="button" className={POPUP_SECONDARY} disabled={busy} onClick={() => setPickWhen(null)}>Cancel</button>
+              <button type="button" className={POPUP_PRIMARY} disabled={busy || !pickDate} onClick={() => logPicked(pickDate)}>Log</button>
             </>
           }>
           <input type="date" value={pickDate} max={today()} onChange={(e) => setPickDate(e.target.value)} className="w-full min-w-0 rounded-xl bg-white/10 px-3 py-2 text-base text-white outline-none" />

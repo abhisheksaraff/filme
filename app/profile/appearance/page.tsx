@@ -2,6 +2,7 @@
 // Light or dark, which theme to wear, floating decorations and the birthday that triggers a theme.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { useEffect, useState } from "react";
 import Choice from "@/components/ui/Choice";
 import { FIELD } from "@/components/ui/fields";
@@ -76,7 +77,7 @@ export default function AppearancePage() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Appearance</h1>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 font-serif text-xl">Mode</legend>

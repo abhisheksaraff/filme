@@ -22,7 +22,7 @@ function parsePreview(href: string): { kind: CatalogKind; tmdbId: number } | nul
 }
 
 /**
- * Called when a tile is pressed: keeps what the tile shows and starts fetching the full details, so by the time
+ * Called when a tile is tapped (not when a finger merely lands on it to scroll, which would waste requests): keeps what the tile shows and starts fetching the full details, so by the time
  * the page opens they are usually already there.
  */
 export function warmTitle(href: string, info: Handoff): void {

@@ -2,6 +2,7 @@
 // Adds performers and openers to a concert or live event, with MusicBrainz suggestions.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD } from "@/components/ui/fields";
 import { useEffect, useState } from "react";
 import { addPerformer } from "@/lib/credits";
@@ -54,7 +55,7 @@ export default function PerformerInput({ mediaId, onAdded }: Props) {
           <option value="opener">Opener</option>
         </select>
       </div>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {name.trim().length >= 2 && (
         <ul className="flex flex-col gap-1 text-sm">
           {hits.map((hit) => (

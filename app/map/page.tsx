@@ -2,6 +2,7 @@
 // A full-screen map of every venue. Tap a pin for a black sheet listing what you watched there.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -108,7 +109,7 @@ function MapView() {
           {finding && <span className="px-1 text-xs text-neutral-800 [text-shadow:0_1px_4px_rgba(255,255,255,0.9)] dark:text-neutral-200 dark:[text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">Finding venues…</span>}
         </div>
       </div>
-      {problem && <p role="alert" className="absolute inset-x-6 top-40 z-20 rounded-2xl bg-white/90 px-3 py-2 text-sm text-red-600 dark:bg-black/70">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       {open && (
         // Tall, lifted clear of the bottom bar, with a soft shadow so it reads as the thing in front.

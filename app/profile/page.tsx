@@ -2,6 +2,7 @@
 // Your picture, storage use, and everything that is not logging or browsing.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -94,7 +95,7 @@ export default function ProfilePage() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Profile</h1>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       <div className="flex items-center gap-4">
         <Avatar key={avatarKey} size={72} />

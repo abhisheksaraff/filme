@@ -2,6 +2,7 @@
 // The edit page's photos and ticket stubs for one saved viewing: see them, add more, set the main one, add notes, delete.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { useCallback, useEffect, useRef, useState } from "react";
 import CropDialog from "@/components/CropDialog";
 import ImageViewer from "@/components/ImageViewer";
@@ -66,7 +67,7 @@ export default function SessionPicturesEditor({ sessionId }: { sessionId: string
 
   return (
     <div className="flex flex-col gap-4">
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {row("photo", "Photos", photoInput)}
       {row("ticket", "Ticket stubs", stubInput)}
       {crop && (

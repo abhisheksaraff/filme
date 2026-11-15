@@ -3,6 +3,7 @@
 import type { BrowseSpec, Catalog, CatalogCredit, CatalogDetails, CatalogHit, CatalogKind, CatalogMatch, CatalogPerson, CatalogPersonHit, EpisodeRef, SeasonDetail, ShowStatus } from "@/lib/ports/catalog";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { callFunction } from "../supabase/functions";
+import { readStored, writeStored } from "@/lib/persistentCache";
 import { tmdbImageUrl } from "./images";
 
 interface Named {
@@ -378,16 +379,30 @@ const rawCatalog: Catalog = {
   },
 };
 
-/** Answers kept for a few minutes, so reopening a title, or warming one when a tile is pressed, costs nothing. */
-const REMEMBER_MS = 5 * 60_000;
+/** How long answers are kept. Most of TMDB's data changes slowly, so a day is plenty; what airs next is checked more often. */
+const MINUTE = 60_000;
+const SHORT_MS = 5 * MINUTE;
+const DAY_MS = 24 * 60 * MINUTE;
 const answers = new Map<string, { at: number; value: Promise<Result<unknown>> }>();
 
-function remember<T>(key: string, run: () => Promise<Result<T>>): Promise<Result<T>> {
+/**
+ * Asks once and remembers the answer: in memory for this visit and, when `persist` is on, on the phone for later
+ * visits too. Failures are never kept, so the next try asks again.
+ */
+function remember<T>(key: string, run: () => Promise<Result<T>>, ttl = SHORT_MS, persist = false): Promise<Result<T>> {
   const hit = answers.get(key);
-  if (hit && Date.now() - hit.at < REMEMBER_MS) return hit.value as Promise<Result<T>>;
-  // A failure is not kept, so the next try asks again.
+  if (hit && Date.now() - hit.at < ttl) return hit.value as Promise<Result<T>>;
+  if (persist) {
+    const stored = readStored<T>(key, ttl);
+    if (stored !== undefined) {
+      const value = Promise.resolve(ok(stored));
+      answers.set(key, { at: Date.now(), value });
+      return value;
+    }
+  }
   const value = run().then((res) => {
     if (!res.ok) answers.delete(key);
+    else if (persist) writeStored(key, res.value);
     return res;
   });
   answers.set(key, { at: Date.now(), value });
@@ -396,6 +411,12 @@ function remember<T>(key: string, run: () => Promise<Result<T>>): Promise<Result
 
 export const edgeCatalog: Catalog = {
   ...rawCatalog,
-  details: (match) => remember(`details:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match)),
-  images: (match) => remember(`images:${match.kind}:${match.tmdbId}`, () => rawCatalog.images(match)),
+  details: (match) => remember(`details:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match), DAY_MS, true),
+  images: (match) => remember(`images:${match.kind}:${match.tmdbId}`, () => rawCatalog.images(match), DAY_MS, true),
+  person: (id) => remember(`person:${id}`, () => rawCatalog.person(id), DAY_MS, true),
+  personCredits: (id) => remember(`personCredits:${id}`, () => rawCatalog.personCredits(id), DAY_MS, true),
+  recommendations: (match) => remember(`recs:${match.kind}:${match.tmdbId}`, () => rawCatalog.recommendations(match), 6 * 60 * MINUTE, true),
+  // What aired or airs next, so it is checked a few times a day rather than on every open of Watchlist.
+  showStatus: (id) => remember(`status:${id}`, () => rawCatalog.showStatus(id), 3 * 60 * MINUTE, true),
+  theatres: (when, region) => remember(`theatres:${when}:${region}`, () => rawCatalog.theatres(when, region), 6 * 60 * MINUTE, true),
 };

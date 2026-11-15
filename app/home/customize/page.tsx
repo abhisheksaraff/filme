@@ -2,6 +2,7 @@
 // Choose which rows Home shows and in what order.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Choice from "@/components/ui/Choice";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -69,7 +70,7 @@ export default function CustomizeHomePage() {
     <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
       <h1 className="font-serif text-3xl tracking-tight">Customize Home</h1>
       <p className="text-sm text-neutral-500">Switch rows on or off and use the arrows to change their order.</p>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       <ul className="flex flex-col gap-2">
         {rows?.map((row, i) => (

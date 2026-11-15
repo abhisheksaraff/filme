@@ -2,6 +2,7 @@
 // Edits one saved viewing, including its title or type.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import EntryForm from "@/components/EntryForm";
@@ -112,7 +113,7 @@ function EditView() {
     <main className="mx-auto flex w-full max-w-md flex-col gap-5 px-6 py-8">
       {busy && <LoadingOverlay label="Saving…" />}
             <h1 className="font-serif text-3xl tracking-tight">{original?.title ?? "Edit viewing"}</h1>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       {draft && (
         <form onSubmit={onSave} className="flex flex-col gap-5">
@@ -129,7 +130,7 @@ function EditView() {
         </form>
       )}
       {confirmDelete && (
-        <ConfirmPopup title="Delete this viewing?" message="You can restore it from Watched for 24 hours." confirmLabel="Delete" cancelLabel="Keep" busy={busy} onConfirm={onDelete} onCancel={() => setConfirmDelete(false)} />
+        <ConfirmPopup title="Delete this viewing?" message="You can restore it from Watched for 24 hours." confirmLabel="Delete" busy={busy} onConfirm={onDelete} onCancel={() => setConfirmDelete(false)} />
       )}
     </main>
   );

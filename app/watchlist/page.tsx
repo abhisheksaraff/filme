@@ -2,6 +2,7 @@
 // Entry point for logging a viewing, with the most recent ones listed below.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { toast } from "@/components/Toast";
 import { useEffect, useState } from "react";
 import WatchedCard from "@/components/WatchedCard";
@@ -53,7 +54,7 @@ export default function WatchlistPage() {
         <RoundButton icon="map" label="Map" href="/map/" />
       </div>
 
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       <ul className="flex flex-col gap-5">
         {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} />)}

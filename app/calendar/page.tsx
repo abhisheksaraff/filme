@@ -4,6 +4,8 @@
 // viewings listed underneath.
 "use client";
 
+import RatingSlider from "@/components/ui/RatingSlider";
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePageState } from "@/lib/pageMemory";
@@ -257,15 +259,14 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
-          <label className="flex items-center gap-3">
-            Rated at least
-            <input type="range" min={0} max={10} step={1} value={minRating} onChange={(e) => setMinRating(Number(e.target.value))} className="flex-1" />
-            <span className="w-6 text-right">{minRating || "any"}</span>
-          </label>
+          <div className="flex flex-col gap-1">
+            <span>Rated at least</span>
+            <RatingSlider label="Rated at least" value={minRating > 0 ? minRating : null} onChange={(v) => setMinRating(v ?? 0)} />
+          </div>
         </div>
       )}
 
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {!rows && !problem && <div className="skeleton h-96 rounded-2xl" />}
 
       {rows && (

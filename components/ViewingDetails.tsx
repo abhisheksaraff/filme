@@ -26,21 +26,28 @@ export default function ViewingDetails({ auditorium, seats, totalTickets, format
   // A new stamp per visit lets the same format be tapped again later and still apply.
   const [stamp] = useState(() => Date.now());
   const small = compact ? "text-[11px]" : "text-xs";
-  const tags = [format ? { label: format, href: `/search/?format=${encodeURIComponent(format)}&at=${stamp}` } : null, ...addons.map((a) => ({ label: a, href: `/search/?extra=${encodeURIComponent(a)}&at=${stamp}` }))].filter((t): t is { label: string; href: string } => t !== null);
+  const formatLink = format ? { label: format, href: `/search/?format=${encodeURIComponent(format)}&at=${stamp}` } : null;
+  const extras = addons.map((a) => ({ label: a, href: `/search/?extra=${encodeURIComponent(a)}&at=${stamp}` }));
   return (
     <div className={`flex min-w-0 flex-col gap-1 ${small}`}>
       {auditorium && <span className="text-neutral-700 dark:text-neutral-300">{auditorium}</span>}
-      {seats.length > 0 ? (
-        <span className="flex flex-wrap gap-1">
-          {seats.map((seat, i) => <span key={i} className="rounded-full bg-neutral-950 px-2 py-px text-[10px] leading-4 text-white dark:bg-white dark:text-neutral-950">{seatLabel(seat)}</span>)}
+      {/* Tickets and the format share a line; extras get their own below. */}
+      {(seats.length > 0 || totalTickets || formatLink) && (
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {seats.length > 0 ? (
+            <span className="flex flex-wrap gap-1">
+              {seats.map((seat, i) => <span key={i} className="rounded-full bg-neutral-950 px-2 py-px text-[10px] leading-4 text-white dark:bg-white dark:text-neutral-950">{seatLabel(seat)}</span>)}
+            </span>
+          ) : totalTickets ? (
+            <span className="text-neutral-600 dark:text-neutral-400">{totalTickets} {totalTickets === 1 ? "ticket" : "tickets"}</span>
+          ) : null}
+          {formatLink && <span className="text-neutral-600 dark:text-neutral-400">{links ? <Link href={formatLink.href}>{formatLink.label}</Link> : formatLink.label}</span>}
         </span>
-      ) : totalTickets ? (
-        <span className="text-neutral-600 dark:text-neutral-400">{totalTickets} {totalTickets === 1 ? "ticket" : "tickets"}</span>
-      ) : null}
-      {tags.length > 0 && (
+      )}
+      {extras.length > 0 && (
         <span className="flex flex-wrap gap-x-2 text-neutral-600 dark:text-neutral-400">
-          {tags.map((t, i) => (
-            <span key={t.label}>{links ? <Link href={t.href}>{t.label}</Link> : t.label}{i < tags.length - 1 ? " ·" : ""}</span>
+          {extras.map((t, i) => (
+            <span key={t.label}>{links ? <Link href={t.href}>{t.label}</Link> : t.label}{i < extras.length - 1 ? " ·" : ""}</span>
           ))}
         </span>
       )}

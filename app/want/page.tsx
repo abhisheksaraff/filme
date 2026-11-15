@@ -2,6 +2,7 @@
 // Your watchlist, with theatre alerts, release reminders and new episodes of shows you follow.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import RoundButton from "@/components/RoundButton";
@@ -106,7 +107,7 @@ export default function WantPage() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
       <h1 className="font-serif text-3xl tracking-tight">Watchlist</h1>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       {inTheatres.length > 0 && (
         <section className={card}>

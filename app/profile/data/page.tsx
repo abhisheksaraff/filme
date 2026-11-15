@@ -2,6 +2,7 @@
 // Moving a history in or out of other apps: Letterboxd and Trakt files. Backups are on Profile.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { useRef, useState } from "react";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { exportLetterboxd, exportTrakt } from "@/lib/backup";
@@ -51,7 +52,7 @@ export default function DataPage() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Import and export</h1>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {message && <p role="status" className="text-sm">{message}</p>}
 
       <div className="flex flex-col gap-3">

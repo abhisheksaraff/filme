@@ -174,7 +174,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
             {Math.abs(i - at) <= 1 && (
               <div className="relative inline-flex max-h-full max-w-full transition-transform" style={i === at ? { transform: `scale(${zoom})` } : undefined}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt={img.note ?? "Picture"} className="max-h-full max-w-full rounded-2xl object-contain shadow-2xl" />
+                <img src={img.url} alt={img.note ?? "Picture"} className="max-h-full max-w-full object-contain" />
                 {/* The main picture wears a star on its corner. */}
                 {img.isDefault && onSetDefault && (
                   <span role="img" aria-label="Main picture" className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black text-white shadow-lg ring-1 ring-white/30">
@@ -229,7 +229,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
           title="Delete this photo?"
           message={deleteMessage ?? "It is removed for good."}
           confirmLabel="Delete"
-          cancelLabel="Keep"
+         
           busy={busy}
           onConfirm={remove}
           onCancel={() => setConfirmDelete(false)}

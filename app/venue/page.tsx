@@ -2,6 +2,7 @@
 // A cinema, theatre or arena: where it is, and everything you have seen there.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -53,7 +54,7 @@ function VenueView() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-5 pb-4 pt-6">
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {venue && (
         <div className="reveal flex flex-col gap-5">
           {point.length > 0 && <FlatMap points={point} className="h-56" />}

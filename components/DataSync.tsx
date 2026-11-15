@@ -3,6 +3,7 @@
 // Uploading syncs: it adds what is missing and never replaces something newer with something older.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { useRef, useState } from "react";
 import Icon, { type IconName } from "@/components/Icon";
 import { downloadData, downloadImages, uploadData, uploadImages } from "@/lib/backup";
@@ -119,7 +120,7 @@ export default function DataSync() {
         <SyncButton label="Download images" icon="image" arrow="down" onClick={saveImages} {...props("download-images")} />
         <SyncButton label="Upload images" icon="image" arrow="up" onClick={() => imageInput.current?.click()} {...props("upload-images")} />
       </ul>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {message && <p role="status" className="text-sm">{message}</p>}
       <p className="text-xs text-neutral-500">Uploading adds what is missing and keeps the newer copy of anything in both. On a new account, upload your data before your images.</p>
     </section>

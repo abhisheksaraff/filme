@@ -2,6 +2,7 @@
 // One title: a hero picture, credits, posters and every time it has been watched.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { toast } from "@/components/Toast";
 import RoundButton from "@/components/RoundButton";
 import PicturesViewer from "@/components/PicturesViewer";
@@ -181,7 +182,7 @@ function TitleView() {
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">
-        {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+        <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
         {detail && (
           <>

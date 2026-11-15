@@ -19,9 +19,9 @@ interface PopupProps {
 }
 
 const ACTION = "py-1 text-sm font-medium disabled:opacity-40";
-/** The main action: plain white text on the left of the row. */
+/** The main action: plain white text on the right of the row. */
 export const POPUP_PRIMARY = `${ACTION} text-white`;
-/** The way out: plain red text on the right of the row. */
+/** The way out: plain red text on the left of the row, always labelled Cancel. */
 export const POPUP_SECONDARY = `${ACTION} text-red-400`;
 /** One choice in a list of choices: white text in a row, with a hairline between rows. */
 export const POPUP_OPTION = "flex w-full items-center justify-between border-t border-white/10 py-3 text-left text-sm text-white first:border-t-0 disabled:opacity-40";
@@ -53,7 +53,7 @@ export default function Popup({ title, onClose, children, actions }: PopupProps)
       >
         <h2 className="font-serif text-2xl leading-tight">{title}</h2>
         {children}
-        {actions && <div className="flex items-center justify-between gap-6 pt-1">{actions}</div>}
+        {actions && <div className="flex items-center justify-center gap-14 pt-1">{actions}</div>}
       </div>
     </div>
     </Portal>
@@ -64,7 +64,7 @@ interface ConfirmProps {
   title: string;
   message: string;
   confirmLabel: string;
-  /** The way out; "Keep" suits a deletion, "Cancel" anything else. */
+  /** The way out; it is "Cancel" everywhere so the second choice is never a surprise. */
   cancelLabel?: string;
   /** Kept so existing callers compile; popups no longer show an icon. */
   confirmIcon?: IconName;
@@ -81,8 +81,8 @@ export function ConfirmPopup({ title, message, confirmLabel, cancelLabel = "Canc
       onClose={() => !busy && onCancel()}
       actions={
         <>
-          <button type="button" className={POPUP_PRIMARY} onClick={onConfirm} disabled={busy}>{confirmLabel}</button>
           <button type="button" className={POPUP_SECONDARY} onClick={onCancel} disabled={busy}>{cancelLabel}</button>
+          <button type="button" className={POPUP_PRIMARY} onClick={onConfirm} disabled={busy}>{confirmLabel}</button>
         </>
       }
     >
@@ -95,7 +95,7 @@ interface NoticeProps {
   title: string;
   message: string;
   icon?: IconName;
-  /** Replaces OK with a main action, such as "Open settings"; Close then sits on the right. */
+  /** Replaces OK with a main action, such as "Open settings"; Cancel then sits on the left. */
   extra?: { label: string; icon?: IconName; onClick: () => void };
   onClose: () => void;
 }
@@ -107,8 +107,8 @@ export function NoticePopup({ title, message, extra, onClose }: NoticeProps) {
       onClose={onClose}
       actions={
         <>
+          {extra && <button type="button" className={POPUP_SECONDARY} onClick={onClose}>Cancel</button>}
           <button type="button" className={POPUP_PRIMARY} onClick={extra ? extra.onClick : onClose}>{extra ? extra.label : "OK"}</button>
-          {extra && <button type="button" className={POPUP_SECONDARY} onClick={onClose}>Close</button>}
         </>
       }
     >

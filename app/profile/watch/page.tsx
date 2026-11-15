@@ -2,6 +2,7 @@
 // Where the Watch button goes: link templates for movies, shows, episodes and search.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { toast } from "@/components/Toast";
 import { useEffect, useState } from "react";
 import RoundButton from "@/components/RoundButton";
@@ -65,7 +66,7 @@ export default function WatchSettingsPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-2">
       <h1 className="font-serif text-3xl tracking-tight">Watch link</h1>
       <p className="text-sm text-neutral-500">Tell the Watch button which website to open. Put a placeholder where the title goes and it is filled in for each movie or show. Nothing is set by default.</p>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       {FIELDS.map((field) => {
         const value = links[field.key];

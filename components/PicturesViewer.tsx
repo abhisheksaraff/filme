@@ -2,6 +2,7 @@
 // A title's posters or covers in the full-screen viewer: your own upload first, then TMDB's. Upload, make default, delete.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { useEffect, useRef, useState } from "react";
 import Portal from "@/components/Portal";
 import CropDialog from "@/components/CropDialog";
@@ -142,13 +143,7 @@ export default function PicturesViewer({ mediaId, tmdbId, category, kind, curren
           e.target.value = "";
         }}
       />
-      {problem && (
-        <Portal>
-          <p role="alert" className="fixed inset-x-4 top-20 z-[55] rounded-2xl bg-red-600 px-4 py-2 text-center text-sm text-white" onClick={() => setProblem(null)}>
-            {problem}
-          </p>
-        </Portal>
-      )}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {crop && (
         <CropDialog file={crop} aspect={kind === "poster" ? 2 / 3 : 16 / 9} maxEdge={kind === "poster" ? 1500 : 1920} title={`Frame your ${word.toLowerCase()}`} onCancel={() => setCrop(null)} onDone={saveUpload} />
       )}

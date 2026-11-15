@@ -2,6 +2,7 @@
 // One episode: its still, details and every viewing that covered it, with bookmark, tick, Watch and +.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -115,7 +116,7 @@ function EpisodeView() {
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">
-        {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+        <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
         {detail && (
           <>

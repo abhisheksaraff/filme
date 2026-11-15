@@ -31,7 +31,7 @@ export interface RowResult {
   empty: string;
 }
 
-const CACHE_MS = 30 * 60_000;
+const CACHE_MS = 3 * 60 * 60_000;
 /** About one slot in four of a genre row is swapped for a random pick. */
 const SURPRISE_RATE = 0.25;
 const ROW_SIZE = 16;

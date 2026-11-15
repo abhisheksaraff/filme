@@ -11,7 +11,7 @@ export default function PosterRow({ items }: { items: RowItem[] }) {
         <li key={item.key} className="reveal-item w-28 shrink-0" style={{ "--i": Math.min(i, 8) } as React.CSSProperties}>
           <Link
             href={item.href}
-            onPointerDown={() => warmTitle(item.href, { title: item.title, posterUrl: item.posterUrl, subtitle: item.subtitle })}
+            onClick={() => warmTitle(item.href, { title: item.title, posterUrl: item.posterUrl, subtitle: item.subtitle })}
             className="flex flex-col gap-1"
           >
             <div className="relative">

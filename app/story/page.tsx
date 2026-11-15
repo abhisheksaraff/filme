@@ -2,6 +2,7 @@
 // A full-screen recap of a day, month or year. Tap the right side to go on, the left to go back.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -151,7 +152,7 @@ function StoryView() {
         <button type="button" aria-label="Previous" className="absolute inset-y-0 left-0 w-1/3" onClick={() => step(-1)} />
         <button type="button" aria-label="Next" className="absolute inset-y-0 right-0 w-2/3" onClick={() => step(1)} />
 
-        {problem && <p role="alert" className="text-red-400">{problem}</p>}
+        <ProblemPopup message={problem} onClose={() => setProblem(null)} />
         {slides && slides.length === 0 && <p className="text-white/70">Nothing to show for this one yet.</p>}
         {!slides && !problem && <p className="text-white/70">Loading…</p>}
 

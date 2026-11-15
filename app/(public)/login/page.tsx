@@ -1,6 +1,7 @@
 // app/(public)/login/page.tsx
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD_FULL } from "@/components/ui/fields";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,7 +39,7 @@ export default function LoginPage() {
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <input name="email" type="email" autoComplete="username" placeholder="Email" required className={field} />
         <input name="password" type="password" autoComplete="current-password" placeholder="Password" required className={field} />
-        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        <ProblemPopup message={error} onClose={() => setError(null)} />
         <button
           type="submit"
           disabled={busy}

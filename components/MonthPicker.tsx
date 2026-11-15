@@ -31,8 +31,8 @@ export default function MonthPicker({ month, year, onPick, onClose }: Props) {
       onClose={onClose}
       actions={
         <>
-          <button type="button" className={POPUP_PRIMARY} onClick={() => onPick(from + pickedYear, pickedMonth)}>Go</button>
           <button type="button" className={POPUP_SECONDARY} onClick={onClose}>Cancel</button>
+          <button type="button" className={POPUP_PRIMARY} onClick={() => onPick(from + pickedYear, pickedMonth)}>Go</button>
         </>
       }
     >

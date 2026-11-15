@@ -18,7 +18,7 @@ import { fail, ok, type Result } from "@/lib/ports/result";
 import { services } from "@/lib/services";
 
 const input = FIELD_FULL;
-const small = "rounded-xl border border-neutral-300 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-neutral-700";
+const small = "rounded-xl bg-neutral-200 px-3 py-1.5 text-sm disabled:opacity-40 dark:bg-neutral-700";
 const primary =
   "rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900";
 
@@ -87,7 +87,7 @@ function ProviderSection({ provider, config, busy, run, onTest }: SectionProps) 
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-neutral-300 p-4 dark:border-neutral-700">
+    <section className="flex flex-col gap-4 rounded-2xl bg-neutral-100 p-4 dark:bg-neutral-900">
       <h2 className="font-serif text-xl">{PROVIDER_LABELS[provider]}</h2>
 
       <form onSubmit={onSave} className="flex flex-col gap-4">
@@ -132,7 +132,7 @@ function ProviderSection({ provider, config, busy, run, onTest }: SectionProps) 
         {keys.length === 0 && <p className="text-sm text-neutral-500">No keys saved yet.</p>}
         <ul className="flex flex-col gap-2">
           {keys.map((k, i) => (
-            <li key={k.id} className="flex items-center justify-between gap-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+            <li key={k.id} className="flex items-center justify-between gap-2 rounded-xl bg-white p-3 dark:bg-neutral-800">
               <span className="text-sm">Key …{k.hint}</span>
               <span className="flex shrink-0 flex-wrap justify-end gap-1">
                 <button type="button" className={small} disabled={busy || i === 0}

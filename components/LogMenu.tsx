@@ -45,7 +45,7 @@ export default function LogMenu({ seasons, busy, onLog, onEpisodeSeason, onLogUn
           ))}
         </ul>
       )}
-      <div className="flex justify-end"><button type="button" className={POPUP_SECONDARY} onClick={onClose}>Close</button></div>
+      <div className="flex justify-center"><button type="button" className={POPUP_SECONDARY} onClick={onClose}>Cancel</button></div>
     </Popup>
   );
 }

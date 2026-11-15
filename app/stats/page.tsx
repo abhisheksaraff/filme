@@ -2,6 +2,7 @@
 // Totals and charts over everything you have logged, for all time or one year.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -81,7 +82,7 @@ export default function StatsPage() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-6 py-8">
       <h1 className="font-serif text-3xl tracking-tight">Stats</h1>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {!rows && !problem && <div className="skeleton h-64 rounded-2xl" />}
 
       {rows && stats && (

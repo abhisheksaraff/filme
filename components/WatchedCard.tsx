@@ -108,8 +108,9 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
 
   return (
     <li id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8) } as React.CSSProperties}
-      className={`reveal-item relative scroll-mt-24 rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)] ${highlight ? "ring-2 ring-neutral-950 dark:ring-white" : ""}`}>
-      <div className="flex gap-4">
+      className={`reveal-item relative scroll-mt-24 rounded-3xl bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)] ${highlight ? "ring-2 ring-neutral-950 dark:ring-white" : ""}`}>
+      {label && <span className="mb-2 block px-1.5 pt-0.5 text-xs uppercase tracking-wide text-neutral-500">{label}</span>}
+      <div className="flex gap-2.5">
         {at ? (
           <div className="flex w-1/2 flex-col gap-2">
             {located ? <LazyMap entry={entry as CardData & { venueLatitude: number; venueLongitude: number }} /> : (
@@ -123,8 +124,7 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
           {!at && <span className="text-center text-xs text-neutral-500">Watched at home</span>}
         </Link>
       </div>
-      <Link href={open} className="mt-3 flex flex-col gap-2">
-        {label && <span className="text-xs uppercase tracking-wide text-neutral-500">{label}</span>}
+      <Link href={open} className="mt-3 flex flex-col gap-2 px-1.5">
         {showTitle && <span className="font-serif text-xl font-medium leading-tight">{entry.title}</span>}
         {(episode || rating != null) && (
           <span className="flex items-baseline justify-between text-sm text-neutral-600 dark:text-neutral-400">
@@ -134,7 +134,7 @@ export default function WatchedCard({ entry, index = 0, href, showTitle = true, 
         )}
       </Link>
       {/* Outside the link above, since the format and extras are links of their own. */}
-      <div className="mt-2 flex flex-col gap-2">
+      <div className="mt-2 flex flex-col gap-2 px-1.5 pb-1">
         <ViewingDetails links auditorium={entry.auditorium} seats={entry.seats} totalTickets={entry.totalTickets} format={entry.primaryFormat} addons={entry.addons} watchedOn={entry.watchedOn} watchedAt={entry.watchedAt} />
         {notes && <p className="text-sm">{notes}</p>}
       </div>

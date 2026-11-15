@@ -2,6 +2,7 @@
 // Editable fields for one viewing. The parent owns the draft; this only edits it.
 "use client";
 
+import RatingSlider from "@/components/ui/RatingSlider";
 import { useEffect, useRef, useState } from "react";
 import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } from "@/lib/domain/formats";
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
@@ -238,10 +239,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
         </select>
       )}
       <Labeled label="Rating">
-        <select className={field} value={draft.rating} onChange={(e) => set("rating", e.target.value)}>
-          <option value="">No rating</option>
-          {Array.from({ length: 21 }, (_, i) => i / 2).map((r) => <option key={r} value={String(r)}>{r}</option>)}
-        </select>
+        <RatingSlider value={draft.rating === "" ? null : Number(draft.rating)} onChange={(v) => set("rating", v === null ? "" : String(v))} />
       </Labeled>
 
       <Labeled label="Format">

@@ -2,6 +2,7 @@
 // Titles marked "Not interested", with a way to bring each one back into Home's recommendations.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ConfirmPopup } from "@/components/Popup";
@@ -55,7 +56,7 @@ export default function HiddenPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md flex-col gap-5 px-6 pb-4 pt-6">
       <h1 className="font-serif text-3xl tracking-tight">Not interested</h1>
       <p className="text-sm text-neutral-500">These stay out of your Home recommendations. Search still finds them.</p>
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {!titles && !problem && <div className="skeleton h-40 rounded-2xl" />}
       {titles && titles.length === 0 && <p className="text-sm text-neutral-500">Nothing hidden.</p>}
 

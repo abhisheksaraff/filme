@@ -2,6 +2,7 @@
 // A catalogue title you have not logged (or have): details, plus add or remove from your watchlist.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { toast } from "@/components/Toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -152,7 +153,7 @@ function PreviewView() {
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">
-        {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+        <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
         {details && (
           <div className="reveal flex flex-col gap-5">
@@ -237,7 +238,6 @@ function PreviewView() {
           title="Not interested in this?"
           message="It will be hidden from your Home recommendations. You can undo this under Profile, Not interested."
           confirmLabel="Hide"
-          cancelLabel="Keep"
           busy={busy}
           onConfirm={hideTitle}
           onCancel={() => setConfirmHide(false)}

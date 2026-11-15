@@ -3,6 +3,7 @@
 // results: people first as round photos, then titles as one list.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -86,7 +87,7 @@ function genreId(name: string | null): number | undefined {
 function ResultRow({ item }: { item: Item }) {
   return (
     <li>
-      <Link href={item.href} onPointerDown={() => warmTitle(item.href, { title: item.title, posterUrl: item.poster, subtitle: item.year })} className="relative flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
+      <Link href={item.href} onClick={() => warmTitle(item.href, { title: item.title, posterUrl: item.poster, subtitle: item.year })} className="relative flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
         {/* A quiet word in the corner says it is already in your log or on your Watchlist. */}
         {(item.watched || item.wanted) && <span className="absolute right-3 top-2 text-[11px] text-neutral-500">{item.watched ? "Watched" : "Watchlist"}</span>}
         <span className="relative shrink-0">
@@ -461,7 +462,7 @@ function SearchView() {
           <button type="button" onClick={() => { setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500">Clear filters</button>
         )}
       </div>
-      {askProblem && <p role="alert" className="text-sm text-red-600">{askProblem}</p>}
+      <ProblemPopup message={askProblem} onClose={() => setAskProblem(null)} />
 
       {filtersOpen && (
         <div className="grid grid-cols-2 gap-2 text-sm">
@@ -514,7 +515,7 @@ function SearchView() {
         </ul>
       )}
 
-      {current?.problem && <p role="alert" className="text-sm text-red-600">{current.problem}</p>}
+      <ProblemPopup message={current?.problem} onClose={() => setFound((f) => (f ? { ...f, problem: null } : f))} />
 
       {items.length > 0 && (
         <ul className="flex flex-col gap-3">

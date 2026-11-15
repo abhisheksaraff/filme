@@ -2,6 +2,7 @@
 // Home: the logo and your picture, a search pill, and rows of things to watch.
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Avatar from "@/components/Avatar";
@@ -55,7 +56,7 @@ export default function HomePage() {
         Search movies, shows, concerts…
       </Link>
 
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       <HomeShortcuts nonce={nonce} onShuffle={() => { clearHomeCache(); setNonce((n) => n + 1); }} />
       {rows?.map((id) => <HomeRowSection key={id} rowId={id} nonce={nonce} />)}
       {!rows && <div className="skeleton h-40 rounded-2xl" />}

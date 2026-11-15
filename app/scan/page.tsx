@@ -3,6 +3,7 @@
 
 "use client";
 
+import ProblemPopup from "@/components/ProblemPopup";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import PosterChooser, { type CoverChoice } from "@/components/PosterChooser";
@@ -273,7 +274,7 @@ export default function ScanPage() {
       {errors.map((err, index) => (
         <p key={index} className="text-sm text-red-600">{err.fileName}: {err.reason}</p>
       ))}
-      {problem && <p role="alert" className="text-sm text-red-600">{problem}</p>}
+      <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       {images.length > 0 && (
         <ul className="-mx-6 flex gap-2 overflow-x-auto px-6">
