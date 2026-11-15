@@ -14,6 +14,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { ConfirmPopup } from "@/components/Popup";
 import CropDialog from "@/components/CropDialog";
 import ImageViewer from "@/components/ImageViewer";
+import { AddTile } from "@/components/PictureTiles";
+import { toast } from "@/components/Toast";
 import { seatLabel } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -34,7 +36,9 @@ async function locateVenue(venueId: string): Promise<VenuePoint | null> {
   const missing = await services.browse.unlocatedVenues(200);
   const venue = missing.ok ? missing.value.find((v) => v.id === venueId) : undefined;
   if (!venue) return null;
-  const found = await services.geo.locate([venue.name, venue.address].filter(Boolean).join(", "));
+  // The full address can miss where the venue's name alone is known, so try both.
+  let found = await services.geo.locate([venue.name, venue.address].filter(Boolean).join(", "));
+  if (!(found.ok && found.value) && venue.address) found = await services.geo.locate(venue.name);
   if (!found.ok || !found.value) return null;
   await services.browse.setVenueLocation(venueId, found.value);
   const again = await services.browse.venuePoints();
@@ -99,8 +103,10 @@ function SessionView() {
     setCrop(null);
     const small = kind === "photo" ? await convertImage(blob, PHOTO_PRESET) : blob;
     const res = await services.images.add({ sessionId: id }, kind, small, null);
-    if (res.ok) setReload((n) => n + 1);
-    else setProblem(res.error);
+    if (res.ok) {
+      setReload((n) => n + 1);
+      toast(kind === "photo" ? "Photo added" : "Stub added");
+    } else setProblem(res.error);
   }
 
   async function deleteViewing() {
@@ -139,13 +145,10 @@ function SessionView() {
           />
 
           <div className="flex flex-col gap-5 px-5">
-            <p className="text-sm text-neutral-500">
-              {v.venueId ? <Link href={`/venue/?id=${v.venueId}`} className="underline">{v.venue}</Link> : v.venue}
-              {[v.auditorium, v.primaryFormat].filter(Boolean).length > 0 && ` · ${[v.auditorium, v.primaryFormat].filter(Boolean).join(" · ")}`}
-            </p>
-            {v.seats.length > 0 && (
+            {(v.seats.length > 0 || v.primaryFormat) && (
               <div className="flex flex-wrap gap-2">
                 {v.seats.map((seat, i) => <span key={i} className="rounded-full bg-neutral-950 px-3 py-0.5 text-sm text-white dark:bg-white dark:text-neutral-950">{seatLabel(seat)}</span>)}
+                {v.primaryFormat && <span className="rounded-full border border-neutral-400 px-3 py-0.5 text-sm dark:border-neutral-600">{v.primaryFormat}</span>}
               </div>
             )}
             {v.notes && <p className="text-sm">{v.notes}</p>}
@@ -159,13 +162,9 @@ function SessionView() {
             </div>
 
             <section className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-xl">Ticket stubs</h2>
-                <RoundButton icon="plus" label="Add a stub" tone="dark" onClick={() => stubInput.current?.click()} />
-              </div>
+              <h2 className="font-serif text-xl">Ticket stubs</h2>
               <input ref={stubInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setCrop({ file: f, kind: "ticket" }); e.target.value = ""; }} />
-              {tickets.length === 0 && <p className="text-sm text-neutral-500">None yet</p>}
-              <ul className="-mx-5 flex gap-2 overflow-x-auto px-5">
+              <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 py-1">
                 {tickets.map((image, i) => (
                   <li key={image.id} className="shrink-0">
                     <button type="button" onClick={() => setGallery({ kind: "ticket", start: i })}>
@@ -174,42 +173,38 @@ function SessionView() {
                     </button>
                   </li>
                 ))}
+                <li className="shrink-0"><AddTile label="Add a stub" className="h-40 w-28" onClick={() => stubInput.current?.click()} /></li>
               </ul>
             </section>
 
             <section className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <h2 className="font-serif text-xl">Photos</h2>
-                <RoundButton icon="plus" label="Add a photo" tone="dark" onClick={() => input.current?.click()} />
-              </div>
+              <h2 className="font-serif text-xl">Photos</h2>
               <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setCrop({ file: f, kind: "photo" }); e.target.value = ""; }} />
-              {photos.length === 0 && <p className="text-sm text-neutral-500">None yet</p>}
-              <ul className="grid grid-cols-3 gap-2">
+              <ul className="-mx-5 flex gap-2 overflow-x-auto px-5 py-1">
                 {photos.map((image, i) => (
-                  <li key={image.id}>
-                    <button type="button" onClick={() => setGallery({ kind: "photo", start: i })} className="block w-full">
+                  <li key={image.id} className="shrink-0">
+                    <button type="button" onClick={() => setGallery({ kind: "photo", start: i })} className="block">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={image.url} alt={image.note ?? "Photo"} loading="lazy" className="aspect-square w-full rounded-lg object-cover" />
+                      <img src={image.url} alt={image.note ?? "Photo"} loading="lazy" className="h-32 w-32 rounded-lg object-cover" />
                     </button>
                   </li>
                 ))}
+                <li className="shrink-0"><AddTile label="Add a photo" className="h-32 w-32" onClick={() => input.current?.click()} /></li>
               </ul>
             </section>
 
             {v.venueId && v.venue && (
               <section className="flex flex-col gap-2">
                 <h2 className="font-serif text-xl">Where you watched</h2>
-                {venuePoint && (
-                  <div className="relative overflow-hidden rounded-3xl">
-                    <FlatMap points={[venuePoint]} focus={{ lon: venuePoint.longitude, lat: venuePoint.latitude, zoom: 14 }} still pinIcon={pinIcon} className="h-44" />
-                    {/* The whole tile is one link, so the pin inside needs no button of its own. */}
-                    <Link href={`/map/?venue=${venuePoint.id}`} aria-label={`Open ${venuePoint.name} on the map`} className="absolute inset-0 z-30" />
-                  </div>
-                )}
-                <p className="flex items-center gap-2 px-1 text-sm">
-                  <Icon name="map" size={16} />
-                  <span>{[v.venue, v.auditorium].filter(Boolean).join(" · ")}</span>
-                </p>
+                <div className="relative h-44 overflow-hidden rounded-3xl bg-neutral-200 dark:bg-neutral-800">
+                  {venuePoint && <FlatMap points={[venuePoint]} focus={{ lon: venuePoint.longitude, lat: venuePoint.latitude, zoom: 14 }} still pinIcon={pinIcon} className="h-44" />}
+                  {/* The whole tile is one link; without a position it opens the venue's page instead of the map. */}
+                  <Link href={venuePoint ? `/map/?venue=${venuePoint.id}` : `/venue/?id=${v.venueId}`} aria-label={`Open ${v.venue}`} className="absolute inset-0 z-30 flex flex-col justify-end bg-gradient-to-t from-black/75 via-black/20 to-transparent p-4 text-white">
+                    {!venuePoint && <span className="absolute inset-0 flex items-center justify-center"><Icon name={pinIcon} size={36} /></span>}
+                    <span className="relative font-serif text-lg leading-tight">{v.venue}</span>
+                    {v.auditorium && <span className="relative text-sm text-white/80">{v.auditorium}</span>}
+                  </Link>
+                </div>
               </section>
             )}
           </div>

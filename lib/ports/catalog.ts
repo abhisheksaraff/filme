@@ -90,6 +90,11 @@ export interface BrowseSpec {
   sortBy: "popularity.desc" | "vote_average.desc";
   minVotes?: number;
   minRating?: number;
+  /** Release years, inclusive. */
+  yearFrom?: number;
+  yearTo?: number;
+  /** A person who worked on the title (movies only; TMDB cannot filter shows this way). */
+  personId?: number;
   page?: number;
 }
 

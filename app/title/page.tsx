@@ -2,6 +2,7 @@
 // One title: a hero picture, credits, posters and every time it has been watched.
 "use client";
 
+import { toast } from "@/components/Toast";
 import RoundButton from "@/components/RoundButton";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -71,12 +72,18 @@ function TitleView() {
     setProblem(null);
     if (wanted) {
       const res = await services.wanted.remove(detail.mediaId);
-      if (res.ok) setWanted(false);
+      if (res.ok) {
+        setWanted(false);
+        toast("Removed from watchlist");
+      }
       else setProblem(res.error);
     } else {
       const full = await services.catalog.details({ tmdbId: detail.tmdbId, kind: detail.category });
       const res = full.ok ? await services.wanted.add(full.value) : full;
-      if (res.ok) setWanted(true);
+      if (res.ok) {
+        setWanted(true);
+        toast("Added to watchlist");
+      }
       else setProblem(res.error);
     }
     setBusy(false);

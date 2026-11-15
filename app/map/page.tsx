@@ -109,14 +109,14 @@ function MapView() {
   return (
     <main className="fixed inset-0 z-10">
       <FlatMap points={points} onPick={pick} fullScreen focus={focus} className="h-full" />
-      {/* Sits beside the back button, which Shell floats at the top left of the column. */}
-      <div className="pointer-events-none absolute inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-20">
-        <div className="mx-auto flex h-10 w-full max-w-md items-center gap-3 pl-[4.25rem] pr-4">
-          <h1 className="rounded-full bg-white/85 px-4 py-1.5 font-serif text-xl leading-tight tracking-tight text-neutral-950 shadow backdrop-blur dark:bg-black/70 dark:text-white">Map</h1>
-          {finding && <span className="rounded-full bg-white/85 px-3 py-1 text-xs text-neutral-700 shadow backdrop-blur dark:bg-black/70 dark:text-neutral-300">Finding venues…</span>}
+      {/* Same spot and size as the other pages' titles, just under the back button; no panel, only a shadow so it reads over the map. */}
+      <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+4.75rem)] z-20">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-4">
+          <h1 className="px-1 font-serif text-3xl tracking-tight text-neutral-950 [text-shadow:0_1px_6px_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.25)] dark:text-white dark:[text-shadow:0_1px_6px_rgba(0,0,0,0.8)]">Map</h1>
+          {finding && <span className="px-1 text-xs text-neutral-800 [text-shadow:0_1px_4px_rgba(255,255,255,0.9)] dark:text-neutral-200 dark:[text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">Finding venues…</span>}
         </div>
       </div>
-      {problem && <p role="alert" className="absolute inset-x-6 top-20 z-20 rounded-2xl bg-white/90 px-3 py-2 text-sm text-red-600 dark:bg-black/70">{problem}</p>}
+      {problem && <p role="alert" className="absolute inset-x-6 top-40 z-20 rounded-2xl bg-white/90 px-3 py-2 text-sm text-red-600 dark:bg-black/70">{problem}</p>}
 
       {open && (
         <div className="fixed inset-x-3 bottom-24 z-40 mx-auto flex max-h-[60vh] w-auto max-w-md flex-col gap-4 overflow-y-auto rounded-3xl bg-black px-5 pb-6 pt-5 text-white shadow-2xl">

@@ -12,6 +12,8 @@ export interface StatRow {
   /** YYYY, YYYY-MM or YYYY-MM-DD. */
   watchedOn: string | null;
   runtime: number | null;
+  /** The year the title came out. */
+  releaseYear: number | null;
   venue: string | null;
   format: string | null;
   rating: number | null;

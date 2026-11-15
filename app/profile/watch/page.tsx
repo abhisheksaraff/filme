@@ -2,6 +2,7 @@
 // Where the Watch button goes: link templates for movies, shows, episodes and search.
 "use client";
 
+import { toast } from "@/components/Toast";
 import { useEffect, useState } from "react";
 import RoundButton from "@/components/RoundButton";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -53,6 +54,7 @@ export default function WatchSettingsPage() {
     if (res.ok) {
       forgetWatchChecks();
       setSaved(true);
+      toast("Watch link saved");
     } else setProblem(res.error);
     setBusy(false);
   }

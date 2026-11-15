@@ -93,6 +93,8 @@ const ASK_SCHEMA = {
     category: { type: "STRING", enum: CATEGORIES, nullable: true },
     dateFrom: { type: "STRING", nullable: true },
     dateTo: { type: "STRING", nullable: true },
+    releaseFrom: { type: "INTEGER", nullable: true },
+    releaseTo: { type: "INTEGER", nullable: true },
     minRating: { type: "NUMBER", nullable: true },
     maxRating: { type: "NUMBER", nullable: true },
     format: { type: "STRING", nullable: true },
@@ -130,12 +132,15 @@ function validateAsk(data: unknown): unknown {
   if (!data || typeof data !== "object") throw new ModelError("reply was not an object");
   const raw = data as Record<string, unknown>;
   const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 120) : null);
+  const year = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 1870 && v <= 2200 ? v : null);
   const rating = (v: unknown) => (typeof v === "number" && v >= 1 && v <= 10 ? v : null);
   return {
     text: text(raw.text),
     category: CATEGORIES.includes(raw.category as string) ? raw.category : null,
     dateFrom: isoDate(raw.dateFrom) ? raw.dateFrom : null,
     dateTo: isoDate(raw.dateTo) ? raw.dateTo : null,
+    releaseFrom: year(raw.releaseFrom),
+    releaseTo: year(raw.releaseTo),
     minRating: rating(raw.minRating),
     maxRating: rating(raw.maxRating),
     format: text(raw.format),

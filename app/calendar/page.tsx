@@ -30,8 +30,6 @@ const HALF = 36;
 const PANELS = HALF * 2 + 1;
 /** Panels this close to the visible one draw their days; the rest are empty placeholders. */
 const DRAWN = 2;
-/** Months ahead of today the picker offers. */
-const YEARS_AHEAD = 5;
 
 const abs = (year: number, month: number) => year * 12 + month;
 
@@ -86,7 +84,7 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
                 </span>
               );
             })}
-            <span className={`absolute left-0.5 top-0.5 z-10 rounded px-1 font-medium leading-tight text-neutral-950 ${list.length ? "bg-white/85" : "dark:text-white"}`}>{day}</span>
+            <span className={`absolute left-1.5 top-0.5 z-10 rounded px-1 font-medium leading-tight text-neutral-950 ${list.length ? "bg-white/85" : "dark:text-white"}`}>{day}</span>
             {list.length > DECK && <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-white">+{list.length - DECK}</span>}
             {single && list[0].rating !== null && (
               <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {list[0].rating}</span>
@@ -141,13 +139,6 @@ export default function CalendarPage() {
     }
     return map;
   }, [rows, category, minRating]);
-
-  const firstYear = useMemo(() => {
-    const years = (rows ?? []).flatMap((r) => (r.watchedOn ? [Number(r.watchedOn.slice(0, 4))] : [])).filter(Number.isFinite);
-    return years.length > 0 ? Math.min(...years) : today.getFullYear() - 5;
-    // `today` only matters when there are no rows, and the year does not change mid-visit.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows]);
 
   const current = abs(year, month);
   const prefix = `${year}-${pad(month + 1)}`;
@@ -320,8 +311,6 @@ export default function CalendarPage() {
         <MonthPicker
           month={month}
           year={year}
-          firstYear={firstYear}
-          lastYear={today.getFullYear() + YEARS_AHEAD}
           onClose={() => setPickerOpen(false)}
           onPick={(y, m) => {
             setPickerOpen(false);

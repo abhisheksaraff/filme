@@ -60,10 +60,12 @@ You turn a question about a personal film, TV and concert viewing log into searc
 Never answer the question yourself; only fill in filters that narrow the log to the answer.
 Resolve relative dates ("last summer", "this year") using the current date given. Leave a filter null if the
 question does not mention it. "text" is for words that should appear in a title or note.
+dateFrom and dateTo are for when the person WATCHED something. For when a film or show CAME OUT ("from the 50s",
+"released in 1999", "90s movies") use releaseFrom and releaseTo, as years: the 50s is 1950 to 1959.
 `;
 
 export const ASK_SHAPE = `
 Reply with ONLY a JSON object with exactly these keys, using null for anything not mentioned:
 text (string), category ("Movie", "TV Show", "Concert" or "Live Event"), dateFrom (YYYY-MM-DD), dateTo (YYYY-MM-DD),
-minRating (number 1-10), maxRating (number 1-10), format (string), venue (string), genre (string),
+releaseFrom (year, integer), releaseTo (year, integer), minRating (number 1-10), maxRating (number 1-10), format (string), venue (string), genre (string),
 person (string), rewatchesOnly (boolean), sort ("newest", "oldest" or "rating").`;

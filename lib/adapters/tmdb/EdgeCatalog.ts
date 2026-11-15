@@ -69,6 +69,10 @@ export const edgeCatalog: Catalog = {
     if (spec.language) params.with_original_language = spec.language;
     if (spec.minVotes !== undefined) params["vote_count.gte"] = String(spec.minVotes);
     if (spec.minRating !== undefined) params["vote_average.gte"] = String(spec.minRating);
+    const dateKey = spec.kind === "TV Show" ? "first_air_date" : "primary_release_date";
+    if (spec.yearFrom !== undefined) params[`${dateKey}.gte`] = `${spec.yearFrom}-01-01`;
+    if (spec.yearTo !== undefined) params[`${dateKey}.lte`] = `${spec.yearTo}-12-31`;
+    if (spec.personId !== undefined && spec.kind === "Movie") params.with_people = String(spec.personId);
     return listHits(`/discover/${spec.kind === "TV Show" ? "tv" : "movie"}`, params, spec.kind);
   },
 

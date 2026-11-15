@@ -5,7 +5,9 @@
 import { useEffect, useRef, useState } from "react";
 import CropDialog from "@/components/CropDialog";
 import ImageViewer from "@/components/ImageViewer";
+import { AddTile, MainBadge } from "@/components/PictureTiles";
 import RoundButton from "@/components/RoundButton";
+import { toast } from "@/components/Toast";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { StoredImage } from "@/lib/ports/images";
 import { services } from "@/lib/services";
@@ -53,6 +55,7 @@ export default function CoverPicker({ mediaId, tmdbId, category, kind, onChanged
     if (res.ok) {
       onChanged();
       setReload((n) => n + 1);
+      toast(`${label === "poster" ? "Poster" : "Cover"} updated`);
     } else setProblem(res.error);
   }
 
@@ -64,6 +67,7 @@ export default function CoverPicker({ mediaId, tmdbId, category, kind, onChanged
     if (!set.ok) return setProblem(set.error);
     onChanged();
     setReload((n) => n + 1);
+    toast(`${label === "poster" ? "Poster" : "Cover"} updated`);
   }
 
   const aspect = kind === "poster" ? 2 / 3 : 16 / 9;
@@ -84,28 +88,26 @@ export default function CoverPicker({ mediaId, tmdbId, category, kind, onChanged
               e.target.value = "";
             }}
           />
-          <RoundButton icon="upload" label={`Upload your own ${label}`} tone="dark" onClick={() => input.current?.click()} className="self-start" />
-
-          {mine.length > 0 && (
-            <>
-              <p className="text-xs text-neutral-500">Yours</p>
-              <ul className="-mx-6 flex gap-2 overflow-x-auto px-6">
-                {mine.map((image, i) => (
-                  <li key={image.id} className="shrink-0">
-                    <button type="button" onClick={() => setViewing(i)}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={image.url} alt="" className={`h-32 rounded-lg object-cover ${image.isDefault ? "ring-2 ring-neutral-900 dark:ring-white" : ""}`} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          <p className="text-xs text-neutral-500">Yours</p>
+          <ul className="-mx-6 flex gap-2 overflow-x-auto px-6 py-2">
+            {mine.map((image, i) => (
+              <li key={image.id} className="relative shrink-0">
+                <button type="button" onClick={() => setViewing(i)}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={image.url} alt="" className={`h-32 rounded-lg object-cover ${image.isDefault ? "ring-2 ring-neutral-900 dark:ring-white" : ""}`} />
+                </button>
+                {image.isDefault && <MainBadge />}
+              </li>
+            ))}
+            <li className="shrink-0">
+              <AddTile label={`Upload your own ${label}`} className={`h-32 ${kind === "poster" ? "aspect-[2/3]" : "aspect-video"}`} onClick={() => input.current?.click()} />
+            </li>
+          </ul>
 
           {tmdb.length > 0 && (
             <>
               <p className="text-xs text-neutral-500">From TMDB</p>
-              <ul className="-mx-6 flex gap-2 overflow-x-auto px-6">
+              <ul className="-mx-6 flex gap-2 overflow-x-auto px-6 py-2">
                 {tmdb.map((path) => (
                   <li key={path} className="shrink-0">
                     <button type="button" onClick={() => pickTmdb(path)} aria-label={`Use this ${label}`}>
@@ -133,6 +135,7 @@ export default function CoverPicker({ mediaId, tmdbId, category, kind, onChanged
             if (res.ok) {
               onChanged();
               setReload((n) => n + 1);
+              toast(`${label === "poster" ? "Poster" : "Cover"} updated`);
             }
           }}
           onDelete={async (image) => {

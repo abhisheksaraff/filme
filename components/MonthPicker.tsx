@@ -8,19 +8,20 @@ import Popup, { POPUP_PRIMARY, POPUP_SECONDARY } from "@/components/Popup";
 import Wheel from "@/components/Wheel";
 import { MONTH_NAMES } from "@/lib/domain/stats";
 
+const FIRST_YEAR = 1900;
+const LAST_YEAR = 2100;
+
 interface Props {
   month: number;
   year: number;
-  firstYear: number;
-  lastYear: number;
   onPick: (year: number, month: number) => void;
   onClose: () => void;
 }
 
-export default function MonthPicker({ month, year, firstYear, lastYear, onPick, onClose }: Props) {
-  // The years always include the one on screen, whatever the log says.
-  const from = Math.min(firstYear, year);
-  const to = Math.max(lastYear, year);
+export default function MonthPicker({ month, year, onPick, onClose }: Props) {
+  // Any year from 1900 to 2100, so past and future dates are always reachable.
+  const from = FIRST_YEAR;
+  const to = LAST_YEAR;
   const years = Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
   const [pickedMonth, setPickedMonth] = useState(month);
   const [pickedYear, setPickedYear] = useState(year - from);

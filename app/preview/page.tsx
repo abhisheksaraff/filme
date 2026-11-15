@@ -2,6 +2,7 @@
 // A catalogue title you have not logged (or have): details, plus add or remove from your watchlist.
 "use client";
 
+import { toast } from "@/components/Toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -48,11 +49,17 @@ function PreviewView() {
     setProblem(null);
     if (status.wanted && status.mediaId) {
       const res = await services.wanted.remove(status.mediaId);
-      if (res.ok) setStatus({ ...status, wanted: false });
+      if (res.ok) {
+        setStatus({ ...status, wanted: false });
+        toast("Removed from watchlist");
+      }
       else setProblem(res.error);
     } else {
       const res = await services.wanted.add(details);
-      if (res.ok) setStatus({ mediaId: res.value, wanted: true, logged: status.logged });
+      if (res.ok) {
+        setStatus({ mediaId: res.value, wanted: true, logged: status.logged });
+        toast("Added to watchlist");
+      }
       else setProblem(res.error);
     }
     setBusy(false);

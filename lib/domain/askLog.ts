@@ -7,6 +7,9 @@ export const logFilterSchema = z.object({
   category: z.enum(["Movie", "TV Show", "Concert", "Live Event"]).nullable(),
   dateFrom: z.string().nullable(),
   dateTo: z.string().nullable(),
+  /** Release years (not the dates watched), such as 1950 to 1959 for "the 50s". */
+  releaseFrom: z.number().int().min(1870).max(2200).nullable(),
+  releaseTo: z.number().int().min(1870).max(2200).nullable(),
   minRating: z.number().min(1).max(10).nullable(),
   maxRating: z.number().min(1).max(10).nullable(),
   format: z.string().nullable(),
@@ -23,6 +26,8 @@ export const EMPTY_FILTER: LogFilter = {
   category: null,
   dateFrom: null,
   dateTo: null,
+  releaseFrom: null,
+  releaseTo: null,
   minRating: null,
   maxRating: null,
   format: null,

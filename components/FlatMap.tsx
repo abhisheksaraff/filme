@@ -286,11 +286,11 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
         </button>
       ))}
 
-      {!still && <div className={`absolute right-3 flex flex-col gap-2 ${fullScreen ? "top-[calc(max(0.75rem,env(safe-area-inset-top))+3.75rem)]" : "top-3"}`}>
+      {!still && <div className={`absolute right-3 flex flex-col gap-2 ${fullScreen ? "top-[calc(max(0.25rem,env(safe-area-inset-top))+1.75rem)]" : "top-3"}`}>
         <RoundButton icon="plus" label="Zoom in" onClick={() => zoomBy(1)} />
         <RoundButton icon="minus" label="Zoom out" onClick={() => zoomBy(-1)} />
       </div>}
-      <span className={`pointer-events-none absolute left-2 rounded bg-white/70 ${fullScreen ? "bottom-24" : "bottom-1"} px-1 text-[10px] text-neutral-700 dark:bg-black/50 dark:text-neutral-300`}>
+      <span className={`pointer-events-none absolute rounded bg-white/70 ${fullScreen ? "right-2 top-[max(0.25rem,env(safe-area-inset-top))]" : "bottom-1 left-2"} px-1 text-[10px] text-neutral-700 dark:bg-black/50 dark:text-neutral-300`}>
         © OpenStreetMap © CARTO
       </span>
     </div>

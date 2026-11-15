@@ -86,3 +86,12 @@ html:not(.dark) {
   --color-neutral-200: #efefef;
   --color-neutral-300: #e0e0e0;
 }
+
+/* The toast slides in from the right, holds, then fades out. */
+.toast-in { animation: toast-in 2s ease both; }
+@keyframes toast-in {
+  0% { opacity: 0; transform: translateX(16px); }
+  10% { opacity: 1; transform: translateX(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}

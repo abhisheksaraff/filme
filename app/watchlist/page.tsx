@@ -2,6 +2,7 @@
 // Entry point for logging a viewing, with the most recent ones listed below.
 "use client";
 
+import { toast } from "@/components/Toast";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import RoundButton from "@/components/RoundButton";
@@ -33,8 +34,10 @@ export default function WatchlistPage() {
 
   async function restore(id: string) {
     const res = await services.log.restoreViewing(id);
-    if (res.ok) setReload((n) => n + 1);
-    else setProblem(res.error);
+    if (res.ok) {
+      setReload((n) => n + 1);
+      toast("Viewing restored");
+    } else setProblem(res.error);
   }
 
   if (!ready) return null;

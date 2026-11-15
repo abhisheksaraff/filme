@@ -53,6 +53,8 @@ export function applyFilter(rows: StatRow[], filter: LogFilter): StatRow[] {
     if (filter.venue && !sameFold(row.venue, filter.venue)) return false;
     if (filter.genre && !row.genres.some((g) => sameFold(g, filter.genre as string))) return false;
     if (filter.person && ![...row.directors, ...row.actors, ...row.performers].some((p) => fuzzyMatches(filter.person as string, p))) return false;
+    if (filter.releaseFrom !== null && (row.releaseYear === null || row.releaseYear < filter.releaseFrom)) return false;
+    if (filter.releaseTo !== null && (row.releaseYear === null || row.releaseYear > filter.releaseTo)) return false;
     if (filter.dateFrom && (!row.watchedOn || row.watchedOn < filter.dateFrom.slice(0, row.watchedOn.length))) return false;
     if (filter.dateTo && (!row.watchedOn || row.watchedOn > filter.dateTo)) return false;
     return true;
@@ -90,6 +92,7 @@ export function describeFilter(filter: LogFilter): string[] {
     filter.format,
     filter.minRating !== null && `★ ${filter.minRating}+`,
     filter.maxRating !== null && `★ up to ${filter.maxRating}`,
+    (filter.releaseFrom !== null || filter.releaseTo !== null) && (filter.releaseFrom === filter.releaseTo ? `${filter.releaseFrom}` : `${filter.releaseFrom ?? "…"}–${filter.releaseTo ?? "…"}`),
     filter.dateFrom && `from ${filter.dateFrom}`,
     filter.dateTo && `to ${filter.dateTo}`,
     filter.rewatchesOnly && "rewatches",

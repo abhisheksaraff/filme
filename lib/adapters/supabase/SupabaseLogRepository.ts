@@ -472,7 +472,7 @@ export const supabaseLogRepository: LogRepository = {
       const { data, error } = await db
         .from("watch_sessions")
         .select(
-          "id, media_id, watched_on, primary_format, rating, total_tickets, notes, scope, season_number, episode_number, media:media_items(title, category, runtime, original_language, poster_path), venue:venues(name)",
+          "id, media_id, watched_on, primary_format, rating, total_tickets, notes, scope, season_number, episode_number, media:media_items(title, category, runtime, original_language, poster_path, release_date), venue:venues(name)",
         )
         .is("deleted_at", null)
         .order("created_at")
@@ -481,7 +481,7 @@ export const supabaseLogRepository: LogRepository = {
       if (error) return fail("Could not load your statistics.");
 
       for (const row of data) {
-        const media = one<{ title: string; category: string; runtime: number | null; original_language: string | null; poster_path: string | null }>(row.media);
+        const media = one<{ title: string; category: string; runtime: number | null; original_language: string | null; poster_path: string | null; release_date: string | null }>(row.media);
         rows.push({
           id: row.id as string,
           mediaId: row.media_id as string,
@@ -490,6 +490,7 @@ export const supabaseLogRepository: LogRepository = {
           posterPath: media?.poster_path ?? null,
           watchedOn: row.watched_on,
           runtime: media?.runtime ?? null,
+          releaseYear: media?.release_date ? Number(String(media.release_date).slice(0, 4)) || null : null,
           venue: one<{ name: string }>(row.venue)?.name ?? null,
           format: row.primary_format,
           rating: row.rating === null ? null : Number(row.rating),
