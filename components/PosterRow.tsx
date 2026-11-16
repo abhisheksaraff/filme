@@ -1,5 +1,5 @@
 // components/PosterRow.tsx
-// A sideways-scrolling strip of posters; a ✦ marks random surprise picks.
+// A sideways-scrolling strip of posters.
 import Link from "next/link";
 import StatusBadge from "@/components/StatusBadge";
 import { warmTitle } from "@/lib/handoff";
@@ -24,15 +24,7 @@ export default function PosterRow({ items }: { items: RowItem[] }) {
               ) : (
                 <div className="aspect-[2/3] w-full rounded-lg bg-neutral-200 dark:bg-neutral-800" />
               )}
-              {wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" className="absolute right-[4%] top-[3%]" />}
-              {item.surprise && (
-                <span
-                  title="Surprise pick"
-                  className="absolute left-1 top-1 rounded-full bg-black/60 px-1.5 text-xs text-white"
-                >
-                  ✦
-                </span>
-              )}
+              {wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" maxSize={28} className="absolute right-[4%] top-[3%]" />}
             </div>
             {/* The year sits straight under the title, one line or two; the box keeps one fixed height so every row is the same height before and after its pictures load. */}
             <span className="flex h-12 flex-col">

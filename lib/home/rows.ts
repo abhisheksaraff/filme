@@ -20,8 +20,6 @@ export interface RowItem {
   subtitle: string | null;
   posterUrl: string | null;
   href: string;
-  /** A random pick mixed into a genre row. */
-  surprise?: boolean;
 }
 
 export interface RowResult {
@@ -144,12 +142,12 @@ async function seenSet(): Promise<Set<string>> {
   return new Set([...(res.ok ? res.value : []), ...hidden]);
 }
 
-/** One shared batch of random picks that every genre row draws its surprises from. */
-async function surprisePool(): Promise<RowItem[]> {
-  const res = await cached("pool", async () => {
+/** Well-rated picks from the row's own genre (highest rated rather than most popular), so a surprise always fits its row. */
+async function surprisePool(genreId: number): Promise<RowItem[]> {
+  const res = await cached(`pool-${genreId}`, async () => {
     const hits = await services.catalog.browse({
       kind: "Movie",
-      genreId: pick(GENRES).id,
+      genreId,
       sortBy: "vote_average.desc",
       minVotes: 500,
       minRating: 6.5,
@@ -169,7 +167,7 @@ function injectSurprises(items: RowItem[], pool: RowItem[]): RowItem[] {
     if (!next) return item;
     usedSurprises.add(next.key);
     present.add(next.key);
-    return { ...next, surprise: true };
+    return next;
   });
 }
 
@@ -301,7 +299,7 @@ async function genreRow(genreId: number): Promise<Result<RowResult>> {
     page: randomPage(3),
   });
   if (!row.ok) return row;
-  const pool = await surprisePool();
+  const pool = await surprisePool(genreId);
   return ok({ ...row.value, items: injectSurprises(row.value.items, pool) });
 }
 

@@ -131,9 +131,10 @@ function MapView() {
               {open.detail?.address ? (
                 <OpenInMaps
                   name={open.point.name}
-                  address={[open.detail.address, open.detail.city, open.detail.country].filter(Boolean).join(", ")}
+                  address={fullAddress(open.detail.address, open.detail.city)}
                   latitude={open.point.latitude}
                   longitude={open.point.longitude}
+                  className="text-xs text-neutral-500 dark:text-neutral-400"
                 />
               ) : open.detail ? (
                 <p className="text-sm text-neutral-500">{[open.detail.city, open.detail.country].filter(Boolean).join(" · ")}</p>
@@ -180,6 +181,11 @@ function MapView() {
       )}
     </main>
   );
+}
+
+/** The street address, adding the city only when the address does not already name it; the country is left off. */
+function fullAddress(address: string, city: string | null): string {
+  return city && !address.toLowerCase().includes(city.toLowerCase()) ? `${address}, ${city}` : address;
 }
 
 export default function MapPage() {

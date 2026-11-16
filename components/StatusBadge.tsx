@@ -4,6 +4,8 @@
 import Icon from "@/components/Icon";
 
 interface Props {
+  /** The largest the badge grows with its poster, in pixels (smaller on Home's rows, where desktop posters are large). */
+  maxSize?: number;
   kind: "watchlist" | "watched";
   /**
    * Circle size in px. Leave it out and the circle takes a quarter of the width of whatever it sits on (the poster), within
@@ -22,10 +24,10 @@ const R = 42;
 const STROKE = 13;
 const LENGTH = 2 * Math.PI * R;
 
-export default function StatusBadge({ kind, size, progress, className = "" }: Props) {
+export default function StatusBadge({ kind, size, progress, maxSize = 40, className = "" }: Props) {
   const partly = kind === "watched" && progress !== undefined && progress < 1;
   // No `relative` here: the caller places the badge (absolute, top right), and a position set here would override that.
-  const box = size !== undefined ? { width: size, height: size } : { width: "24%", minWidth: 18, maxWidth: 40, aspectRatio: "1 / 1" };
+  const box = size !== undefined ? { width: size, height: size } : { width: "24%", minWidth: 18, maxWidth: maxSize, aspectRatio: "1 / 1" };
   return (
     <span
       role="img"
