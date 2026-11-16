@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { normalize } from "@/lib/domain/search";
-import { FIELD } from "@/components/ui/fields";
+import { FIELD_SM as FIELD } from "@/components/ui/fields";
 
 export interface TagItem {
   id: string;

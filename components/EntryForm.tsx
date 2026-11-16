@@ -3,7 +3,7 @@
 "use client";
 
 import RatingSlider from "@/components/ui/RatingSlider";
-import { AREA, FIELD_FULL } from "@/components/ui/fields";
+import { AREA, FIELD_SM_FULL } from "@/components/ui/fields";
 import { useEffect, useRef, useState } from "react";
 import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } from "@/lib/domain/formats";
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
@@ -16,7 +16,7 @@ import TagInput from "./TagInput";
 import { parseSeatTag, rolesFor, ROLE_LABEL, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
 import DateField from "@/components/ui/DateField";
 
-const field = FIELD_FULL;
+const field = FIELD_SM_FULL;
 
 interface Props {
   draft: EntryDraft;
@@ -234,9 +234,9 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       <div className="flex flex-col gap-1">
         <span className="px-1 text-xs text-neutral-500">Venue</span>
         {/* One pill: a small menu for the kind of place on the left, a thin grey line, then the name to type. */}
-        <div className="relative flex h-11 items-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+        <div className="relative flex h-10 items-center rounded-full bg-neutral-100 dark:bg-neutral-800">
           <button type="button" aria-haspopup="menu" aria-expanded={typeMenu} aria-label={`Kind of place: ${venueTypeLabel(shownType)}`} onClick={() => setTypeMenu((o) => !o)} className="flex h-full shrink-0 items-center gap-1 pl-4 pr-3">
-            <Icon name={venueIcon(shownType)} size={18} />
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-950 text-white"><Icon name={venueIcon(shownType)} size={16} /></span>
             <Icon name="chevronDown" size={13} />
           </button>
           <span aria-hidden className="h-5 w-px shrink-0 bg-neutral-300 dark:bg-neutral-600" />
@@ -248,7 +248,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
                 {VENUE_TYPES.map((t) => (
                   <li key={t.id} role="none">
                     <button type="button" role="menuitemradio" aria-checked={shownType === t.id} onClick={() => { set("venueType", t.id); setTypeMenu(false); }} className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-base active:bg-neutral-100 dark:active:bg-neutral-800 ${shownType === t.id ? "bg-neutral-100 dark:bg-neutral-800" : ""}`}>
-                      <Icon name={t.icon} size={22} />
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white"><Icon name={t.icon} size={18} /></span>
                       <span className="flex-1">{t.label}</span>
                       {shownType === t.id && <Icon name="check" size={18} />}
                     </button>

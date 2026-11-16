@@ -116,7 +116,12 @@ export default function Icon({ name, size = 20, filled = false }: Props) {
     ),
     film: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4" /></>,
     mic: <path d="M12 4a3 3 0 0 1 3 3v4a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3zM6 11a6 6 0 0 0 12 0M12 17v3M9 20h6" />,
-    masks: <path d="M4 5h9v6a4.500 4.500 0 0 1-9 0zM7 9h.01M10 9h.01M6.500 12.500c1 1 3 1 4 0M11 8h9v6a4.500 4.500 0 0 1-7 3.700M16 12h.01M19 12h.01" />,
+    masks: (
+      <>
+        <path d="M11 7V5.500h9.500V11a5 5 0 0 1-3 4.600M14.500 8.500q.8-.8 1.600 0M18 8.500q.8-.8 1.600 0M14.500 12.500q2-1.600 4 0" />
+        <path d="M3 9h10v5a5 5 0 0 1-10 0zM5.500 11.800q.8-.9 1.600 0M9 11.800q.8-.9 1.600 0M5.500 14.800q2.500 2.800 5 0" />
+      </>
+    ),
     watch: <><rect x="3" y="4" width="18" height="12" rx="3" /><path d="M10 8l5 2-5 2z" /><path d="M8 20h8M12 16v4" /></>,
     tv: <path d="M4 7h16v11H4zM9 3l3 4 3-4" />,
     stubUpload: <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4zM12 15V9M9.500 11.500L12 9l2.500 2.500" />,
@@ -133,8 +138,8 @@ export default function Icon({ name, size = 20, filled = false }: Props) {
     layers: <path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4" />,
     dancer: (
       <>
-        <circle cx="12" cy="5" r="2" />
-        <path d="M12 8v5M12 13l-3 7M12 13l4 7M7 10l5-1.500 5 2.500" />
+        <circle cx="14" cy="4.500" r="2" />
+        <path d="M13 7.500l-1.500 6M12.600 9L7.500 6.500M12.800 9.500l5.500-1M10 13.500h3.500M11.500 13.500L9 20M12.500 13.500l5.500 2 1.500 3.500" />
       </>
     ),
     // A laughing face, for comedy.
@@ -146,16 +151,16 @@ export default function Icon({ name, size = 20, filled = false }: Props) {
     ),
     stadium: (
       <>
-        <ellipse cx="12" cy="9" rx="8" ry="3" />
-        <path d="M4 9v6c0 1.700 3.600 3 8 3s8-1.300 8-3V9M8 11.800v5.700M12 12v6M16 11.800v5.700" />
+        <ellipse cx="12" cy="10.500" rx="9" ry="4" />
+        <ellipse cx="12" cy="10.500" rx="5" ry="1.800" />
+        <path d="M3 10.500v4.500c0 2.200 4 4 9 4s9-1.800 9-4v-4.500M7 13.500v4.800M12 14.500v5M17 13.500v4.800M5 7V3.500M19 7V3.500M3.800 3.500h2.400M17.800 3.500h2.400" />
       </>
     ),
     tent: <path d="M3 20L12 5l9 15zM10 20l2-5 2 5M12 5V3" />,
     car: (
       <>
-        <path d="M5 16l1.500-5a2 2 0 0 1 1.900-1.400h7.200A2 2 0 0 1 17.500 11L19 16" />
-        <rect x="3" y="16" width="18" height="3.500" rx="1.500" />
-        <path d="M7.500 19.500v1M16.500 19.500v1" />
+        <rect x="5" y="2.500" width="14" height="7" rx="1" />
+        <path d="M12 9.500v3M4 20v-3.200a1.800 1.800 0 0 1 1.800-1.800H6.500L8 12.500h8l1.500 2.500h.7A1.800 1.800 0 0 1 20 16.800V20zM8 17.500h.01M16 17.500h.01" />
       </>
     ),
     people: (

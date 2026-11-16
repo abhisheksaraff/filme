@@ -243,6 +243,8 @@ export default function CalendarPage() {
         <div className="flex gap-2">
           <RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} />
         </div>
+        {/* A tap anywhere outside the panel closes it; this sits behind the header's own buttons. */}
+        {filterOpen && <button type="button" aria-label="Close filter" onClick={() => setFilterOpen(false)} className="fixed inset-0 -z-10 cursor-default" />}
         {filterOpen && (
           <div className="absolute inset-x-0 top-full mt-2 flex flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-[0_14px_36px_-8px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.12)] dark:bg-neutral-900">
             <div className="flex flex-wrap gap-2">

@@ -95,7 +95,7 @@ export default function StatsPage() {
             ))}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">From</span><DateField value={from} onChange={setFrom} label="From" /></label>
+            <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">From</span><DateField value={from} onChange={setFrom} label="From" hint="yearAgo" /></label>
             <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">To</span><DateField value={to} onChange={setTo} label="To" /></label>
           </div>
 

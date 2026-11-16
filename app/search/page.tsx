@@ -5,7 +5,7 @@
 
 import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
-import { FIELD } from "@/components/ui/fields";
+import { FIELD_SM as FIELD } from "@/components/ui/fields";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -58,6 +58,7 @@ const ORDERS: { id: Order; label: string }[] = [
 /** Country and language suggestions, built once: the name typed matches ("germany") and so does the adjective ("german"). */
 const COUNTRY_TAGS: TagItem[] = COUNTRY_CODES.map((c) => ({ id: c, label: countryName(c), alias: COUNTRY_ADJECTIVES[c] }));
 const LANGUAGE_TAGS: TagItem[] = LANGUAGE_CODES.map((c) => ({ id: c, label: languageName(c) }));
+const PROVIDER_TAGS: TagItem[] = ["Netflix", "Prime Video", "Disney+", "Max", "Apple TV+", "Hulu", "Crave", "Paramount+"].map((n) => ({ id: n, label: n }));
 const GENRE_TAGS: TagItem[] = GENRES.map((g) => ({ id: g.name, label: g.name }));
 
 
@@ -162,7 +163,7 @@ function SearchView() {
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<StatRow[]>([]);
   // Searching inside one list only: what you have watched, or your Watchlist. Opened by the search button on those pages.
-  const [scope, setScope] = usePageState<"watched" | "watchlist" | null>("search.scope", null);
+  const [scope, setScope] = usePageState<"watched" | "watchlist" | "both" | null>("search.scope", null);
   // IMDb scores (the catalogue's when there is none) for the titles listed, looked up in the background.
   const [scores, setScores] = useState<Map<string, number>>(new Map());
   const requested = useRef(new Set<string>());
@@ -254,7 +255,7 @@ function SearchView() {
   const active = q.length >= 2 || hasFilter(filter) || planOn || scope !== null;
   // Inside a list, the parts of a plan that your own log can answer (people, genres, languages) are checked against the log
   // itself. Anything else (countries, themes, titles) is looked up on TMDB and the list keeps what appears there too.
-  const planLookup = planOn && (scope === "watchlist" || plan.countries.length > 0 || plan.keywords.length > 0 || plan.titles.length > 0 || plan.like.length > 0 || plan.providers.length > 0 || plan.inTheatres !== null || plan.maxRuntime !== null || plan.minRuntime !== null);
+  const planLookup = planOn && (scope === "watchlist" || scope === "both" || plan.countries.length > 0 || plan.keywords.length > 0 || plan.titles.length > 0 || plan.like.length > 0 || plan.providers.length > 0 || plan.inTheatres !== null || plan.maxRuntime !== null || plan.minRuntime !== null);
   const needsLookup = scope === null ? planOn : planLookup;
   // Venue, format, watch dates and rewatches exist only in your log, so TMDB has nothing to say about them.
   const logOnly = Boolean(filter.venue || filter.format || filter.extra || filter.dateFrom || filter.dateTo || filter.maxRating !== null || filter.rewatchesOnly);
@@ -418,13 +419,13 @@ function SearchView() {
 
     // Your log: one entry per title, however many times it was watched.
     // With only an AI plan (no log filter or typed words) the list is what TMDB found, not your whole log.
-    const logPart = scope === "watched" ? true : scope === "watchlist" ? false : !planOn || logOnly;
+    const logPart = scope === "watched" || scope === "both" ? true : scope === "watchlist" ? false : !planOn || logOnly;
     // Inside Watched, what your log can answer itself is checked against it; the rest must also appear in TMDB's answer.
     const fromTmdb = found?.key === searchKey ? found : null;
-    const members = scope === "watched" && planLookup ? new Set((fromTmdb?.hits ?? []).map((h) => identity(h.kind, h.title, h.year))) : null;
+    const members = (scope === "watched" || scope === "both") && planLookup ? new Set((fromTmdb?.hits ?? []).map((h) => identity(h.kind, h.title, h.year))) : null;
     const nameIn = (pool: string[], name: string) => pool.some((p) => normalize(p) === normalize(name) || fuzzyMatches(name, p));
     const rowFits = (row: StatRow) => {
-      if (scope !== "watched" || !planOn) return true;
+      if ((scope !== "watched" && scope !== "both") || !planOn) return true;
       for (const p of plan.people) {
         const pool = p.role === "director" ? row.directors : p.role === "cast" ? [...row.actors, ...row.performers] : p.role === "writer" ? null : [...row.directors, ...row.actors, ...row.performers];
         if (pool && !nameIn(pool, p.name)) return false;
@@ -455,8 +456,8 @@ function SearchView() {
     const byIdentity = new Set([...out.values()].map((i) => identity(i.kind, i.title, i.year)));
 
     // Your Watchlist: when typed words match, or all of it when searching inside it.
-    if (scope === "watchlist" || (scope === null && q.length >= 2 && !logOnly)) {
-      const inTmdb = scope === "watchlist" && planOn ? new Set((fromTmdb?.hits ?? []).map((h) => `${h.kind}:${h.tmdbId}`)) : null;
+    if (scope === "watchlist" || scope === "both" || (scope === null && q.length >= 2 && !logOnly)) {
+      const inTmdb = (scope === "watchlist" || scope === "both") && planOn ? new Set((fromTmdb?.hits ?? []).map((h) => `${h.kind}:${h.tmdbId}`)) : null;
       for (const w of wanted) {
         if (q.length >= 2 && !normalize(w.title).includes(normalize(q))) continue;
         if (filter.category && w.category !== filter.category) continue;
@@ -584,6 +585,26 @@ function SearchView() {
   ];
   const set = (patch: Partial<LogFilter>) => setFilter({ ...filter, ...patch });
   const num = (v: string) => (v.trim() === "" ? null : Number(v) || null);
+  const minutes = (v: string) => {
+    const n = num(v);
+    return n === null ? null : Math.min(600, Math.max(1, Math.round(n)));
+  };
+  const inWatched = scope === "watched" || scope === "both";
+  const inWatchlist = scope === "watchlist" || scope === "both";
+  // Watched and Watchlist can be on together (either list); "not watched yet" and Watched cancel each other out.
+  const toggleList = (which: "watched" | "watchlist") => {
+    const watched = which === "watched" ? !inWatched : inWatched;
+    const wishlist = which === "watchlist" ? !inWatchlist : inWatchlist;
+    if (which === "watched" && watched && plan.seen === "not-seen") drop({ seen: "either" });
+    setScope(watched && wishlist ? "both" : watched ? "watched" : wishlist ? "watchlist" : null);
+  };
+  const toggleNotSeen = () => {
+    if (plan.seen === "not-seen") return drop({ seen: "either" });
+    drop({ seen: "not-seen" });
+    if (scope === "watched") setScope(null);
+    else if (scope === "both") setScope("watchlist");
+  };
+  const pill = (on: boolean) => `rounded-full px-3.5 py-1.5 ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`;
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
@@ -616,31 +637,42 @@ function SearchView() {
           className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 ${askOn ? "border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-neutral-950" : "border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"}`}>
           <Icon name="sparkle" size={16} />Ask AI
         </button>
-        {(hasFilter(filter) || planOn) && (
-          <button type="button" onClick={() => { setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500">Clear filters</button>
+        {(hasFilter(filter) || planOn || scope !== null) && (
+          <button type="button" onClick={() => { setScope(null); setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500">Clear filters</button>
         )}
       </div>
       <ProblemPopup message={askProblem} onClose={() => setAskProblem(null)} />
 
       {filtersOpen && (
         <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="col-span-2 flex flex-wrap gap-2">
+            <button type="button" aria-pressed={inWatched} onClick={() => toggleList("watched")} className={pill(inWatched)}>In Watched</button>
+            <button type="button" aria-pressed={inWatchlist} onClick={() => toggleList("watchlist")} className={pill(inWatchlist)}>In Watchlist</button>
+            <button type="button" aria-pressed={plan.seen === "not-seen"} onClick={toggleNotSeen} className={pill(plan.seen === "not-seen")}>Not watched yet</button>
+            <button type="button" aria-pressed={filter.rewatchesOnly} onClick={() => set({ rewatchesOnly: !filter.rewatchesOnly })} className={pill(filter.rewatchesOnly)}>Rewatches only</button>
+            <button type="button" aria-pressed={plan.inTheatres === "now"} onClick={() => drop({ inTheatres: plan.inTheatres === "now" ? null : "now" })} className={pill(plan.inTheatres === "now")}>In cinemas now</button>
+            <button type="button" aria-pressed={plan.inTheatres === "soon"} onClick={() => drop({ inTheatres: plan.inTheatres === "soon" ? null : "soon" })} className={pill(plan.inTheatres === "soon")}>Coming soon</button>
+          </div>
           <select value={filter.category ?? ""} onChange={(e) => set({ category: (e.target.value || null) as LogFilter["category"] })} className={FIELD} aria-label="Type">
             <option value="">Any type</option>
             {["Movie", "TV Show", "Concert", "Live Event"].map((c) => <option key={c}>{c}</option>)}
           </select>
-          <div className="relative min-w-0"><input inputMode="numeric" value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: num(e.target.value) })} placeholder="Released from (year)" aria-label="Released from" className={`${FIELD} w-full pr-11`} />{filter.releaseFrom !== null && filter.releaseFrom !== undefined && <ClearX label="Released from" onClear={() => set({ releaseFrom: null })} />}</div>
-          <div className="relative min-w-0"><input inputMode="numeric" value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: num(e.target.value) })} placeholder="Released to (year)" aria-label="Released to" className={`${FIELD} w-full pr-11`} />{filter.releaseTo !== null && filter.releaseTo !== undefined && <ClearX label="Released to" onClear={() => set({ releaseTo: null })} />}</div>
           <select value={filter.minRating ?? ""} onChange={(e) => set({ minRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Minimum rating">
             <option value="">Any rating</option>
             {[5, 6, 7, 8, 9].map((n) => <option key={n} value={n}>★ {n}+</option>)}
           </select>
+          <select value={filter.maxRating ?? ""} onChange={(e) => set({ maxRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Maximum rating">
+            <option value="">No rating ceiling</option>
+            {[4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>★ up to {n}</option>)}
+          </select>
           <select value={order} onChange={(e) => setOrder(e.target.value as Order)} className={FIELD} aria-label="Sort by">
             {ORDERS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
           </select>
+          <div className="relative col-span-2 min-w-0"><input inputMode="numeric" value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: num(e.target.value) })} placeholder="Released from (year)" aria-label="Released from" className={`${FIELD} w-full pr-11`} />{filter.releaseFrom !== null && filter.releaseFrom !== undefined && <ClearX label="Released from" onClear={() => set({ releaseFrom: null })} />}</div>
+          <div className="relative col-span-2 min-w-0"><input inputMode="numeric" value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: num(e.target.value) })} placeholder="Released to (year)" aria-label="Released to" className={`${FIELD} w-full pr-11`} />{filter.releaseTo !== null && filter.releaseTo !== undefined && <ClearX label="Released to" onClear={() => set({ releaseTo: null })} />}</div>
+          <div className="relative min-w-0"><input inputMode="numeric" value={plan.minRuntime ?? ""} onChange={(e) => drop({ minRuntime: minutes(e.target.value) })} placeholder="Over (minutes)" aria-label="Longer than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.minRuntime !== null && <ClearX label="Over minutes" onClear={() => drop({ minRuntime: null })} />}</div>
+          <div className="relative min-w-0"><input inputMode="numeric" value={plan.maxRuntime ?? ""} onChange={(e) => drop({ maxRuntime: minutes(e.target.value) })} placeholder="Under (minutes)" aria-label="Shorter than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.maxRuntime !== null && <ClearX label="Under minutes" onClear={() => drop({ maxRuntime: null })} />}</div>
           <div className="col-span-2 flex flex-col gap-3">
-            <SuggestTags label="Genres" tags={[]} options={GENRE_TAGS} placeholder="Type a genre" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={() => {}} />
-            <SuggestTags label="Countries" tags={[]} options={COUNTRY_TAGS} placeholder="Type a country, such as Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={() => {}} />
-            <SuggestTags label="Languages" tags={[]} options={LANGUAGE_TAGS} placeholder="Type a language, such as French" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={() => {}} />
             <SuggestTags
               label="People"
               tags={[]}
@@ -652,6 +684,9 @@ function SearchView() {
               onAdd={(t) => drop({ people: [...plan.people.filter((x) => x.tmdbId !== Number(t.id)), { name: t.label, role: "any", tmdbId: Number(t.id), profilePath: t.image ?? null }] })}
               onRemove={() => {}}
             />
+            <SuggestTags label="Genres" tags={[]} options={GENRE_TAGS} placeholder="Type a genre" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={() => {}} />
+            <SuggestTags label="Countries" tags={[]} options={COUNTRY_TAGS} placeholder="Type a country, such as Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={() => {}} />
+            <SuggestTags label="Languages" tags={[]} options={LANGUAGE_TAGS} placeholder="Type a language, such as French" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={() => {}} />
             <SuggestTags
               label="Keywords"
               tags={[]}
@@ -664,10 +699,12 @@ function SearchView() {
               onAdd={(t) => drop({ keywords: [...new Set([...plan.keywords, t.label])] })}
               onRemove={() => {}}
             />
+            <SuggestTags label="Streaming on" tags={[]} options={PROVIDER_TAGS} allowFree placeholder="Type a service, such as Netflix" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={() => {}} />
           </div>
           <div className="relative min-w-0"><input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={`${FIELD} w-full pr-11`} />{filter.venue && <ClearX label="Venue" onClear={() => set({ venue: null })} />}</div>
           <div className="relative min-w-0"><input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={`${FIELD} w-full pr-11`} />{filter.format && <ClearX label="Format" onClear={() => set({ format: null })} />}</div>
-          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" /></label>
+          <div className="relative col-span-2 min-w-0"><input value={filter.extra ?? ""} onChange={(e) => set({ extra: e.target.value || null })} placeholder="Extras (your log), such as IMAX or 3D" className={`${FIELD} w-full pr-11`} />{filter.extra && <ClearX label="Extras" onClear={() => set({ extra: null })} />}</div>
+          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" hint="yearAgo" /></label>
           <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><DateField value={filter.dateTo ?? ""} onChange={(v) => set({ dateTo: v || null })} label="Watched to" /></label>
         </div>
       )}
@@ -675,12 +712,12 @@ function SearchView() {
       {(scope !== null || filterChips.length > 0 || planChips.length > 0 || (current?.plan?.missing.length ?? 0) > 0) && (
         <ul className="flex flex-wrap gap-2 text-xs">
           {/* Searching inside one list; the x goes back to searching everything. */}
-          {scope !== null && (
-            <li className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-white dark:bg-white dark:text-neutral-950">
-              <span>{scope === "watched" ? "In Watched" : "In Watchlist"}</span>
-              <button type="button" aria-label="Search everything again" onClick={() => setScope(null)} className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 dark:bg-black/15"><Icon name="close" size={11} /></button>
+          {([["watched", inWatched, "In Watched"], ["watchlist", inWatchlist, "In Watchlist"]] as const).filter(([, on]) => on).map(([which, , label]) => (
+            <li key={which} className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-white dark:bg-white dark:text-neutral-950">
+              <span>{label}</span>
+              <button type="button" aria-label={`Remove ${label}`} onClick={() => toggleList(which)} className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 dark:bg-black/15"><Icon name="close" size={11} /></button>
             </li>
-          )}
+          ))}
           {filterChips.map((c) => (
             <li key={c.key} className="flex items-center gap-1 rounded-full bg-neutral-100 py-1 pl-3 pr-1 dark:bg-neutral-800">
               <span>{c.label}</span>

@@ -32,7 +32,7 @@ export default function Choice({ type, checked, onChange, children, name, disabl
       <span
         aria-hidden
         // Drawn from the value the app holds, not from the hidden input's own state.
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-[2.5px] border-neutral-950 transition-colors ${checked ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "text-transparent"} peer-focus-visible:ring-2 peer-focus-visible:ring-neutral-950 peer-focus-visible:ring-offset-2 dark:border-white dark:peer-focus-visible:ring-white dark:peer-focus-visible:ring-offset-neutral-950`}
+        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg border-[2.5px] border-neutral-950 transition-colors ${checked ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "text-transparent"} peer-focus-visible:ring-2 peer-focus-visible:ring-neutral-950 peer-focus-visible:ring-offset-2 dark:border-white dark:peer-focus-visible:ring-white dark:peer-focus-visible:ring-offset-neutral-950`}
       >
         {/* A tick, white on the black box (black on the white one in dark mode), so chosen and not chosen read at a glance. */}
         {checked && (

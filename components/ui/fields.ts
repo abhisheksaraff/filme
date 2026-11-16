@@ -7,3 +7,6 @@ export const FIELD = "h-11 rounded-full bg-neutral-100 px-5 text-base outline-no
 export const FIELD_FULL = `w-full ${FIELD}`;
 /** For several lines of text, where a full pill would clip: the same grey and text, with softly rounded corners. */
 export const AREA = "w-full rounded-3xl bg-neutral-100 px-5 py-3 text-base outline-none placeholder:text-sm dark:bg-neutral-800";
+/** A slightly shorter pill (40px) for the dense filter panels and the manual add form. */
+export const FIELD_SM = "h-10 rounded-full bg-neutral-100 px-5 text-base outline-none placeholder:text-sm dark:bg-neutral-800";
+export const FIELD_SM_FULL = `w-full ${FIELD_SM}`;

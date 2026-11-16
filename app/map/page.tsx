@@ -124,7 +124,7 @@ function MapView() {
 
       {open && (
         // Tall, lifted clear of the bottom bar, with a soft shadow so it reads as the thing in front.
-        <div className="fixed inset-x-3 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex h-[60vh] w-auto max-w-md flex-col gap-3 overflow-y-auto rounded-3xl bg-white px-5 pb-6 pt-5 text-neutral-950 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5),0_6px_16px_rgba(0,0,0,0.25)] md:max-w-xl dark:bg-neutral-900 dark:text-white">
+        <div className="fixed inset-x-3 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex h-[60vh] w-auto max-w-md flex-col gap-3 overflow-y-auto rounded-[2.25rem] bg-white px-5 pb-6 pt-5 text-neutral-950 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5),0_6px_16px_rgba(0,0,0,0.25)] md:max-w-xl dark:bg-neutral-900 dark:text-white">
           <div className="flex items-start gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <h2 className="font-serif text-2xl leading-tight tracking-tight">{open.point.name}</h2>
@@ -163,14 +163,14 @@ function MapView() {
                   <span className="relative block">
                     {v.posterPath ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={tmdbImageUrl(v.posterPath, "w185") ?? ""} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover shadow-[0_8px_18px_-4px_rgba(0,0,0,0.45),0_2px_6px_rgba(0,0,0,0.2)]" />
+                      <img src={tmdbImageUrl(v.posterPath, "w185") ?? ""} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover shadow-[0_6px_14px_-4px_rgba(0,0,0,0.34),0_2px_5px_rgba(0,0,0,0.15)]" />
                     ) : (
-                      <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl bg-neutral-200 shadow-[0_8px_18px_-4px_rgba(0,0,0,0.45),0_2px_6px_rgba(0,0,0,0.2)] dark:bg-white/15"><Icon name={KIND_ICON[v.category] ?? "film"} size={22} /></span>
+                      <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl bg-neutral-200 shadow-[0_6px_14px_-4px_rgba(0,0,0,0.34),0_2px_5px_rgba(0,0,0,0.15)] dark:bg-white/15"><Icon name={KIND_ICON[v.category] ?? "film"} size={22} /></span>
                     )}
                   </span>
                   <span className="line-clamp-2 text-xs font-medium leading-tight">{v.title}</span>
                   {(v.watchedOn || v.publicScore !== null) && (
-                    <span className="text-[11px] text-neutral-500">{[v.watchedOn, v.publicScore !== null ? `★ ${formatScore(v.publicScore)}` : null].filter(Boolean).join(" · ")}</span>
+                    <span className="text-[10px] text-neutral-500/80">{[v.watchedOn, v.publicScore !== null ? `★ ${formatScore(v.publicScore)}` : null].filter(Boolean).join(" · ")}</span>
                   )}
                 </Link>
               </li>

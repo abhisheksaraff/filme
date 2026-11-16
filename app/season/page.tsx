@@ -289,7 +289,7 @@ function SeasonView() {
               <PopupAction icon="check" label="Log" disabled={busy || !pickDate} onClick={() => logPicked(pickDate)} />
             </>
           }>
-          <DateField value={pickDate} max={today()} onChange={setPickDate} label="Date" className="h-11 rounded-full bg-white/10 px-5 text-base text-white outline-none" hintClass="text-white/50" />
+          <DateField value={pickDate} max={today()} onChange={setPickDate} label="Date" className="h-11 bg-white/10 text-white" hintClass="text-white/50" />
         </Popup>
       )}
     </main>

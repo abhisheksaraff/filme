@@ -3,7 +3,6 @@
 "use client";
 
 import Icon from "@/components/Icon";
-import { FIELD } from "./fields";
 
 interface Props {
   type?: "date" | "month";
@@ -11,8 +10,10 @@ interface Props {
   onChange: (value: string) => void;
   label: string;
   max?: string;
-  /** Replaces the default look, such as on a dark page. */
+  /** Replaces the default look (colour and height only; the padding is fixed so the box never grows past its column). */
   className?: string;
+  /** What the grey example shows: today, or the same day a year ago (for a From box, so it differs from To). */
+  hint?: "today" | "yearAgo";
   /** Colour of the example text and the x; defaults suit the normal grey boxes. */
   hintClass?: string;
 }
@@ -20,20 +21,21 @@ interface Props {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** Today written the way people say it, as an example only; it is never put into the box. */
-function example(type: "date" | "month"): string {
+function example(type: "date" | "month", hint: "today" | "yearAgo"): string {
   const now = new Date();
+  if (hint === "yearAgo") now.setFullYear(now.getFullYear() - 1);
   const month = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
   return type === "month" ? month : `${now.getDate()} ${month}`;
 }
 
-export default function DateField({ type = "date", value, onChange, label, max, className = `${FIELD} w-full`, hintClass = "text-neutral-400" }: Props) {
+export default function DateField({ type = "date", value, onChange, label, max, className = "h-10 bg-neutral-100 dark:bg-neutral-800", hintClass = "text-neutral-400", hint = "today" }: Props) {
   return (
-    <div className="relative min-w-0">
-      <input type={type} value={value} max={max} onChange={(e) => onChange(e.target.value)} aria-label={label} className={`w-full min-w-0 pr-11 ${className}`} />
+    <div className="relative min-w-0 overflow-hidden rounded-full">
+      <input type={type} value={value} max={max} onChange={(e) => onChange(e.target.value)} aria-label={label} className={`block w-full min-w-0 max-w-full appearance-none rounded-full pl-4 pr-9 text-base outline-none [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left ${className}`} />
       {/* Safari draws nothing inside an empty date box, so the example sits on top of it and lets taps through. */}
-      {!value && <span aria-hidden className={`pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-sm ${hintClass}`}>{example(type)}</span>}
+      {!value && <span aria-hidden className={`pointer-events-none absolute left-4 right-9 top-1/2 -translate-y-1/2 truncate text-sm ${hintClass}`}>{example(type, hint)}</span>}
       {value && (
-        <button type="button" aria-label={`Clear ${label}`} onClick={() => onChange("")} className={`absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full ${hintClass}`}>
+        <button type="button" aria-label={`Clear ${label}`} onClick={() => onChange("")} className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full ${hintClass}`}>
           <Icon name="close" size={16} />
         </button>
       )}

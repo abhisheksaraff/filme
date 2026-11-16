@@ -110,10 +110,10 @@ export default function AppearancePage() {
 
       <div className="flex flex-col gap-3">
         <Choice type="checkbox" checked={appearance.animationsEnabled} onChange={(checked) => update({ ...appearance, animationsEnabled: checked })}>
-          Animated backgrounds
+          Enable animated backgrounds
         </Choice>
         <Choice type="checkbox" checked={appearance.decorationsEnabled} onChange={(checked) => update({ ...appearance, decorationsEnabled: checked })}>
-          Decorations
+          Enable decorations
         </Choice>
       </div>
 
