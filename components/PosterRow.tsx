@@ -24,11 +24,11 @@ export default function PosterRow({ items }: { items: RowItem[] }) {
               ) : (
                 <div className="aspect-[2/3] w-full rounded-lg bg-neutral-200 dark:bg-neutral-800" />
               )}
-              {wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" size={24} className="absolute bottom-1.5 right-1.5" />}
+              {wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" size={24} className="absolute right-1.5 top-1.5" />}
               {item.surprise && (
                 <span
                   title="Surprise pick"
-                  className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 text-xs text-white"
+                  className="absolute left-1 top-1 rounded-full bg-black/60 px-1.5 text-xs text-white"
                 >
                   ✦
                 </span>

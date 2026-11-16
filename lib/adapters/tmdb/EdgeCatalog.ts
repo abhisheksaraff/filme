@@ -203,14 +203,24 @@ const rawCatalog: Catalog = {
     return ok(res.value.results[0]?.id ?? null);
   },
 
+  async searchKeywords(query) {
+    if (query.trim().length < 2) return ok([]);
+    const res = await callFunction<{ results: { id: number; name: string }[] }>("tmdb", { path: "/search/keyword", params: { query } });
+    if (!res.ok) return fail(res.error);
+    return ok(res.value.results.slice(0, 8).map((k) => k.name));
+  },
+
   async searchPeople(query) {
     if (query.trim().length < 2) return ok([]);
-    const res = await callFunction<{ results: { id: number; name: string; profile_path?: string | null }[] }>("tmdb", {
+    const res = await callFunction<{ results: { id: number; name: string; profile_path?: string | null; known_for_department?: string | null; known_for?: { title?: string; name?: string }[] }[] }>("tmdb", {
       path: "/search/person",
       params: { query, include_adult: "false" },
     });
     if (!res.ok) return fail(res.error);
-    return ok(res.value.results.slice(0, 5).map((p) => ({ tmdbId: p.id, name: p.name, profilePath: p.profile_path ?? null })));
+    return ok(res.value.results.slice(0, 8).map((p) => {
+      const works = (p.known_for ?? []).map((w) => w.title ?? w.name).filter((t): t is string => Boolean(t)).slice(0, 2).join(", ");
+      return { tmdbId: p.id, name: p.name, profilePath: p.profile_path ?? null, knownFor: [p.known_for_department, works].filter(Boolean).join(" · ") || null };
+    }));
   },
 
   async episodes(tmdbId, season) {

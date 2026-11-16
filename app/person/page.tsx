@@ -13,6 +13,8 @@ import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { previewHref, seenKey } from "@/lib/home/rows";
 import PersonCircle from "@/components/PersonCircle";
+import StatusBadge from "@/components/StatusBadge";
+import { useWantedKeys } from "@/lib/useWantedKeys";
 import type { PersonDetail, PersonPick } from "@/lib/ports/browse";
 import type { CatalogPerson } from "@/lib/ports/catalog";
 import { services } from "@/lib/services";
@@ -53,6 +55,7 @@ function PersonView() {
   const [related, setRelated] = useState<PersonPick[]>([]);
   // Everything you have logged, so "More from" only offers what you have not seen.
   const [everSeen, setEverSeen] = useState<Set<string>>(new Set());
+  const wantedKeys = useWantedKeys();
 
   useEffect(() => {
     if (!ready) return;
@@ -177,12 +180,15 @@ function PersonView() {
                 {more.map((hit) => (
                   <li key={`${hit.kind}-${hit.tmdbId}`} className="w-28 shrink-0">
                     <Link href={previewHref(hit.kind, hit.tmdbId)} className="flex flex-col gap-1">
-                      {hit.posterUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={hit.posterUrl} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-lg object-cover" />
-                      ) : (
-                        <div className="aspect-[2/3] rounded-lg bg-neutral-200 dark:bg-neutral-800" />
-                      )}
+                      <div className="relative">
+                        {hit.posterUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={hit.posterUrl} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-lg object-cover" />
+                        ) : (
+                          <div className="aspect-[2/3] rounded-lg bg-neutral-200 dark:bg-neutral-800" />
+                        )}
+                        {wantedKeys.has(`tmdb:${hit.kind === "TV Show" ? "tv" : "movie"}:${hit.tmdbId}`) && <StatusBadge kind="watchlist" size={24} className="absolute right-1.5 top-1.5" />}
+                      </div>
                       <span className="line-clamp-2 text-xs font-medium">{hit.title}</span>
                       {hit.year && <span className="text-xs text-neutral-500">{hit.year}</span>}
                     </Link>

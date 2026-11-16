@@ -2,16 +2,18 @@
 // What the AI understood from a question about things to watch: people, titles, genres, languages and so on.
 // Each part becomes a chip the user can remove; the plan is then run against TMDB without asking the AI again.
 import { z } from "zod";
+import { languageName } from "./tagLists";
 
 export const askPlanSchema = z.object({
-  people: z.array(z.object({ name: z.string().min(1).max(80), role: z.enum(["cast", "director", "writer", "any"]) })).max(5),
+  // A person picked by hand carries their TMDB id and photo, so the right one is searched for; the AI gives only a name.
+  people: z.array(z.object({ name: z.string().min(1).max(80), role: z.enum(["cast", "director", "writer", "any"]), tmdbId: z.number().int().positive().optional(), profilePath: z.string().max(120).nullable().optional() })).max(8),
   titles: z.array(z.string().min(1).max(80)).max(5),
-  genres: z.array(z.string().min(1).max(80)).max(3),
+  genres: z.array(z.string().min(1).max(80)).max(6),
   /** Two-letter language codes such as hi or ta. */
-  languages: z.array(z.string().regex(/^[a-z]{2}$/)).max(6),
+  languages: z.array(z.string().regex(/^[a-z]{2}$/)).max(8),
   /** Two-letter country codes such as IN. */
-  countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(3),
-  keywords: z.array(z.string().min(1).max(80)).max(3),
+  countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(6),
+  keywords: z.array(z.string().min(1).max(80)).max(6),
   like: z.array(z.string().min(1).max(80)).max(2),
   sortBy: z.enum(["popular", "newest", "oldest", "rating"]).nullable(),
   seen: z.enum(["not-seen", "seen", "either"]),
@@ -38,9 +40,7 @@ export function hasPlan(plan: AskPlan): boolean {
     || plan.seen === "not-seen" || plan.maxRuntime !== null || plan.minRuntime !== null || plan.inTheatres !== null;
 }
 
-/** The language codes the app can name; the chip shows the name rather than the code. */
-export const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English", hi: "Hindi", ta: "Tamil", te: "Telugu", ml: "Malayalam", kn: "Kannada", bn: "Bengali", mr: "Marathi", pa: "Punjabi",
-  ko: "Korean", ja: "Japanese", zh: "Chinese", fr: "French", es: "Spanish", de: "German", it: "Italian", pt: "Portuguese", ru: "Russian",
-  tr: "Turkish", ar: "Arabic", th: "Thai", sv: "Swedish", da: "Danish", nl: "Dutch", pl: "Polish", fa: "Persian", id: "Indonesian",
-};
+/** Language names by code, for the chips; any code the browser knows is named. */
+export const LANGUAGE_NAMES: Record<string, string> = new Proxy({} as Record<string, string>, {
+  get: (_target, code) => (typeof code === "string" && /^[a-z]{2}$/.test(code) ? languageName(code) : undefined),
+});

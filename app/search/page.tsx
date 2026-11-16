@@ -8,17 +8,19 @@ import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { searchFocus } from "@/lib/searchFocus";
 import Icon from "@/components/Icon";
 import PersonCircle from "@/components/PersonCircle";
+import SuggestTags, { type TagItem } from "@/components/SuggestTags";
+import { COUNTRY_ADJECTIVES, COUNTRY_CODES, LANGUAGE_CODES, countryName, languageName } from "@/lib/domain/tagLists";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { EMPTY_FILTER, hasFilter, type LogFilter } from "@/lib/domain/askLog";
 import { discover } from "@/lib/ask/discover";
 import { EMPTY_PLAN, hasPlan, LANGUAGE_NAMES, type AskPlan } from "@/lib/domain/askPlan";
 import { GENRES } from "@/lib/domain/home";
-import { applyFilter, describeFilter, normalize } from "@/lib/domain/search";
+import { applyFilter, normalize } from "@/lib/domain/search";
 import type { StatRow } from "@/lib/domain/stats";
 import { warmTitle } from "@/lib/handoff";
 import { loadStatRows, previewHref, seenKey } from "@/lib/home/rows";
@@ -38,14 +40,21 @@ function interleave<T>(lists: T[][]): T[] {
 
 const NO_MATCH = "We couldn't find a match for that.";
 
-type Order = "default" | "newest" | "oldest" | "rating" | "az";
+type Order = "default" | "newest" | "oldest" | "rating" | "lowest" | "az" | "za";
 const ORDERS: { id: Order; label: string }[] = [
   { id: "default", label: "Best match" },
   { id: "newest", label: "Newest" },
   { id: "oldest", label: "Oldest" },
   { id: "rating", label: "Highest rated" },
+  { id: "lowest", label: "Lowest rated" },
   { id: "az", label: "A–Z" },
+  { id: "za", label: "Z–A" },
 ];
+
+/** Country and language suggestions, built once: the name typed matches ("germany") and so does the adjective ("german"). */
+const COUNTRY_TAGS: TagItem[] = COUNTRY_CODES.map((c) => ({ id: c, label: countryName(c), alias: COUNTRY_ADJECTIVES[c] }));
+const LANGUAGE_TAGS: TagItem[] = LANGUAGE_CODES.map((c) => ({ id: c, label: languageName(c) }));
+const GENRE_TAGS: TagItem[] = GENRES.map((g) => ({ id: g.name, label: g.name }));
 
 
 /** One title in the results: from your log, your Watchlist or TMDB, shown once. */
@@ -59,6 +68,12 @@ interface Item {
   watched: boolean;
   wanted: boolean;
   rating: number | null;
+  /** The public score (TMDB), shown after the year; your own rating stands in when there is none. */
+  score: number | null;
+  /** Where it ranks when several countries, languages or genres were asked for; 0 is the best group. */
+  group: number;
+  /** Share of a show's episodes logged, from 0 to 1, when only part of it is. */
+  progress?: number;
 }
 
 interface PersonItem {
@@ -71,8 +86,9 @@ interface PersonItem {
 interface Found {
   key: string;
   /** What the AI's plan resolved to: people found, names not found, and a note when it was loosened. */
-  plan?: { people: { name: string; tmdbId: number }[]; missing: string[]; notice: string | null };
+  plan?: { people: { name: string; tmdbId: number; profilePath: string | null }[]; missing: string[]; notice: string | null };
   hits: CatalogHit[];
+  groups?: Record<string, number>;
   people: PersonItem[];
   problem: string | null;
 }
@@ -87,18 +103,22 @@ function genreId(name: string | null): number | undefined {
   return GENRES.find((g) => normalize(g.name) === wanted)?.id ?? GENRES.find((g) => normalize(g.name).includes(wanted) || wanted.includes(normalize(g.name)))?.id;
 }
 
+/** Shows already looked up for their episode count, so each is asked about once per visit. */
+const askedTotals = new Set<string>();
+const totalKey = (title: string, year: string | null) => `${normalize(title)}:${year ?? ""}`;
+
 function ResultRow({ item }: { item: Item }) {
   return (
     <li>
       <Link href={item.href} onClick={() => warmTitle(item.href, { title: item.title, posterUrl: item.poster, subtitle: item.year })} className="relative flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
-        {/* Round badges in the corner say it is in your log, on your Watchlist, or both. */}
-        {(item.watched || item.wanted) && (
-          <span className="absolute right-3 top-3 flex gap-1">
-            {item.wanted && <StatusBadge kind="watchlist" size={26} />}
-            {item.watched && <StatusBadge kind="watched" size={26} />}
-          </span>
-        )}
+        {/* Round badges on the poster's top-right corner say it is in your log, on your Watchlist, or both. */}
         <span className="relative shrink-0">
+          {(item.watched || item.wanted) && (
+            <span className="absolute right-1 top-1 z-10 flex gap-1">
+              {item.wanted && <StatusBadge kind="watchlist" size={22} />}
+              {item.watched && <StatusBadge kind="watched" size={22} progress={item.progress} />}
+            </span>
+          )}
           {item.poster ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={item.poster} alt="" loading="lazy" className="aspect-[2/3] w-16 rounded-xl object-cover" />
@@ -108,7 +128,7 @@ function ResultRow({ item }: { item: Item }) {
         </span>
         <span className="flex min-w-0 flex-col justify-center text-sm">
           <span className="font-serif text-base leading-tight">{item.title}</span>
-          <span className="text-neutral-500">{[item.year, item.kind, item.rating !== null ? `★ ${item.rating}` : null].filter(Boolean).join(" · ")}</span>
+          <span className="text-neutral-500">{[item.year, item.score !== null ? `★ ${item.score}` : null, item.kind].filter(Boolean).join(" · ")}</span>
         </span>
       </Link>
     </li>
@@ -134,6 +154,15 @@ function SearchView() {
   const [wanted, setWanted] = useState<WantedItem[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<StatRow[]>([]);
+  // How many episodes each show has aired, for the progress ring on a partly watched one.
+  const [totals, setTotals] = useState<Record<string, number>>({});
+  const progressOf = useCallback((_id: string, kind: string, title: string, year: string | null): number | undefined => {
+    if (kind !== "TV Show") return undefined;
+    const total = totals[totalKey(title, year)];
+    if (!total) return undefined;
+    const logged = rows.filter((r) => r.category === "TV Show" && normalize(r.title) === normalize(title) && (!year || !r.releaseYear || String(r.releaseYear) === year)).reduce((n, r) => n + Math.max(1, r.episodes), 0);
+    return logged > 0 && logged < total ? logged / total : undefined;
+  }, [rows, totals]);
 
   // "See all" on a person's page arrives with their TMDB id and name; the list is then their full credits.
   const params = useSearchParams();
@@ -184,7 +213,8 @@ function SearchView() {
   const personTmdb = idParam && filter.person === nameParam ? idParam : null;
 
   const q = (askOn ? askText : query).trim();
-  const planOn = askOn && hasPlan(plan);
+  // The typed tags and the AI's answer are the same plan, so both work whether or not Ask AI is switched on.
+  const planOn = hasPlan(plan);
   // Nothing is shown until something is typed or a filter is set, so opening Filters alone lists nothing.
   const active = q.length >= 2 || hasFilter(filter) || planOn;
   // Venue, format, watch dates and rewatches exist only in your log, so TMDB has nothing to say about them.
@@ -253,15 +283,15 @@ function SearchView() {
           lookupPerson: async (name) => {
             const own = await services.browse.searchPeople(name);
             const mine = own.ok ? own.value.find((p) => p.tmdbId !== null) : undefined;
-            if (mine && mine.tmdbId !== null) return { tmdbId: mine.tmdbId, name: mine.name };
+            if (mine && mine.tmdbId !== null) return { tmdbId: mine.tmdbId, name: mine.name, profilePath: mine.profilePath };
             const res = await services.catalog.searchPeople(name);
             const top = res.ok ? res.value[0] : undefined;
-            return top ? { tmdbId: top.tmdbId, name: top.name } : null;
+            return top ? { tmdbId: top.tmdbId, name: top.name, profilePath: top.profilePath } : null;
           },
           isSeen: (h) => seen.has(seenKey(h.kind, h.tmdbId)),
         });
         if (cancelled) return;
-        setFound({ key: searchKey, hits: out.hits, people: [], plan: { people: out.people, missing: out.missing, notice: out.notice }, problem: null });
+        setFound({ key: searchKey, hits: out.hits, groups: out.groups, people: [], plan: { people: out.people, missing: out.missing, notice: out.notice }, problem: null });
         return;
       }
       const results = creditResult ? [creditResult] : await Promise.all(kinds.map(async (kind) => {
@@ -362,6 +392,9 @@ function SearchView() {
         watched: true,
         wanted: wantedNames.has(`${row.category}:${normalize(row.title)}`),
         rating: row.rating,
+        score: row.rating,
+        group: 0,
+        progress: progressOf(row.mediaId, row.category, row.title, row.releaseYear ? String(row.releaseYear) : null),
       });
     }
     const byIdentity = new Set([...out.values()].map((i) => identity(i.kind, i.title, i.year)));
@@ -383,6 +416,8 @@ function SearchView() {
           watched: false,
           wanted: true,
           rating: null,
+          score: null,
+          group: 0,
         });
       }
     }
@@ -393,6 +428,8 @@ function SearchView() {
     if (found?.key === searchKey) {
       for (const hit of found.hits) {
         if (covered(hit.kind, hit.title, hit.year)) continue;
+        // Typed words narrow what a plan found, so a title typed beside the tags still has to match.
+        if (planOn && !askOn && q.length >= 2 && !normalize(hit.title).includes(normalize(q))) continue;
         const key = seenKey(hit.kind, hit.tmdbId);
         out.set(key, {
           key,
@@ -404,36 +441,82 @@ function SearchView() {
           watched: seen.has(key),
           wanted: wantedKeys.has(key),
           rating: null,
+          score: hit.voteAverage ? Math.round(hit.voteAverage * 10) / 10 : null,
+          group: found.groups?.[key] ?? 0,
+          progress: seen.has(key) ? progressOf(key, hit.kind, hit.title, hit.year) : undefined,
         });
       }
     }
 
     const list = [...out.values()];
-    if (order === "newest") list.sort((a, b) => (b.year ?? "").localeCompare(a.year ?? ""));
-    else if (order === "oldest") list.sort((a, b) => (a.year ?? "9999").localeCompare(b.year ?? "9999"));
-    else if (order === "rating") list.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
-    else if (order === "az") list.sort((a, b) => a.title.localeCompare(b.title));
+    // The chosen sort applies inside each group (titles matching the most typed countries, languages and genres first).
+    const within = (a: Item, b: Item) =>
+      order === "newest" ? (b.year ?? "").localeCompare(a.year ?? "")
+      : order === "oldest" ? (a.year ?? "9999").localeCompare(b.year ?? "9999")
+      : order === "rating" ? (b.score ?? -1) - (a.score ?? -1)
+      // Unrated titles go last, whichever way round.
+      : order === "lowest" ? (a.score ?? 99) - (b.score ?? 99)
+      : order === "az" ? a.title.localeCompare(b.title)
+      : order === "za" ? b.title.localeCompare(a.title)
+      : 0;
     // Otherwise they stay in order of how well they matched; whether you have seen one does not move it.
-    return list;
-  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn]);
+    return list.map((item, index) => ({ item, index })).sort((a, b) => a.item.group - b.item.group || within(a.item, b.item) || a.index - b.index).map((x) => x.item);
+  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn, askOn, progressOf]);
+
+  // Looks up the episode count of any show in the results you have logged, once each.
+  useEffect(() => {
+    const shows = items.filter((i) => i.kind === "TV Show" && i.watched).slice(0, 24).filter((i) => !askedTotals.has(totalKey(i.title, i.year)));
+    for (const show of shows) {
+      const k = totalKey(show.title, show.year);
+      askedTotals.add(k);
+      void (async () => {
+        const hits = await services.catalog.search(show.title, "TV Show", 5);
+        const hit = hits.ok ? (hits.value.find((h) => !show.year || h.year === show.year) ?? hits.value[0]) : undefined;
+        if (!hit) return;
+        const status = await services.catalog.showStatus(hit.tmdbId);
+        if (!status.ok) return;
+        // Only what has aired counts, so a show that is up to date reads as finished.
+        const seasons = status.value.seasons.filter((s) => s.season > 0);
+        const last = status.value.last;
+        const total = last
+          ? seasons.filter((s) => s.season < last.season).reduce((n, s) => n + s.episodes, 0) + last.episode
+          : seasons.reduce((n, s) => n + s.episodes, 0);
+        if (total > 0) setTotals((t) => ({ ...t, [k]: total }));
+      })();
+    }
+  }, [items]);
 
   if (!ready) return null;
 
   const current = found?.key === searchKey ? found : null;
   const loading = active && kinds.length > 0 && !current;
-  const chips = describeFilter({ ...filter, text: null });
+  // Every part of the filter shows as a chip with an x, so a date or a venue can be taken out without clearing the rest.
+  const filterChips: { key: string; label: string; remove: () => void }[] = [
+    ...(filter.category ? [{ key: "category", label: filter.category, remove: () => set({ category: null }) }] : []),
+    ...(filter.genre ? [{ key: "genre", label: filter.genre, remove: () => set({ genre: null }) }] : []),
+    ...(filter.person ? [{ key: "person", label: `with ${filter.person}`, remove: () => set({ person: null }) }] : []),
+    ...(filter.venue ? [{ key: "venue", label: `at ${filter.venue}`, remove: () => set({ venue: null }) }] : []),
+    ...(filter.format ? [{ key: "format", label: filter.format, remove: () => set({ format: null }) }] : []),
+    ...(filter.extra ? [{ key: "extra", label: filter.extra, remove: () => set({ extra: null }) }] : []),
+    ...(filter.minRating !== null ? [{ key: "min", label: `★ ${filter.minRating}+`, remove: () => set({ minRating: null }) }] : []),
+    ...(filter.maxRating !== null ? [{ key: "max", label: `★ up to ${filter.maxRating}`, remove: () => set({ maxRating: null }) }] : []),
+    ...(filter.releaseFrom !== null || filter.releaseTo !== null ? [{ key: "released", label: filter.releaseFrom === filter.releaseTo ? `${filter.releaseFrom}` : `${filter.releaseFrom ?? "…"}–${filter.releaseTo ?? "…"}`, remove: () => set({ releaseFrom: null, releaseTo: null }) }] : []),
+    ...(filter.dateFrom ? [{ key: "from", label: `from ${filter.dateFrom}`, remove: () => set({ dateFrom: null }) }] : []),
+    ...(filter.dateTo ? [{ key: "to", label: `to ${filter.dateTo}`, remove: () => set({ dateTo: null }) }] : []),
+    ...(filter.rewatchesOnly ? [{ key: "rewatch", label: "rewatches", remove: () => set({ rewatchesOnly: false }) }] : []),
+  ];
   const drop = (patch: Partial<AskPlan>) => setPlan({ ...plan, ...patch });
   const personLink = (name: string) => {
     const hit = current?.plan?.people.find((p) => normalize(p.name) === normalize(name));
     return hit ? `/person/?tmdb=${hit.tmdbId}` : undefined;
   };
-  const planChips: { key: string; label: string; href?: string; remove: () => void }[] = !planOn ? [] : [
-    ...plan.people.map((p) => ({ key: `p:${p.name}`, label: p.role === "director" ? `Directed by ${p.name}` : p.role === "writer" ? `Written by ${p.name}` : p.name, href: personLink(p.name), remove: () => drop({ people: plan.people.filter((x) => x !== p) }) })),
+  const planChips: { key: string; label: string; href?: string; image?: string | null; remove: () => void }[] = !planOn ? [] : [
+    ...plan.people.map((p) => ({ key: `p:${p.name}`, label: p.role === "director" ? `Directed by ${p.name}` : p.role === "writer" ? `Written by ${p.name}` : p.name, href: p.tmdbId ? `/person/?tmdb=${p.tmdbId}` : personLink(p.name), image: p.profilePath ?? current?.plan?.people.find((x) => x.tmdbId === p.tmdbId)?.profilePath ?? null, remove: () => drop({ people: plan.people.filter((x) => x !== p) }) })),
     ...plan.titles.map((t) => ({ key: `t:${t}`, label: t, remove: () => drop({ titles: plan.titles.filter((x) => x !== t) }) })),
     ...plan.like.map((t) => ({ key: `l:${t}`, label: `Like ${t}`, remove: () => drop({ like: plan.like.filter((x) => x !== t) }) })),
     ...plan.genres.map((g) => ({ key: `g:${g}`, label: g, remove: () => drop({ genres: plan.genres.filter((x) => x !== g) }) })),
     ...plan.languages.map((l) => ({ key: `lang:${l}`, label: LANGUAGE_NAMES[l] ?? l.toUpperCase(), remove: () => drop({ languages: plan.languages.filter((x) => x !== l) }) })),
-    ...plan.countries.map((c) => ({ key: `c:${c}`, label: new Intl.DisplayNames(["en"], { type: "region" }).of(c) ?? c, remove: () => drop({ countries: plan.countries.filter((x) => x !== c) }) })),
+    ...plan.countries.map((c) => ({ key: `c:${c}`, label: countryName(c), remove: () => drop({ countries: plan.countries.filter((x) => x !== c) }) })),
     ...plan.keywords.map((k) => ({ key: `k:${k}`, label: k, remove: () => drop({ keywords: plan.keywords.filter((x) => x !== k) }) })),
     ...(plan.sortBy && plan.sortBy !== "popular" ? [{ key: "sort", label: plan.sortBy === "oldest" ? "Oldest first" : plan.sortBy === "newest" ? "Newest first" : "Best rated", remove: () => { drop({ sortBy: null }); setOrder("default"); } }] : []),
     ...(plan.maxRuntime !== null ? [{ key: "maxrt", label: `Under ${plan.maxRuntime >= 60 && plan.maxRuntime % 60 === 0 ? `${plan.maxRuntime / 60} h` : `${plan.maxRuntime} min`}`, remove: () => drop({ maxRuntime: null }) }] : []),
@@ -487,11 +570,6 @@ function SearchView() {
             <option value="">Any type</option>
             {["Movie", "TV Show", "Concert", "Live Event"].map((c) => <option key={c}>{c}</option>)}
           </select>
-          <select value={filter.genre ?? ""} onChange={(e) => set({ genre: e.target.value || null })} className={FIELD} aria-label="Genre">
-            <option value="">Any genre</option>
-            {filter.genre && !GENRES.some((g) => g.name === filter.genre) && <option>{filter.genre}</option>}
-            {GENRES.map((g) => <option key={g.id}>{g.name}</option>)}
-          </select>
           <input inputMode="numeric" value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: num(e.target.value) })} placeholder="Released from (year)" aria-label="Released from" className={FIELD} />
           <input inputMode="numeric" value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: num(e.target.value) })} placeholder="Released to (year)" aria-label="Released to" className={FIELD} />
           <select value={filter.minRating ?? ""} onChange={(e) => set({ minRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Minimum rating">
@@ -501,7 +579,34 @@ function SearchView() {
           <select value={order} onChange={(e) => setOrder(e.target.value as Order)} className={FIELD} aria-label="Sort by">
             {ORDERS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
           </select>
-          <input value={filter.person ?? ""} onChange={(e) => set({ person: e.target.value || null })} placeholder="Person" className={`${FIELD} col-span-2`} />
+          <div className="col-span-2 flex flex-col gap-3">
+            <SuggestTags label="Genres" tags={[]} options={GENRE_TAGS} placeholder="Type a genre" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={() => {}} />
+            <SuggestTags label="Countries" tags={[]} options={COUNTRY_TAGS} placeholder="Type a country, such as Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={() => {}} />
+            <SuggestTags label="Languages" tags={[]} options={LANGUAGE_TAGS} placeholder="Type a language, such as French" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={() => {}} />
+            <SuggestTags
+              label="People"
+              tags={[]}
+              placeholder="Type a name, then tap the right one"
+              search={async (text) => {
+                const res = await services.catalog.searchPeople(text);
+                return res.ok ? res.value.map((p) => ({ id: String(p.tmdbId), label: p.name, image: p.profilePath, note: p.knownFor ?? null })) : [];
+              }}
+              onAdd={(t) => drop({ people: [...plan.people.filter((x) => x.tmdbId !== Number(t.id)), { name: t.label, role: "any", tmdbId: Number(t.id), profilePath: t.image ?? null }] })}
+              onRemove={() => {}}
+            />
+            <SuggestTags
+              label="Keywords"
+              tags={[]}
+              allowFree
+              placeholder="A theme, such as heist or german expressionism"
+              search={async (text) => {
+                const res = await services.catalog.searchKeywords(text);
+                return res.ok ? res.value.map((k) => ({ id: k.toLowerCase(), label: k })) : [];
+              }}
+              onAdd={(t) => drop({ keywords: [...new Set([...plan.keywords, t.label])] })}
+              onRemove={() => {}}
+            />
+          </div>
           <input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={FIELD} />
           <input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={FIELD} />
           <input type="date" value={filter.dateFrom ?? ""} onChange={(e) => set({ dateFrom: e.target.value || null })} aria-label="Watched from" className={FIELD} />
@@ -509,12 +614,21 @@ function SearchView() {
         </div>
       )}
 
-      {(chips.length > 0 || planChips.length > 0 || (current?.plan?.missing.length ?? 0) > 0) && (
+      {(filterChips.length > 0 || planChips.length > 0 || (current?.plan?.missing.length ?? 0) > 0) && (
         <ul className="flex flex-wrap gap-2 text-xs">
-          {chips.map((chip) => <li key={chip} className="rounded-full bg-neutral-100 px-3 py-1 dark:bg-neutral-800">{chip}</li>)}
+          {filterChips.map((c) => (
+            <li key={c.key} className="flex items-center gap-1 rounded-full bg-neutral-100 py-1 pl-3 pr-1 dark:bg-neutral-800">
+              <span>{c.label}</span>
+              <button type="button" aria-label={`Remove ${c.label}`} onClick={c.remove} className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 dark:bg-white/15"><Icon name="close" size={11} /></button>
+            </li>
+          ))}
           {/* Each part of the plan can be taken out; the list then updates without asking the AI again. */}
           {planChips.map((c) => (
-            <li key={c.key} className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-white dark:bg-white dark:text-neutral-950">
+            <li key={c.key} className={`flex items-center gap-1 rounded-full bg-neutral-950 py-1 pr-1 text-white dark:bg-white dark:text-neutral-950 ${c.image !== undefined ? "pl-1" : "pl-3"}`}>
+              {c.image !== undefined && (tmdbImageUrl(c.image, "w185")
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={tmdbImageUrl(c.image, "w185") ?? ""} alt="" className="h-5 w-5 rounded-full object-cover" />
+                : <span className="flex h-5 w-5 items-center justify-center rounded-full bg-neutral-500"><Icon name="user" size={11} /></span>)}
               {c.href ? <Link href={c.href}>{c.label}</Link> : <span>{c.label}</span>}
               <button type="button" aria-label={`Remove ${c.label}`} onClick={c.remove} className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 dark:bg-black/15"><Icon name="close" size={11} /></button>
             </li>

@@ -65,6 +65,8 @@ export interface CatalogPersonHit {
   tmdbId: number;
   name: string;
   profilePath: string | null;
+  /** What they do and some of what they are known for, such as "Directing · Metropolis, M"; only on search results. */
+  knownFor?: string | null;
 }
 
 export interface EpisodeRef {
@@ -169,6 +171,8 @@ export interface Catalog {
   relatedPeople(tmdbId: number): Promise<Result<CatalogPersonHit[]>>;
   /** The best-matching TMDB keyword for a theme or mood, or null. */
   findKeyword(name: string): Promise<Result<number | null>>;
+  /** TMDB keywords whose name fits what has been typed, best first. */
+  searchKeywords(query: string): Promise<Result<string[]>>;
   /** A few people whose name fits what has been typed. */
   searchPeople(query: string): Promise<Result<CatalogPersonHit[]>>;
   /** Every episode of one season, or of the whole show when season is null. */
