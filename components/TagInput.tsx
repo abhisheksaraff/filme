@@ -2,6 +2,7 @@
 // A list of values shown as removable bubbles. With `options` it is a pick-list; without, free text.
 "use client";
 
+import { FIELD_FULL } from "@/components/ui/fields";
 import { useState } from "react";
 
 interface Props {
@@ -66,7 +67,7 @@ export default function TagInput({ label, tags, onAdd, onRemove, options, placeh
             commit();
           }
         }}
-        className="w-full rounded-2xl bg-neutral-100 px-4 py-3 text-base outline-none dark:bg-neutral-800"
+        className={FIELD_FULL}
       />
       {hint && <span className="text-xs text-neutral-500">{hint}</span>}
 

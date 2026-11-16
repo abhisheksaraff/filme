@@ -75,8 +75,8 @@ interface Item {
   scoreItem: { mediaId: string | null; kind: "Movie" | "TV Show"; tmdbId: number | null; tmdbRating: number | null; releaseDate: string | null } | null;
   /** Where it ranks when several countries, languages or genres were asked for; 0 is the best group. */
   group: number;
-  /** Share of a show's episodes logged, from 0 to 1, when only part of it is. */
-  progress?: number;
+  /** Share of a show's episodes logged, from 0 to 1, when only part of it is; "pending" until that is known, so no eye shows too early. */
+  progress?: number | "pending";
 }
 
 interface PersonItem {
@@ -115,18 +115,19 @@ function ResultRow({ item }: { item: Item }) {
     <li>
       <Link href={item.href} onClick={() => warmTitle(item.href, { title: item.title, posterUrl: item.poster, subtitle: item.year })} className="relative flex gap-3 rounded-2xl bg-neutral-100 p-2 dark:bg-neutral-900">
         {/* Round badges on the poster's top-right corner say it is in your log, on your Watchlist, or both. */}
-        <span className="relative shrink-0">
+        <span className="relative block w-20 shrink-0 md:w-24">
+          {/* Spans the poster so each circle can take its size from the poster's width. */}
           {(item.watched || item.wanted) && (
-            <span className="absolute right-1 top-1 z-10 flex gap-1">
-              {item.wanted && <StatusBadge kind="watchlist" size={22} />}
-              {item.watched && <StatusBadge kind="watched" size={22} progress={item.progress} />}
+            <span className="absolute inset-x-0 top-0 z-10 flex justify-end gap-[3%] p-[4%]">
+              {item.wanted && <StatusBadge kind="watchlist" />}
+              {item.watched && item.progress !== "pending" && <StatusBadge kind="watched" progress={item.progress} />}
             </span>
           )}
           {item.poster ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.poster} alt="" loading="lazy" className="aspect-[2/3] w-16 rounded-xl object-cover" />
+            <img src={item.poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover" />
           ) : (
-            <span className="block aspect-[2/3] w-16 rounded-xl bg-neutral-200 dark:bg-neutral-800" />
+            <span className="block aspect-[2/3] w-full rounded-xl bg-neutral-200 dark:bg-neutral-800" />
           )}
         </span>
         <span className="flex min-w-0 flex-col justify-center text-sm">
@@ -164,13 +165,19 @@ function SearchView() {
   const requested = useRef(new Set<string>());
   // How many episodes each show has aired, for the progress ring on a partly watched one.
   const [totals, setTotals] = useState<Record<string, number>>({});
-  const progressOf = useCallback((_id: string, kind: string, title: string, year: string | null): number | undefined => {
+  // Shows whose episode count has been looked for, found or not.
+  const [doneTotals, setDoneTotals] = useState<Set<string>>(new Set());
+  const progressOf = useCallback((_id: string, kind: string, title: string, year: string | null): number | "pending" | undefined => {
     if (kind !== "TV Show") return undefined;
-    const total = totals[totalKey(title, year)];
-    if (!total) return undefined;
+    // A whole series logged at once is finished, whatever its episode count.
+    if (rows.some((r) => r.category === "TV Show" && r.scope === "show" && normalize(r.title) === normalize(title) && (!year || !r.releaseYear || String(r.releaseYear) === year))) return undefined;
+    const key = totalKey(title, year);
+    const total = totals[key];
+    // Until the count is known the eye is held back, so a half-watched show never flashes as finished.
+    if (!total) return doneTotals.has(key) ? undefined : "pending";
     const logged = rows.filter((r) => r.category === "TV Show" && normalize(r.title) === normalize(title) && (!year || !r.releaseYear || String(r.releaseYear) === year)).reduce((n, r) => n + Math.max(1, r.episodes), 0);
     return logged > 0 && logged < total ? logged / total : undefined;
-  }, [rows, totals]);
+  }, [rows, totals, doneTotals]);
 
   // "See all" on a person's page arrives with their TMDB id and name; the list is then their full credits.
   const params = useSearchParams();
@@ -525,12 +532,12 @@ function SearchView() {
 
   // The aired-episode total of any show in the results you have logged: saved per show, so only a show with a new episode is asked about again.
   useEffect(() => {
-    const shows = items.filter((i) => i.kind === "TV Show" && i.watched).slice(0, 24).filter((i) => !askedTotals.has(totalKey(i.title, i.year)));
+    const shows = items.filter((i) => i.kind === "TV Show" && i.watched).slice(0, 60).filter((i) => !askedTotals.has(totalKey(i.title, i.year)));
     if (shows.length === 0) return;
     for (const show of shows) askedTotals.add(totalKey(show.title, show.year));
     void services.progress.airedTotals(shows.map((i) => ({ title: i.title, year: i.year, tmdbId: i.key.startsWith("TV Show:") ? Number(i.key.split(":")[1]) || null : null }))).then((map) => {
       if (map.size > 0) setTotals((t) => ({ ...t, ...Object.fromEntries(map) }));
-    });
+    }).finally(() => setDoneTotals((d) => new Set([...d, ...shows.map((i) => totalKey(i.title, i.year))])));
   }, [items]);
 
   if (!ready) return null;
@@ -656,8 +663,8 @@ function SearchView() {
           </div>
           <input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={FIELD} />
           <input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={FIELD} />
-          <input type="date" value={filter.dateFrom ?? ""} onChange={(e) => set({ dateFrom: e.target.value || null })} aria-label="Watched from" className={FIELD} />
-          <input type="date" value={filter.dateTo ?? ""} onChange={(e) => set({ dateTo: e.target.value || null })} aria-label="Watched to" className={FIELD} />
+          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><input type="date" value={filter.dateFrom ?? ""} onChange={(e) => set({ dateFrom: e.target.value || null })} aria-label="Watched from" className={`min-w-0 ${FIELD}`} /></label>
+          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><input type="date" value={filter.dateTo ?? ""} onChange={(e) => set({ dateTo: e.target.value || null })} aria-label="Watched to" className={`min-w-0 ${FIELD}`} /></label>
         </div>
       )}
 

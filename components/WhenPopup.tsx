@@ -19,9 +19,9 @@ export default function WhenPopup({ what, busy, onToday, onForm, onUndated, onCl
   return (
     <Popup title={`Log ${what}`} onClose={() => !busy && onClose()}>
       <div className="flex flex-col">
-        <button type="button" className={POPUP_OPTION} onClick={onToday} disabled={busy}>Today</button>
-        <button type="button" className={POPUP_OPTION} onClick={onForm} disabled={busy}>Choose a date</button>
-        {onUndated && <button type="button" className={POPUP_OPTION} onClick={onUndated} disabled={busy}>Watched before</button>}
+        <button type="button" className={POPUP_OPTION} onClick={onToday} disabled={busy}>Quick add today</button>
+        <button type="button" className={POPUP_OPTION} onClick={onForm} disabled={busy}>Add with date and details</button>
+        {onUndated && <button type="button" className={POPUP_OPTION} onClick={onUndated} disabled={busy}>Watched before, no date</button>}
       </div>
       <div className="flex justify-center"><PopupAction icon="close" label="Cancel" tone="cancel" onClick={onClose} disabled={busy} /></div>
     </Popup>

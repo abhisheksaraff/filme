@@ -4,6 +4,7 @@
 // be added by name and gets the default person icon.
 "use client";
 
+import { FIELD_FULL } from "@/components/ui/fields";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -114,7 +115,7 @@ export default function PeopleInput({ label, people, onChange, disabled }: Props
           if (!text) return;
           add(exact ?? { personId: null, tmdbId: null, name: text, profilePath: null });
         }}
-        className="w-full rounded-2xl bg-neutral-100 px-4 py-3 text-base outline-none dark:bg-neutral-800"
+        className={FIELD_FULL}
       />
 
       {text.length >= 2 && (

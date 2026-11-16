@@ -288,7 +288,7 @@ function SeasonView() {
               <PopupAction icon="check" label="Log" disabled={busy || !pickDate} onClick={() => logPicked(pickDate)} />
             </>
           }>
-          <input type="date" value={pickDate} max={today()} onChange={(e) => setPickDate(e.target.value)} className="w-full min-w-0 rounded-xl bg-white/10 px-3 py-2 text-base text-white outline-none" />
+          <input type="date" value={pickDate} max={today()} onChange={(e) => setPickDate(e.target.value)} className="h-11 w-full min-w-0 rounded-full bg-white/10 px-5 text-base text-white outline-none" />
         </Popup>
       )}
     </main>

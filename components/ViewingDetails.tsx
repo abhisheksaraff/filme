@@ -26,6 +26,9 @@ interface Props {
 const chip = "rounded-full bg-neutral-950 px-2 py-px text-[10px] leading-4 text-white dark:bg-white dark:text-neutral-950";
 
 /** Whether opening a card would reveal anything beyond what the folded card shows. */
+/** A format or an extra such as 3D or IMAX: a small grey pill with soft rounded corners. */
+const tag = "rounded-full bg-neutral-200 px-2.5 py-0.5 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300";
+
 export function hasMoreDetail(props: { auditorium: string | null; seats: SeatDetail[]; addons: string[]; notes?: string | null }): boolean {
   return Boolean(props.auditorium || props.seats.length > FOLDED_SEATS || props.addons.length > 0 || props.notes);
 }
@@ -41,7 +44,7 @@ export default function ViewingDetails({ view, auditorium, seats, totalTickets, 
             {rest.map((seat, i) => <span key={i} className={chip}>{seatLabel(seat)}</span>)}
           </span>
         )}
-        {addons.length > 0 && <span className="text-neutral-600 dark:text-neutral-400">{addons.join(" · ")}</span>}
+        {addons.length > 0 && <span className="flex flex-wrap gap-1">{addons.map((a) => <span key={a} className={tag}>{a}</span>)}</span>}
       </div>
     );
   }
@@ -57,7 +60,7 @@ export default function ViewingDetails({ view, auditorium, seats, totalTickets, 
           ) : totalTickets ? (
             <span className="text-neutral-600 dark:text-neutral-400">{totalTickets} {totalTickets === 1 ? "ticket" : "tickets"}</span>
           ) : null}
-          {format && <span className="text-neutral-600 dark:text-neutral-400">{format}</span>}
+          {format && <span className={tag}>{format}</span>}
           {trailing}
         </span>
       )}

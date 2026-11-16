@@ -285,7 +285,7 @@ function StoryView() {
       <>
         {/* Nothing of the story is ready to show, so the overlay blurs the story's own colours. */}
         <div aria-hidden className="fixed inset-0" style={{ background: `linear-gradient(160deg, ${gradientFor(mood?.hue ?? 220).from}, ${gradientFor(mood?.hue ?? 220).to})` }} />
-        <LoadingOverlay label="Getting your story ready…" />
+        <LoadingOverlay label="Getting your story ready…" progress={((themeState.theme !== null || (isDebug && themeState.done) ? 1 : 0) + (media.ready ? 1 : 0)) / 2} />
         <button type="button" aria-label="Close" onClick={close} className="fixed right-4 top-[max(1rem,env(safe-area-inset-top))] z-[60] p-2 text-white"><Icon name="close" size={22} /></button>
       </>
     );

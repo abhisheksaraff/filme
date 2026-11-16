@@ -3,6 +3,7 @@
 "use client";
 
 import ProblemPopup from "@/components/ProblemPopup";
+import { FIELD_FULL } from "@/components/ui/fields";
 import { toast } from "@/components/Toast";
 import { useEffect, useState } from "react";
 import RoundButton from "@/components/RoundButton";
@@ -20,7 +21,7 @@ const FIELDS: { key: keyof WatchLinks; label: string; hint: string; example: str
 
 const SAMPLE: WatchContext = { tmdbId: 1368337, kind: "TV Show", title: "The Odyssey", year: "2026", season: 1, episode: 2 };
 
-const input = "w-full rounded-2xl bg-neutral-100 px-4 py-3 text-base outline-none dark:bg-neutral-800";
+const input = FIELD_FULL;
 
 export default function WatchSettingsPage() {
   const ready = useRequireSession();

@@ -2,7 +2,7 @@
 // Manage providers, their model lists and their API keys. Keys are sent once and never shown again.
 "use client";
 
-import { FIELD_FULL } from "@/components/ui/fields";
+import { AREA } from "@/components/ui/fields";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -17,7 +17,6 @@ import {
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { services } from "@/lib/services";
 
-const input = FIELD_FULL;
 const small = "rounded-xl bg-neutral-200 px-3 py-1.5 text-sm disabled:opacity-40 dark:bg-neutral-700";
 const primary =
   "rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900";
@@ -106,7 +105,8 @@ function ProviderSection({ provider, config, busy, run, onTest }: SectionProps) 
               spellCheck={false}
               autoCapitalize="none"
               autoCorrect="off"
-              className={`${input} font-mono text-sm`}
+              placeholder="One model name per line"
+              className={`${AREA} font-mono text-sm`}
             />
           </label>
         )}
@@ -120,7 +120,8 @@ function ProviderSection({ provider, config, busy, run, onTest }: SectionProps) 
             spellCheck={false}
             autoCapitalize="none"
             autoCorrect="off"
-            className={`${input} font-mono text-sm`}
+            placeholder="Paste a key here, one per line"
+            className={`${AREA} font-mono text-sm`}
           />
         </label>
 

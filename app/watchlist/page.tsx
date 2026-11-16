@@ -19,7 +19,9 @@ import { services } from "@/lib/services";
 
 export default function WatchlistPage() {
   const ready = useRequireSession();
-  const [recent, setRecent] = useState<RecentEntry[]>([]);
+  // null until the list has really arrived, so "nothing logged" is only ever said when it is true.
+  const [recent, setRecent] = useState<RecentEntry[] | null>(null);
+  const [failed, setFailed] = useState(false);
   const [deleted, setDeleted] = useState<DeletedEntry[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -37,9 +39,9 @@ export default function WatchlistPage() {
         setRecent(recentRes.value);
         const items = recentRes.value.filter((r) => r.tmdbId !== null && (r.category === "Movie" || r.category === "TV Show")).map((r) => ({ mediaId: r.mediaId, kind: r.category as "Movie" | "TV Show", tmdbId: r.tmdbId, tmdbRating: r.score, releaseDate: r.releaseDate }));
         void services.ratings.scores(items, { fill: 12, onScore: (key, score) => !cancelled && setScores((m) => new Map(m).set(key, score)) }).then((m) => !cancelled && setScores((now) => new Map([...m, ...now])));
-      } else setProblem(recentRes.error);
+      } else setFailed(true);
       if (deletedRes.ok) setDeleted(deletedRes.value);
-    });
+    }).catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
     };
@@ -56,7 +58,7 @@ export default function WatchlistPage() {
   if (!ready) return null;
 
   // Newest and oldest go by the day watched (a month or a year alone counts from its start); the rest by score or release date.
-  const ordered = sortList(recent, sort, {
+  const ordered = sortList(recent ?? [], sort, {
     date: (r) => r.watchedOn,
     score: (r) => scores.get(scoreKey({ mediaId: r.mediaId, kind: r.category as "Movie", tmdbId: r.tmdbId })) ?? r.score,
     release: (r) => r.releaseDate,
@@ -76,7 +78,9 @@ export default function WatchlistPage() {
 
       <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
         {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} rating={entry.rating} notes={entry.notes} />)}
-        {recent.length === 0 && !problem && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}
+        {recent === null && !failed && Array.from({ length: 3 }, (_, i) => <li key={i} className="skeleton h-64 rounded-2xl" />)}
+        {failed && <li className="text-sm text-neutral-500">We&apos;re having some trouble loading your viewings. Please check back later.</li>}
+        {recent !== null && recent.length === 0 && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}
       </ul>
 
       {deleted.length > 0 && (

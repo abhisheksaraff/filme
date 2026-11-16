@@ -3,6 +3,7 @@
 "use client";
 
 import RatingSlider from "@/components/ui/RatingSlider";
+import { AREA, FIELD_FULL } from "@/components/ui/fields";
 import { useEffect, useRef, useState } from "react";
 import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } from "@/lib/domain/formats";
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
@@ -13,7 +14,7 @@ import PeopleInput from "./PeopleInput";
 import TagInput from "./TagInput";
 import { parseSeatTag, rolesFor, ROLE_LABEL, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
 
-const field = "w-full rounded-2xl bg-neutral-100 px-4 py-3 text-base outline-none dark:bg-neutral-800";
+const field = FIELD_FULL;
 
 interface Props {
   draft: EntryDraft;
@@ -164,7 +165,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
 
         <div className="flex flex-col gap-2">
           <Labeled label="Title">
-            <input className={`${field} font-serif text-xl`} placeholder="Title" value={draft.title} onChange={(e) => edit("title", { ...draft, title: e.target.value })} />
+            <input className={field} placeholder="Title of the movie, show or event" value={draft.title} onChange={(e) => edit("title", { ...draft, title: e.target.value })} />
           </Labeled>
           {titleExtra}
         </div>
@@ -194,24 +195,24 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           ) : (
             <>
               <Labeled label="Season">
-                <input className={field} inputMode="numeric" value={draft.season} onChange={(e) => set("season", e.target.value)} />
+                <input className={field} inputMode="numeric" placeholder="Season number" value={draft.season} onChange={(e) => set("season", e.target.value)} />
               </Labeled>
               <Labeled label="Episode">
-                <input className={field} inputMode="numeric" value={draft.episode} onChange={(e) => set("episode", e.target.value)} />
+                <input className={field} inputMode="numeric" placeholder="Episode number" value={draft.episode} onChange={(e) => set("episode", e.target.value)} />
               </Labeled>
               <p className="col-span-2 -mt-1 text-xs text-neutral-500">Leave both empty to log the whole series, or the episode empty to log the whole season.</p>
             </>
           )}
           <div className="col-span-2">
             <Labeled label="Episode title">
-              <input className={field} value={draft.episodeTitle} onChange={(e) => set("episodeTitle", e.target.value)} />
+              <input className={field} placeholder="Name of the episode" value={draft.episodeTitle} onChange={(e) => set("episodeTitle", e.target.value)} />
             </Labeled>
           </div>
         </div>
       )}
 
       <Labeled label="Venue">
-        <input className={field} value={draft.location} onChange={(e) => typeVenue("location", e.target.value)} />
+        <input className={field} placeholder="Theatre, venue or place" value={draft.location} onChange={(e) => typeVenue("location", e.target.value)} />
       </Labeled>
       {suggestionList("location")}
 
@@ -230,18 +231,21 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           <option value="none">I don&apos;t remember</option>
         </select>
       </Labeled>
-      {shownWhen === "day" && <input className={`${field} min-w-0`} type="date" aria-label="Date" value={draft.date} onChange={(e) => set("date", e.target.value)} />}
-      {shownWhen === "month" && <input className={`${field} min-w-0`} type="month" aria-label="Month and year" value={draft.date} onChange={(e) => set("date", e.target.value)} />}
+      {/* A phone shows no hint text inside a date field, so each one has its name written above it. */}
+      {shownWhen === "day" && <Labeled label="Date"><input className={`${field} min-w-0`} type="date" aria-label="Date" value={draft.date} onChange={(e) => set("date", e.target.value)} /></Labeled>}
+      {shownWhen === "month" && <Labeled label="Month and year"><input className={`${field} min-w-0`} type="month" aria-label="Month and year" value={draft.date} onChange={(e) => set("date", e.target.value)} /></Labeled>}
       {shownWhen === "year" && (
-        <select className={field} aria-label="Year" value={draft.date} onChange={(e) => set("date", e.target.value)}>
-          <option value="">Choose a year</option>
-          {Array.from({ length: thisYear - 1899 }, (_, i) => String(thisYear - i)).map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <Labeled label="Year">
+          <select className={field} aria-label="Year" value={draft.date} onChange={(e) => set("date", e.target.value)}>
+            <option value="">Choose a year</option>
+            {Array.from({ length: thisYear - 1899 }, (_, i) => String(thisYear - i)).map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </Labeled>
       )}
       {/* The time of day goes right after the date, since the two belong together. */}
       {shownWhen !== "none" && (
         <Labeled label="Time">
-          <input className={field} value={draft.time} onChange={(e) => set("time", e.target.value)} />
+          <input className={field} placeholder="Time, such as 7:30 PM" value={draft.time} onChange={(e) => set("time", e.target.value)} />
         </Labeled>
       )}
       <Labeled label="Rating">
@@ -251,7 +255,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       <Labeled label="Format">
         <select className={field} value={draft.primaryFormat ?? ""} onChange={(e) => set("primaryFormat", e.target.value === "" ? null : (e.target.value as PrimaryFormat))}>
           {/* Left empty unless a format is chosen or a ticket shows one. */}
-          <option value=""></option>
+          <option value="">Choose a format</option>
           {FORMATS_SORTED.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
       </Labeled>
@@ -263,14 +267,14 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       {more && (
         <>
           <Labeled label="Address">
-            <input className={field} value={draft.address} onChange={(e) => typeVenue("address", e.target.value)} />
+            <input className={field} placeholder="Street address" value={draft.address} onChange={(e) => typeVenue("address", e.target.value)} />
           </Labeled>
           {suggestionList("address")}
           <Labeled label="Screen or hall">
-            <input className={field} value={draft.auditorium} onChange={(e) => void typeScreen(e.target.value)} />
+            <input className={field} placeholder="Screen or hall, such as Screen 4" value={draft.auditorium} onChange={(e) => void typeScreen(e.target.value)} />
           </Labeled>
           <Labeled label="Tickets">
-            <input className={field} inputMode="numeric" value={draft.totalTickets} onChange={(e) => set("totalTickets", e.target.value)} />
+            <input className={field} inputMode="numeric" placeholder="How many tickets" value={draft.totalTickets} onChange={(e) => set("totalTickets", e.target.value)} />
           </Labeled>
           <TagInput
             label="Add-ons"
@@ -294,7 +298,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
             onRemove={(index) => set("seats", draft.seats.filter((_, i) => i !== index))}
           />
           <Labeled label="Notes">
-            <textarea className={field} rows={3} value={draft.notes} onChange={(e) => set("notes", e.target.value)} />
+            <textarea className={AREA} rows={3} placeholder="Anything you want to remember about it" value={draft.notes} onChange={(e) => set("notes", e.target.value)} />
           </Labeled>
         </>
       )}

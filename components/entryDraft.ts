@@ -109,7 +109,7 @@ export const EMPTY_DRAFT: EntryDraft = {
   auditorium: "",
   date: "",
   time: "",
-  totalTickets: "1",
+  totalTickets: "",
   primaryFormat: null,
   addons: [],
   seats: [],

@@ -24,7 +24,7 @@ export default function PosterRow({ items }: { items: RowItem[] }) {
               ) : (
                 <div className="aspect-[2/3] w-full rounded-lg bg-neutral-200 dark:bg-neutral-800" />
               )}
-              {wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" size={24} className="absolute right-1.5 top-1.5" />}
+              {wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" className="absolute right-[4%] top-[3%]" />}
               {item.surprise && (
                 <span
                   title="Surprise pick"

@@ -205,7 +205,7 @@ function PersonView() {
                         ) : (
                           <div className="aspect-[2/3] rounded-lg bg-neutral-200 dark:bg-neutral-800" />
                         )}
-                        {wantedKeys.has(`tmdb:${hit.kind === "TV Show" ? "tv" : "movie"}:${hit.tmdbId}`) && <StatusBadge kind="watchlist" size={24} className="absolute right-1.5 top-1.5" />}
+                        {wantedKeys.has(`tmdb:${hit.kind === "TV Show" ? "tv" : "movie"}:${hit.tmdbId}`) && <StatusBadge kind="watchlist" className="absolute right-[4%] top-[3%]" />}
                       </div>
                       <span className="line-clamp-2 text-xs font-medium">{hit.title}</span>
                       {(() => {

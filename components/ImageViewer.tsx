@@ -313,7 +313,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
         {image?.note && !editing && <p className="text-center text-white/80">{image.note}</p>}
         {editing && (
           <form className="flex w-full gap-2" onSubmit={(e) => { e.preventDefault(); if (image) onNote?.(image, draft.trim() || null); setEditing(false); }}>
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={300} placeholder="Add a note" className="flex-1 rounded-full bg-white/15 px-4 py-2 text-base outline-none" />
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={300} placeholder="Add a note" className="h-11 flex-1 rounded-full bg-white/15 px-5 text-base outline-none placeholder:text-sm" />
             <RoundButton icon="check" label="Save note" onClick={() => { if (image) onNote?.(image, draft.trim() || null); setEditing(false); }} tone="dark" className="!bg-white !text-neutral-950" />
           </form>
         )}

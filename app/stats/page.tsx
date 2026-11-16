@@ -95,9 +95,8 @@ export default function StatsPage() {
             ))}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" className={`min-w-0 flex-1 ${FIELD}`} />
-            <span className="text-neutral-500">to</span>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" className={`min-w-0 flex-1 ${FIELD}`} />
+            <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">From</span><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" className={`min-w-0 ${FIELD}`} /></label>
+            <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">To</span><input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" className={`min-w-0 ${FIELD}`} /></label>
           </div>
 
           {stats.viewings === 0 ? (
