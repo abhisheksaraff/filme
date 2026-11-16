@@ -20,7 +20,7 @@ const CLUSTER_PX = 44;
 
 export const KIND_ICON: Record<string, IconName> = { Movie: "film", "TV Show": "tv", Concert: "mic", "Live Event": "masks", home: "home" };
 
-interface View {
+export interface View {
   lon: number;
   lat: number;
   zoom: number;
@@ -61,12 +61,19 @@ interface Props {
   still?: boolean;
   /** The icon on the pin of a still map. */
   pinIcon?: IconName;
+  /** Where the map was left, to start from there instead of framing the pins (for coming back to the page). */
+  initialView?: View | null;
+  /** Told whenever the map is moved or zoomed by the user. */
+  onViewChange?: (view: View) => void;
 }
 
-export default function FlatMap({ points, onPick, className = "h-[60vh]", fullScreen = false, focus, still = false, pinIcon }: Props) {
+export default function FlatMap({ points, onPick, className = "h-[60vh]", fullScreen = false, focus, still = false, pinIcon, initialView = null, onViewChange }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
-  const [custom, setCustom] = useState<View | null>(null);
+  const [custom, setCustom] = useState<View | null>(initialView);
+  useEffect(() => {
+    if (custom) onViewChange?.(custom);
+  }, [custom, onViewChange]);
   const [dark, setDark] = useState(false);
   const [retina, setRetina] = useState(false);
   const viewRef = useRef<View | null>(null);

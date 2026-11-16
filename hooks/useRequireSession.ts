@@ -9,7 +9,7 @@ import { services } from "@/lib/services";
 const noSubscription = () => () => {};
 
 /**
- * Sends visitors who are not signed in to the login page; returns true once the page may be drawn.
+ * Sends visitors who are not signed in to the welcome page, which has the Log in button; returns true once the page may be drawn.
  * A saved sign-in on the phone lets the page draw at once, with no blank moment, while the real check runs behind it.
  */
 export function useRequireSession(): boolean {
@@ -22,7 +22,7 @@ export function useRequireSession(): boolean {
     services.auth.hasSession().then((signedIn) => {
       if (cancelled) return;
       setConfirmed(signedIn);
-      if (!signedIn) router.replace("/login/");
+      if (!signedIn) router.replace("/");
     });
     return () => {
       cancelled = true;

@@ -6,7 +6,7 @@ import Icon from "@/components/Icon";
 export function AddTile({ label, onClick, className }: { label: string; onClick: () => void; className: string }) {
   return (
     <button type="button" aria-label={label} title={label} onClick={onClick}
-      className={`${className} flex items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800`}>
+      className={`${className} flex items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800`}>
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"><Icon name="plus" size={18} /></span>
     </button>
   );

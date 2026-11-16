@@ -4,8 +4,8 @@
 export type ListSort = "new" | "old" | "high" | "low" | "release-new" | "release-old";
 
 export const LIST_SORTS: { id: ListSort; label: string }[] = [
-  { id: "new", label: "Newest" },
-  { id: "old", label: "Oldest" },
+  { id: "new", label: "Newest added" },
+  { id: "old", label: "Oldest added" },
   { id: "high", label: "Highest rated" },
   { id: "low", label: "Lowest rated" },
   { id: "release-new", label: "Release date, newest" },

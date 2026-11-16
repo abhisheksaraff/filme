@@ -4,7 +4,6 @@
 
 import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
-import { FIELD } from "@/components/ui/fields";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePageState } from "@/lib/pageMemory";
@@ -14,10 +13,11 @@ import { computeStats, formatDuration, statYears, type StatRow } from "@/lib/dom
 import type { ClearedItem } from "@/lib/ports/wanted";
 import { services } from "@/lib/services";
 import { languageName, loadStatRows } from "@/lib/home/rows";
+import DateField from "@/components/ui/DateField";
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col rounded-xl border border-neutral-300 p-3 dark:border-neutral-700">
+    <div className="flex flex-col rounded-3xl border border-neutral-300 p-3 dark:border-neutral-700">
       <span className="text-2xl font-medium tabular-nums">{value}</span>
       <span className="text-xs text-neutral-500">{label}</span>
     </div>
@@ -95,8 +95,8 @@ export default function StatsPage() {
             ))}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">From</span><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" className={`min-w-0 ${FIELD}`} /></label>
-            <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">To</span><input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" className={`min-w-0 ${FIELD}`} /></label>
+            <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">From</span><DateField value={from} onChange={setFrom} label="From" /></label>
+            <label className="flex min-w-0 flex-1 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">To</span><DateField value={to} onChange={setTo} label="To" /></label>
           </div>
 
           {stats.viewings === 0 ? (
@@ -134,7 +134,7 @@ export default function StatsPage() {
               {stats.actors.length > 0 && <Section title="Actors"><BarList items={stats.actors} /></Section>}
               {stats.bestActors.length > 0 && <Section title="Highest-rated actors"><BarList items={stats.bestActors} decimals={1} /></Section>}
               {stats.performers.length > 0 && <Section title="Artists seen live"><BarList items={stats.performers} /></Section>}
-              <Link href="/map/" className="rounded-xl border border-neutral-300 px-4 py-3 text-sm dark:border-neutral-700">See your venues on the map →</Link>
+              <Link href="/map/" className="rounded-2xl border border-neutral-300 px-4 py-3 text-sm dark:border-neutral-700">See your venues on the map →</Link>
               {stats.categories.length > 0 && <Section title="Types"><BarList items={stats.categories} /></Section>}
               {stats.languages.length > 0 && (
                 <Section title="Languages">

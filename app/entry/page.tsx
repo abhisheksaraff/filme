@@ -132,7 +132,7 @@ function EditView() {
           <EntryForm draft={draft} onChange={setDraft} disabled={busy} showTmdbId={draft.category === "TV Show" ? (original?.media?.tmdbId ?? null) : null} />
           {id && <SessionPicturesEditor sessionId={id} />}
           <button type="submit" disabled={busy}
-            className="rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
+            className="rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
             Save changes
           </button>
           {/* Plain black text, not a button; it asks before anything is deleted. */}

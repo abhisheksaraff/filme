@@ -93,9 +93,6 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
             })}
             <span className={`absolute left-1.5 top-0.5 z-10 rounded px-1 font-medium leading-tight text-neutral-950 ${list.length ? "bg-white/85" : "dark:text-white"}`}>{day}</span>
             {list.length > DECK && <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-white">+{list.length - DECK}</span>}
-            {single && list[0].length === 1 && list[0][0].score !== null && (
-              <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {formatScore(list[0][0].score)}</span>
-            )}
           </button>
         );
       })}

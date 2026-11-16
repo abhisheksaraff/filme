@@ -99,7 +99,7 @@ export default function AppearancePage() {
               type="button"
               onClick={() => choose(option.id)}
               aria-pressed={choice === option.id}
-              className={`flex items-center gap-2.5 rounded-xl border-2 bg-neutral-100 px-3 py-3 text-left text-sm dark:bg-neutral-800 ${choice === option.id ? "border-neutral-950 font-medium dark:border-white" : "border-transparent"}`}
+              className={`flex items-center gap-2.5 rounded-full px-4 py-3 text-left text-sm ${choice === option.id ? "bg-neutral-950 font-medium text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}
             >
               <ThemeIcon slug={option.id} />
               <span className="min-w-0">{option.name}</span>

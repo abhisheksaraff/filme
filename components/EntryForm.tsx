@@ -14,6 +14,7 @@ import Icon from "./Icon";
 import PeopleInput from "./PeopleInput";
 import TagInput from "./TagInput";
 import { parseSeatTag, rolesFor, ROLE_LABEL, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
+import DateField from "@/components/ui/DateField";
 
 const field = FIELD_FULL;
 
@@ -243,13 +244,13 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           {typeMenu && (
             <>
               <button type="button" aria-label="Close" onClick={() => setTypeMenu(false)} className="fixed inset-0 z-30 cursor-default" />
-              <ul role="menu" className="absolute left-0 top-full z-40 mt-2 max-h-80 w-64 overflow-y-auto overscroll-contain rounded-2xl bg-white py-1 shadow-[0_14px_36px_-8px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.12)] dark:bg-neutral-900">
+              <ul role="menu" className="absolute left-0 top-full z-40 mt-2 max-h-80 w-52 overflow-y-auto overscroll-contain rounded-3xl bg-white p-1.5 shadow-[0_14px_36px_-8px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.12)] dark:bg-neutral-900">
                 {VENUE_TYPES.map((t) => (
                   <li key={t.id} role="none">
-                    <button type="button" role="menuitemradio" aria-checked={shownType === t.id} onClick={() => { set("venueType", t.id); setTypeMenu(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm">
-                      <Icon name={t.icon} size={18} />
+                    <button type="button" role="menuitemradio" aria-checked={shownType === t.id} onClick={() => { set("venueType", t.id); setTypeMenu(false); }} className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-base active:bg-neutral-100 dark:active:bg-neutral-800 ${shownType === t.id ? "bg-neutral-100 dark:bg-neutral-800" : ""}`}>
+                      <Icon name={t.icon} size={22} />
                       <span className="flex-1">{t.label}</span>
-                      {shownType === t.id && <Icon name="check" size={16} />}
+                      {shownType === t.id && <Icon name="check" size={18} />}
                     </button>
                   </li>
                 ))}
@@ -276,8 +277,8 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
         </select>
       </Labeled>
       {/* A phone shows no hint text inside a date field, so each one has its name written above it. */}
-      {shownWhen === "day" && <Labeled label="Date"><input className={`${field} min-w-0`} type="date" aria-label="Date" value={draft.date} onChange={(e) => set("date", e.target.value)} /></Labeled>}
-      {shownWhen === "month" && <Labeled label="Month and year"><input className={`${field} min-w-0`} type="month" aria-label="Month and year" value={draft.date} onChange={(e) => set("date", e.target.value)} /></Labeled>}
+      {shownWhen === "day" && <Labeled label="Date"><DateField label="Date" value={draft.date} onChange={(v) => set("date", v)} /></Labeled>}
+      {shownWhen === "month" && <Labeled label="Month and year"><DateField type="month" label="Month and year" value={draft.date} onChange={(v) => set("date", v)} /></Labeled>}
       {shownWhen === "year" && (
         <Labeled label="Year">
           <select className={field} aria-label="Year" value={draft.date} onChange={(e) => set("date", e.target.value)}>

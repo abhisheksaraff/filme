@@ -10,7 +10,7 @@ import { downloadBlob } from "@/lib/ics";
 import { importCsv } from "@/lib/importCsv";
 import type { Result } from "@/lib/ports/result";
 
-const button = "rounded-xl border border-neutral-300 px-4 py-3 text-left text-sm disabled:opacity-40 dark:border-neutral-700";
+const button = "rounded-2xl border border-neutral-300 px-4 py-3 text-left text-sm disabled:opacity-40 dark:border-neutral-700";
 
 export default function DataPage() {
   const ready = useRequireSession();

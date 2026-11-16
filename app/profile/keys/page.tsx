@@ -5,7 +5,6 @@
 import Icon from "@/components/Icon";
 import { toast } from "@/components/Toast";
 import { AREA } from "@/components/ui/fields";
-import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import {
@@ -20,9 +19,9 @@ import {
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { services } from "@/lib/services";
 
-const small = "rounded-xl bg-neutral-200 px-3 py-1.5 text-sm disabled:opacity-40 dark:bg-neutral-700";
+const small = "rounded-2xl bg-neutral-200 px-3 py-1.5 text-sm disabled:opacity-40 dark:bg-neutral-700";
 const primary =
-  "rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900";
+  "rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900";
 
 /** Returns a copy of `list` with the item at `index` swapped with its neighbour. */
 function moved<T>(list: T[], index: number, by: -1 | 1): T[] | null {
@@ -187,7 +186,7 @@ function ProviderSection({ provider, config, busy, testing, run, onTest }: Secti
             {keys.length === 0 && <p className="text-sm text-neutral-500">No keys saved yet.</p>}
             <ul className="flex flex-col gap-2">
               {keys.map((k, i) => (
-                <li key={k.id} className="flex flex-col gap-1 rounded-xl bg-white p-3 dark:bg-neutral-800">
+                <li key={k.id} className="flex flex-col gap-1 rounded-2xl bg-white p-3 dark:bg-neutral-800">
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2 text-sm">
                       {testing.includes(k.id) ? <span aria-label="Testing" className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-600" /> : <Mark ok={k.lastOk} label={k.lastMessage} />}
@@ -259,7 +258,6 @@ export default function KeysPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-6 px-6 py-10">
-      <Link href="/watchlist/" className="text-sm text-neutral-500">← Back</Link>
       <h1 className="font-serif text-3xl tracking-tight">API keys</h1>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         Keys are stored encrypted on the server and never shown again. A scan tries providers in the order

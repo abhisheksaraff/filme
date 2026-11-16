@@ -20,6 +20,7 @@ import { logShowNow } from "@/lib/logShow";
 import type { SeasonDetail } from "@/lib/ports/catalog";
 import type { ViewingSummary } from "@/lib/ports/log";
 import { services } from "@/lib/services";
+import DateField from "@/components/ui/DateField";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const ORDINAL = (n: number) => (n === 1 ? "First viewing" : `Rewatch #${n - 1}`);
@@ -288,7 +289,7 @@ function SeasonView() {
               <PopupAction icon="check" label="Log" disabled={busy || !pickDate} onClick={() => logPicked(pickDate)} />
             </>
           }>
-          <input type="date" value={pickDate} max={today()} onChange={(e) => setPickDate(e.target.value)} className="h-11 w-full min-w-0 rounded-full bg-white/10 px-5 text-base text-white outline-none" />
+          <DateField value={pickDate} max={today()} onChange={setPickDate} label="Date" className="h-11 rounded-full bg-white/10 px-5 text-base text-white outline-none" hintClass="text-white/50" />
         </Popup>
       )}
     </main>

@@ -11,7 +11,7 @@ import { useRequireSession } from "@/hooks/useRequireSession";
 import { arrangeHomeRows, resolveHomeRows, type HomeRowState } from "@/lib/domain/home";
 import { services } from "@/lib/services";
 
-const small = "rounded-lg border border-neutral-300 px-2 py-1 text-sm disabled:opacity-30 dark:border-neutral-700";
+const small = "rounded-xl border border-neutral-300 px-2 py-1 text-sm disabled:opacity-30 dark:border-neutral-700";
 
 export default function CustomizeHomePage() {
   const ready = useRequireSession();
@@ -104,7 +104,7 @@ export default function CustomizeHomePage() {
           type="button"
           disabled={busy || !rows}
           onClick={save}
-          className="flex-1 rounded-xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
+          className="flex-1 rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
         >
           Save
         </button>
@@ -112,7 +112,7 @@ export default function CustomizeHomePage() {
           type="button"
           disabled={busy}
           onClick={() => setRows(arrangeHomeRows(resolveHomeRows([])))}
-          className="rounded-xl border border-neutral-300 px-4 py-3 text-sm dark:border-neutral-700"
+          className="rounded-2xl border border-neutral-300 px-4 py-3 text-sm dark:border-neutral-700"
         >
           Reset
         </button>

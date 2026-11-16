@@ -106,8 +106,8 @@ function CropDialogInner({ file, aspect, maxEdge, title, onCancel, onDone }: Pro
       </div>
       <input type="range" min={1} max={4} step={0.05} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} aria-label="Zoom" className="w-64" />
       <div className="flex gap-3">
-        <button type="button" onClick={onCancel} className="rounded-xl border border-white/40 px-5 py-2">Cancel</button>
-        <button type="button" onClick={finish} disabled={busy || !size} className="rounded-xl bg-white px-5 py-2 text-neutral-900 disabled:opacity-50">{busy ? "Saving…" : "Use this"}</button>
+        <button type="button" onClick={onCancel} className="rounded-2xl border border-white/40 px-5 py-2">Cancel</button>
+        <button type="button" onClick={finish} disabled={busy || !size} className="rounded-2xl bg-white px-5 py-2 text-neutral-900 disabled:opacity-50">{busy ? "Saving…" : "Use this"}</button>
       </div>
     </div>
   );

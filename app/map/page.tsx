@@ -5,9 +5,9 @@
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePageState } from "@/lib/pageMemory";
-import FlatMap, { KIND_ICON } from "@/components/FlatMap";
+import FlatMap, { KIND_ICON, type View } from "@/components/FlatMap";
 import Icon from "@/components/Icon";
 import OpenInMaps from "@/components/OpenInMaps";
 import { LIST_SORTS, sortList, type ListSort } from "@/lib/domain/listSort";
@@ -36,12 +36,15 @@ function MapView() {
   const [finding, setFinding] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   // `venueType` is the kind of place of the pin that was tapped, so a hall used for a film and a concert opens on one or the other; null shows everything there.
-  const [open, setOpen] = useState<{ point: VenuePoint; detail: VenueDetail | null; tab: string; venueType: string | null } | null>(null);
+  const [open, setOpen] = usePageState<{ point: VenuePoint; detail: VenueDetail | null; tab: string; venueType: string | null } | null>("map.open", null);
+  // Where the map was left, so Back from another page returns to the same spot with the same pop-up open.
+  const [view, setView] = usePageState<View | null>("map.view", null);
+  const returning = useRef(view !== null || open !== null);
   const [sort, setSort] = usePageState<ListSort>("map.sort", "new");
 
   // Opened from the menu, the map starts where you are, a little zoomed out; without permission it frames all the pins.
   useEffect(() => {
-    if (!ready || venueParam || !navigator.geolocation) return;
+    if (!ready || venueParam || returning.current || !navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => setFocus({ lon: pos.coords.longitude, lat: pos.coords.latitude, zoom: 10 }),
       () => {},
@@ -57,7 +60,7 @@ function MapView() {
       if (cancelled) return;
       if (first.ok) {
         setPoints(first.value);
-        const target = venueParam ? first.value.find((p) => p.id === venueParam) : undefined;
+        const target = venueParam && !returning.current ? first.value.find((p) => p.id === venueParam) : undefined;
         if (target) {
           setFocus({ lon: target.longitude, lat: target.latitude, zoom: 15 });
           pick(target, null);
@@ -80,6 +83,8 @@ function MapView() {
     return () => {
       cancelled = true;
     };
+  // pick only sets state and loads the venue, so it is safe to leave out.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, venueParam]);
 
   function pick(point: VenuePoint, venueType: string | null) {
@@ -104,7 +109,7 @@ function MapView() {
 
   return (
     <main className="fixed inset-0 z-10">
-      <FlatMap points={points} onPick={pick} fullScreen focus={focus} className="h-full" />
+      <FlatMap points={points} onPick={pick} fullScreen focus={focus} initialView={view} onViewChange={setView} className="h-full" />
       {/* Same spot and size as the other pages' titles, just under the back button; no panel, only a shadow so it reads over the map. */}
       <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+4.75rem)] z-20">
         <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-6 md:max-w-3xl lg:max-w-5xl">
@@ -113,6 +118,9 @@ function MapView() {
         </div>
       </div>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
+
+      {/* A tap anywhere outside the pop-up closes it. */}
+      {open && <button type="button" aria-label="Close" onClick={() => setOpen(null)} className="absolute inset-0 z-30 cursor-default" />}
 
       {open && (
         // Tall, lifted clear of the bottom bar, with a soft shadow so it reads as the thing in front.

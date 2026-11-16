@@ -31,6 +31,8 @@ import type { WantedItem } from "@/lib/ports/wanted";
 import StatusBadge from "@/components/StatusBadge";
 import { services } from "@/lib/services";
 import { formatScore } from "@/lib/domain/score";
+import DateField from "@/components/ui/DateField";
+import ClearX from "@/components/ui/ClearX";
 
 const DEBOUNCE_MS = 350;
 /** Merges lists by taking one from each in turn. */
@@ -45,8 +47,8 @@ const NO_MATCH = "We couldn't find a match for that.";
 type Order = "default" | "newest" | "oldest" | "rating" | "lowest" | "az" | "za";
 const ORDERS: { id: Order; label: string }[] = [
   { id: "default", label: "Best match" },
-  { id: "newest", label: "Newest" },
-  { id: "oldest", label: "Oldest" },
+  { id: "newest", label: "Newest release" },
+  { id: "oldest", label: "Oldest release" },
   { id: "rating", label: "Highest rated" },
   { id: "lowest", label: "Lowest rated" },
   { id: "az", label: "A–Z" },
@@ -573,7 +575,7 @@ function SearchView() {
     ...plan.languages.map((l) => ({ key: `lang:${l}`, label: LANGUAGE_NAMES[l] ?? l.toUpperCase(), remove: () => drop({ languages: plan.languages.filter((x) => x !== l) }) })),
     ...plan.countries.map((c) => ({ key: `c:${c}`, label: countryName(c), remove: () => drop({ countries: plan.countries.filter((x) => x !== c) }) })),
     ...plan.keywords.map((k) => ({ key: `k:${k}`, label: k, remove: () => drop({ keywords: plan.keywords.filter((x) => x !== k) }) })),
-    ...(plan.sortBy && plan.sortBy !== "popular" ? [{ key: "sort", label: plan.sortBy === "oldest" ? "Oldest first" : plan.sortBy === "newest" ? "Newest first" : "Best rated", remove: () => { drop({ sortBy: null }); setOrder("default"); } }] : []),
+    ...(plan.sortBy && plan.sortBy !== "popular" ? [{ key: "sort", label: plan.sortBy === "oldest" ? "Oldest release" : plan.sortBy === "newest" ? "Newest release" : "Best rated", remove: () => { drop({ sortBy: null }); setOrder("default"); } }] : []),
     ...(plan.maxRuntime !== null ? [{ key: "maxrt", label: `Under ${plan.maxRuntime >= 60 && plan.maxRuntime % 60 === 0 ? `${plan.maxRuntime / 60} h` : `${plan.maxRuntime} min`}`, remove: () => drop({ maxRuntime: null }) }] : []),
     ...(plan.minRuntime !== null ? [{ key: "minrt", label: `Over ${plan.minRuntime} min`, remove: () => drop({ minRuntime: null }) }] : []),
     ...plan.providers.map((x) => ({ key: `prov:${x}`, label: `On ${x}`, remove: () => drop({ providers: plan.providers.filter((y) => y !== x) }) })),
@@ -601,8 +603,9 @@ function SearchView() {
           enterKeyHint={askOn ? "go" : "search"}
           // 16px keeps iOS Safari from zooming the page when the field is focused.
           aria-busy={asking}
-          className={`h-11 w-full rounded-full bg-neutral-100 pl-12 pr-5 text-base placeholder:text-sm transition-opacity dark:bg-neutral-800 ${asking ? "opacity-60" : ""}`}
+          className={`h-11 w-full rounded-full bg-neutral-100 pl-12 pr-11 text-base placeholder:text-sm transition-opacity [&::-webkit-search-cancel-button]:hidden dark:bg-neutral-800 ${asking ? "opacity-60" : ""}`}
         />
+        {(askOn ? question : query) !== "" && <ClearX label="search" onClear={() => { if (askOn) setQuestion(""); else setQuery(""); inputRef.current?.focus(); }} />}
       </form>
       <div className="flex items-center gap-3 text-sm">
         <button type="button" aria-pressed={filtersOpen} onClick={() => setFiltersOpen((o) => !o)} className="flex items-center gap-1.5 py-1.5 text-neutral-500">
@@ -625,8 +628,8 @@ function SearchView() {
             <option value="">Any type</option>
             {["Movie", "TV Show", "Concert", "Live Event"].map((c) => <option key={c}>{c}</option>)}
           </select>
-          <input inputMode="numeric" value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: num(e.target.value) })} placeholder="Released from (year)" aria-label="Released from" className={FIELD} />
-          <input inputMode="numeric" value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: num(e.target.value) })} placeholder="Released to (year)" aria-label="Released to" className={FIELD} />
+          <div className="relative min-w-0"><input inputMode="numeric" value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: num(e.target.value) })} placeholder="Released from (year)" aria-label="Released from" className={`${FIELD} w-full pr-11`} />{filter.releaseFrom !== null && filter.releaseFrom !== undefined && <ClearX label="Released from" onClear={() => set({ releaseFrom: null })} />}</div>
+          <div className="relative min-w-0"><input inputMode="numeric" value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: num(e.target.value) })} placeholder="Released to (year)" aria-label="Released to" className={`${FIELD} w-full pr-11`} />{filter.releaseTo !== null && filter.releaseTo !== undefined && <ClearX label="Released to" onClear={() => set({ releaseTo: null })} />}</div>
           <select value={filter.minRating ?? ""} onChange={(e) => set({ minRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Minimum rating">
             <option value="">Any rating</option>
             {[5, 6, 7, 8, 9].map((n) => <option key={n} value={n}>★ {n}+</option>)}
@@ -662,10 +665,10 @@ function SearchView() {
               onRemove={() => {}}
             />
           </div>
-          <input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={FIELD} />
-          <input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={FIELD} />
-          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><input type="date" value={filter.dateFrom ?? ""} onChange={(e) => set({ dateFrom: e.target.value || null })} aria-label="Watched from" className={`min-w-0 ${FIELD}`} /></label>
-          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><input type="date" value={filter.dateTo ?? ""} onChange={(e) => set({ dateTo: e.target.value || null })} aria-label="Watched to" className={`min-w-0 ${FIELD}`} /></label>
+          <div className="relative min-w-0"><input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={`${FIELD} w-full pr-11`} />{filter.venue && <ClearX label="Venue" onClear={() => set({ venue: null })} />}</div>
+          <div className="relative min-w-0"><input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={`${FIELD} w-full pr-11`} />{filter.format && <ClearX label="Format" onClear={() => set({ format: null })} />}</div>
+          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" /></label>
+          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><DateField value={filter.dateTo ?? ""} onChange={(v) => set({ dateTo: v || null })} label="Watched to" /></label>
         </div>
       )}
 
