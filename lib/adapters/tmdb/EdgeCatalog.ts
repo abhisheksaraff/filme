@@ -350,6 +350,10 @@ const rawCatalog: Catalog = {
     return listHits(`/${match.kind === "TV Show" ? "tv" : "movie"}/${match.tmdbId}/recommendations`, {}, match.kind);
   },
 
+  similar(match) {
+    return listHits(`/${match.kind === "TV Show" ? "tv" : "movie"}/${match.tmdbId}/similar`, {}, match.kind);
+  },
+
   async findClosest(title, category) {
     const hits = await search(title, category ?? "Movie");
     if (!hits.ok) return hits;
@@ -460,6 +464,7 @@ export const edgeCatalog: Catalog = {
   person: (id) => remember(`person:${id}`, () => rawCatalog.person(id), DAY_MS, true),
   personCredits: (id) => remember(`personCredits:${id}`, () => rawCatalog.personCredits(id), DAY_MS, true),
   recommendations: (match) => remember(`recs:${match.kind}:${match.tmdbId}`, () => rawCatalog.recommendations(match), 6 * 60 * MINUTE, true),
+  similar: (match) => remember(`similar:${match.kind}:${match.tmdbId}`, () => rawCatalog.similar(match), 6 * 60 * MINUTE, true),
   // What aired or airs next, so it is checked a few times a day rather than on every open of Watchlist.
   showStatus: (id) => remember(`status:${id}`, () => rawCatalog.showStatus(id), 3 * 60 * MINUTE, true),
   theatres: (when, region) => remember(`theatres:${when}:${region}`, () => rawCatalog.theatres(when, region), 6 * 60 * MINUTE, true),

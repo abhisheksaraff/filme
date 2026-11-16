@@ -50,6 +50,21 @@ export const supabaseSettingsRepository: SettingsRepository = {
     return error ? fail("Could not save your Home layout.") : ok(undefined);
   },
 
+  async homeShuffle() {
+    const { data, error } = await getSupabase().from("user_settings").select("home_shuffle").maybeSingle();
+    if (error) return fail("Could not load your Home layout.");
+    return ok(data?.home_shuffle === true);
+  },
+
+  async saveHomeShuffle(on) {
+    const db = getSupabase();
+    const { data: auth } = await db.auth.getSession();
+    const userId = auth.session?.user.id;
+    if (!userId) return fail("Your session has expired. Sign in again.");
+    const { error } = await db.from("user_settings").upsert({ user_id: userId, home_shuffle: on }, { onConflict: "user_id" });
+    return error ? fail("Could not save your Home layout.") : ok(undefined);
+  },
+
   async appearance() {
     const { data, error } = await getSupabase()
       .from("user_settings")

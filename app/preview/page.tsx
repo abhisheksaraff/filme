@@ -11,6 +11,7 @@ import { ConfirmPopup } from "@/components/Popup";
 import WhenPopup from "@/components/WhenPopup";
 import PersonCircle from "@/components/PersonCircle";
 import SeasonTiles from "@/components/SeasonTiles";
+import MoreLikeThis from "@/components/MoreLikeThis";
 import RatingsLine from "@/components/RatingsLine";
 import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
@@ -198,6 +199,8 @@ function PreviewView() {
                 </section>
               );
             })}
+
+            <MoreLikeThis kind={details.category === "TV Show" ? "TV Show" : "Movie"} tmdbId={details.tmdbId} />
 
             {/* Only for titles you have not logged: a way to stop them coming up on Home. */}
             {status && !status.logged && hidden !== null && (

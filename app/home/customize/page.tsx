@@ -6,6 +6,7 @@ import ProblemPopup from "@/components/ProblemPopup";
 import Choice from "@/components/ui/Choice";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Icon from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { arrangeHomeRows, resolveHomeRows, type HomeRowState } from "@/lib/domain/home";
 import { services } from "@/lib/services";
@@ -18,10 +19,14 @@ export default function CustomizeHomePage() {
   const [rows, setRows] = useState<HomeRowState[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shuffle, setShuffle] = useState(false);
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
+    services.settings.homeShuffle().then((res) => {
+      if (!cancelled && res.ok) setShuffle(res.value);
+    });
     services.settings.homeRows().then((res) => {
       if (cancelled) return;
       if (!res.ok) setProblem(res.error);
@@ -55,7 +60,12 @@ export default function CustomizeHomePage() {
     }
     setBusy(true);
     setProblem(null);
-    const res = await services.settings.saveHomeRows(ids);
+    const [res, shuffled] = await Promise.all([services.settings.saveHomeRows(ids), services.settings.saveHomeShuffle(shuffle)]);
+    if (res.ok && !shuffled.ok) {
+      setProblem(shuffled.error);
+      setBusy(false);
+      return;
+    }
     if (!res.ok) {
       setProblem(res.error);
       setBusy(false);
@@ -68,7 +78,14 @@ export default function CustomizeHomePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 py-8">
-      <h1 className="font-serif text-3xl tracking-tight">Customize Home</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-serif text-3xl tracking-tight">Customize Home</h1>
+        {/* On: Home shows the rows in a new random order each time it opens. Black while on, like a pressed button. */}
+        <button type="button" aria-label="Random order" title="Random order" aria-pressed={shuffle} onClick={() => setShuffle((on) => !on)}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${shuffle ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-white"}`}>
+          <Icon name="shuffle" size={20} />
+        </button>
+      </div>
       <p className="text-sm text-neutral-500">Switch rows on or off and use the arrows to change their order.</p>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 

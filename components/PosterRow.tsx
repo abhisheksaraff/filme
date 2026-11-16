@@ -34,9 +34,11 @@ export default function PosterRow({ items }: { items: RowItem[] }) {
                 </span>
               )}
             </div>
-            {/* The text block keeps one fixed height, so every row is the same height before and after its pictures load. */}
-            <span className="line-clamp-2 h-8 text-xs font-medium leading-4">{item.title}</span>
-            <span className="h-4 text-xs leading-4 text-neutral-500">{item.subtitle}</span>
+            {/* The year sits straight under the title, one line or two; the box keeps one fixed height so every row is the same height before and after its pictures load. */}
+            <span className="flex h-12 flex-col">
+              <span className="line-clamp-2 text-xs font-medium leading-4">{item.title}</span>
+              <span className="text-xs leading-4 text-neutral-500">{item.subtitle}</span>
+            </span>
           </Link>
         </li>
       ))}

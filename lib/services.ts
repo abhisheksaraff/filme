@@ -14,6 +14,7 @@ import { supabaseImageRepository } from "@/lib/adapters/supabase/SupabaseImageRe
 import { supabaseNotificationRepository } from "@/lib/adapters/supabase/SupabaseNotificationRepository";
 import { supabaseFollowRepository } from "@/lib/adapters/supabase/SupabaseFollowRepository";
 import { supabaseHiddenRepository } from "@/lib/adapters/supabase/SupabaseHiddenRepository";
+import { supabaseProgressRepository } from "@/lib/adapters/supabase/SupabaseProgressRepository";
 import { supabaseRatingsRepository } from "@/lib/adapters/supabase/SupabaseRatingsRepository";
 import { supabaseWantedRepository } from "@/lib/adapters/supabase/SupabaseWantedRepository";
 import { supabaseKeyVault } from "@/lib/adapters/supabase/SupabaseKeyVault";
@@ -34,6 +35,7 @@ import type { LogRepository } from "@/lib/ports/log";
 import type { SettingsRepository } from "@/lib/ports/settings";
 import type { FollowRepository } from "@/lib/ports/follows";
 import type { HiddenRepository } from "@/lib/ports/hidden";
+import type { ProgressRepository } from "@/lib/ports/progress";
 import type { RatingsRepository } from "@/lib/ports/ratings";
 import type { WantedRepository } from "@/lib/ports/wanted";
 
@@ -54,6 +56,7 @@ export const services: {
   hidden: HiddenRepository;
   follows: FollowRepository;
   ratings: RatingsRepository;
+  progress: ProgressRepository;
   settings: SettingsRepository;
   wanted: WantedRepository;
 } = {
@@ -73,6 +76,7 @@ export const services: {
   hidden: supabaseHiddenRepository,
   follows: supabaseFollowRepository,
   ratings: supabaseRatingsRepository,
+  progress: supabaseProgressRepository,
   settings: supabaseSettingsRepository,
   wanted: supabaseWantedRepository,
 };

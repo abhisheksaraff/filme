@@ -34,12 +34,24 @@ export default function HomePage() {
     if (!ready) return;
     let cancelled = false;
     runMaintenance();
-    services.settings.homeRows().then((layout) => {
+    Promise.all([services.settings.homeRows(), services.settings.homeShuffle()]).then(([layout, shuffle]) => {
       if (cancelled) return;
       if (!layout.ok) setProblem(layout.error);
       const theme = currentTheme(readCachedAppearance());
-      const ids = resolveHomeRows(layout.ok ? layout.value : []);
-      const next = theme ? [`holiday:${theme.slug}`, ...ids] : ids;
+      let ids = resolveHomeRows(layout.ok ? layout.value : []);
+      if (shuffle.ok && shuffle.value) {
+        // Random order, drawn once per visit: coming back with Back keeps the order already on screen.
+        const kept = homeSnapshot.rows?.filter((id) => ids.includes(id));
+        if (kept && kept.length === ids.length) ids = kept;
+        else {
+          ids = [...ids];
+          for (let i = ids.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [ids[i], ids[j]] = [ids[j], ids[i]];
+          }
+        }
+      }
+      const next = theme ? [`holiday:${theme.slug}`, ...ids.filter((id) => id !== `holiday:${theme.slug}`)] : ids;
       // The same list changes nothing on screen.
       setRows((now) => keepIfSame(now, next));
       homeSnapshot.rows = next;

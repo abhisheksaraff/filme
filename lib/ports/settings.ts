@@ -16,6 +16,9 @@ export interface SettingsRepository {
   /** Ids of the Home rows switched on, in order. Empty means Home has not been customised. */
   homeRows(): Promise<Result<string[]>>;
   saveHomeRows(ids: string[]): Promise<Result<void>>;
+  /** Whether Home shows its rows in a random order each time it opens. */
+  homeShuffle(): Promise<Result<boolean>>;
+  saveHomeShuffle(on: boolean): Promise<Result<void>>;
   appearance(): Promise<Result<Appearance>>;
   saveAppearance(appearance: Appearance): Promise<Result<void>>;
   location(): Promise<Result<UserLocation | null>>;

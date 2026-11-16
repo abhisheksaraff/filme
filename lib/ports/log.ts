@@ -25,6 +25,10 @@ export interface RecentEntry {
   seats: SeatDetail[];
   totalTickets: number | null;
   rating: number | null;
+  /** The title's TMDB id and release date, and its IMDb score (TMDB's when there is none); null for things added by hand. */
+  tmdbId: number | null;
+  releaseDate: string | null;
+  score: number | null;
   notes: string | null;
   scope: "show" | "season" | "episode";
   season: number | null;

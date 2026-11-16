@@ -7,7 +7,7 @@ import { useEffect } from "react";
 import BottomNav from "@/components/BottomNav";
 import FocusProxy from "@/components/FocusProxy";
 import RoundButton from "@/components/RoundButton";
-import { notePath, recallScroll, saveScroll } from "@/lib/pageMemory";
+import { notePath, openedFromOutside, recallScroll, saveScroll } from "@/lib/pageMemory";
 
 /** No bottom bar: signed-out pages and the full-screen recap. */
 const NO_NAV = ["/", "/login/", "/story/"];
@@ -63,7 +63,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
                 icon="back"
                 label="Back"
                 className={`pointer-events-auto relative before:absolute before:-inset-3 before:content-[''] ${overCover ? "!bg-black/70 !text-white" : ""}`}
-                onClick={() => (window.history.length > 1 ? router.back() : router.push("/home/"))}
+                // From another website the browser's Back would leave the app, so the app's own arrow goes to Home instead.
+                onClick={() => (window.history.length > 1 && !openedFromOutside() ? router.back() : router.replace("/home/"))}
               />
             </div>
           </div>

@@ -7,6 +7,7 @@ import ProblemPopup from "@/components/ProblemPopup";
 import { toast } from "@/components/Toast";
 import RoundButton from "@/components/RoundButton";
 import PicturesViewer from "@/components/PicturesViewer";
+import MoreLikeThis from "@/components/MoreLikeThis";
 import RatingsLine from "@/components/RatingsLine";
 import type { TitleLinks } from "@/lib/ports/ratings";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -214,6 +215,8 @@ function TitleView() {
                 ))}
               </div>
             </section>
+
+            {detail.tmdbId !== null && (detail.category === "Movie" || detail.category === "TV Show") && <MoreLikeThis kind={detail.category} tmdbId={detail.tmdbId} />}
 
             <h2 className="font-serif text-xl">Your viewings</h2>
             <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">

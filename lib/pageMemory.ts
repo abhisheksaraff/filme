@@ -44,6 +44,16 @@ export function notePath(path: string): void {
 /** The page the visitor was on before this one ("" when there was none, such as after a reload). */
 export const previousPath = (): string => lastPath;
 
+/**
+ * True when the app was just opened on this page from somewhere else (another website, a typed address, a shared link), so
+ * Back inside the app would leave the app. A reload, or coming back to the app with the browser's own Back, keeps the history.
+ */
+export function openedFromOutside(): boolean {
+  if (lastPath !== "") return false;
+  const nav = typeof performance !== "undefined" ? (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined) : undefined;
+  return !nav || nav.type === "navigate";
+}
+
 /** True while the page on screen was reached with Back. */
 export const isGoingBack = (): boolean => goingBack;
 

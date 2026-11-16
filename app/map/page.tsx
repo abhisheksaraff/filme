@@ -10,19 +10,13 @@ import { usePageState } from "@/lib/pageMemory";
 import FlatMap, { KIND_ICON } from "@/components/FlatMap";
 import Icon from "@/components/Icon";
 import OpenInMaps from "@/components/OpenInMaps";
+import { LIST_SORTS, sortList, type ListSort } from "@/lib/domain/listSort";
 import { placeQueries } from "@/lib/domain/venues";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import type { VenueDetail, VenuePoint } from "@/lib/ports/browse";
 import { services } from "@/lib/services";
 
-type Sort = "new" | "old" | "high" | "low";
-const SORTS: { id: Sort; label: string }[] = [
-  { id: "new", label: "Newest" },
-  { id: "old", label: "Oldest" },
-  { id: "high", label: "Highest rated" },
-  { id: "low", label: "Lowest rated" },
-];
 /** Text tabs; one only shows when something of that kind was seen at the venue. */
 const TABS: { id: string; label: string }[] = [
   { id: "all", label: "All" },
@@ -41,7 +35,7 @@ function MapView() {
   const [finding, setFinding] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [open, setOpen] = useState<{ point: VenuePoint; detail: VenueDetail | null; tab: string } | null>(null);
-  const [sort, setSort] = usePageState<Sort>("map.sort", "new");
+  const [sort, setSort] = usePageState<ListSort>("map.sort", "new");
 
   useEffect(() => {
     if (!ready) return;
@@ -86,15 +80,8 @@ function MapView() {
   const shown = useMemo(() => {
     const viewings = open?.detail?.viewings ?? [];
     const list = open && open.tab !== "all" ? viewings.filter((v) => v.category === open.tab) : viewings;
-    // Rated by the title's public score; titles without one go last either way, and ties fall back to newest first.
-    const score = (v: { publicScore: number | null }, missing: number) => v.publicScore ?? missing;
-    // Viewings with no date go last in either date order.
-    const byDate = (a: string | null, b: string | null, dir: 1 | -1) => (a === null ? (b === null ? 0 : 1) : b === null ? -1 : dir * a.localeCompare(b));
-    return [...list].sort((a, b) =>
-      sort === "old" ? byDate(a.watchedOn, b.watchedOn, 1)
-      : sort === "high" ? (score(b, -1) - score(a, -1) || byDate(a.watchedOn, b.watchedOn, -1))
-      : sort === "low" ? (score(a, 11) - score(b, 11) || byDate(a.watchedOn, b.watchedOn, -1))
-      : byDate(a.watchedOn, b.watchedOn, -1));
+    // Newest and oldest go by the day watched; the rest by IMDb score (TMDB's when there is none) or release date. Anything missing goes last.
+    return sortList(list, sort, { date: (v) => v.watchedOn, score: (v) => v.publicScore, release: (v) => v.releaseDate });
   }, [open, sort]);
 
   if (!ready) return null;
@@ -118,7 +105,6 @@ function MapView() {
         // Tall, lifted clear of the bottom bar, with a soft shadow so it reads as the thing in front.
         <div className="fixed inset-x-3 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex h-[60vh] w-auto max-w-md flex-col gap-3 overflow-y-auto rounded-3xl bg-white px-5 pb-6 pt-5 text-neutral-950 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5),0_6px_16px_rgba(0,0,0,0.25)] md:max-w-xl dark:bg-neutral-900 dark:text-white">
           <div className="flex items-start gap-3">
-            <button type="button" aria-label="Close" onClick={() => setOpen(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-200 dark:bg-white/15"><Icon name="close" size={18} /></button>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <h2 className="font-serif text-2xl leading-tight tracking-tight">{open.point.name}</h2>
               {open.detail?.address ? (
@@ -132,6 +118,7 @@ function MapView() {
                 <p className="text-sm text-neutral-500">{[open.detail.city, open.detail.country].filter(Boolean).join(" · ")}</p>
               ) : null}
             </div>
+            <button type="button" aria-label="Close" onClick={() => setOpen(null)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-200 dark:bg-white/15"><Icon name="close" size={18} /></button>
           </div>
           {/* The kinds sit on the left, where the visit count used to be, and the sort menu on the right. */}
           <div className="flex items-center justify-between gap-3">
@@ -143,8 +130,8 @@ function MapView() {
                 </button>
               ))}
             </div>
-            <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="shrink-0 rounded-full bg-neutral-200 px-3 py-1.5 text-sm outline-none dark:bg-white/15">
-              {SORTS.map((s) => <option key={s.id} value={s.id} className="text-black">{s.label}</option>)}
+            <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as ListSort)} className="shrink-0 rounded-full bg-neutral-200 px-3 py-1.5 text-sm outline-none dark:bg-white/15">
+              {LIST_SORTS.map((s) => <option key={s.id} value={s.id} className="text-black">{s.label}</option>)}
             </select>
           </div>
           {!open.detail && <div className="skeleton h-40 rounded-2xl" />}
@@ -155,9 +142,9 @@ function MapView() {
                   <span className="relative block">
                     {v.posterPath ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={tmdbImageUrl(v.posterPath, "w185") ?? ""} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover" />
+                      <img src={tmdbImageUrl(v.posterPath, "w185") ?? ""} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover shadow-[0_8px_18px_-4px_rgba(0,0,0,0.45),0_2px_6px_rgba(0,0,0,0.2)]" />
                     ) : (
-                      <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl bg-neutral-200 dark:bg-white/15"><Icon name={KIND_ICON[v.category] ?? "film"} size={22} /></span>
+                      <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl bg-neutral-200 shadow-[0_8px_18px_-4px_rgba(0,0,0,0.45),0_2px_6px_rgba(0,0,0,0.2)] dark:bg-white/15"><Icon name={KIND_ICON[v.category] ?? "film"} size={22} /></span>
                     )}
                     {v.rating !== null && <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-1.5 text-[11px] text-white">★ {v.rating}</span>}
                   </span>

@@ -217,7 +217,7 @@ export const supabaseLogRepository: LogRepository = {
   async recent(limit) {
     const { data, error } = await getSupabase()
       .from("watch_sessions")
-      .select("id, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, media:media_items(title, category, poster_path), venue:venues(id, name, latitude, longitude)")
+      .select("id, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, media:media_items(title, category, poster_path, tmdb_id, release_date, imdb_rating, vote_average), venue:venues(id, name, latitude, longitude)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -225,12 +225,15 @@ export const supabaseLogRepository: LogRepository = {
 
     const rows: RecentEntry[] = data.map((row) => {
       const media = (Array.isArray(row.media) ? row.media[0] : row.media) as
-        | { title: string; category: string; poster_path: string | null }
+        | { title: string; category: string; poster_path: string | null; tmdb_id: number | null; release_date: string | null; imdb_rating: number | null; vote_average: number | null }
         | null;
       const venue = one<{ id: string; name: string; latitude: number | null; longitude: number | null }>(row.venue);
       return {
         id: row.id,
         mediaId: row.media_id as string,
+        tmdbId: media?.tmdb_id ?? null,
+        releaseDate: media?.release_date ?? null,
+        score: media?.imdb_rating != null ? Number(media.imdb_rating) : media?.vote_average != null ? Number(media.vote_average) : null,
         title: media?.title ?? "Untitled",
         category: media?.category ?? "Movie",
         posterPath: media?.poster_path ?? null,

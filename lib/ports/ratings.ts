@@ -12,7 +12,28 @@ export interface TitleLinks {
   tmdbRating: number | null;
 }
 
+/** A title to show a score for: one saved in the log (by mediaId) or one the catalogue knows (by TMDB id). */
+export interface ScoreItem {
+  mediaId?: string | null;
+  kind: CatalogKind;
+  tmdbId: number | null;
+  /** The catalogue's own rating when the caller already has it; shown if IMDb has none. */
+  tmdbRating?: number | null;
+  /** When it came out, if known; a recent release with no IMDb score yet is looked at again daily. */
+  releaseDate?: string | null;
+}
+
+/** The key a score is returned under: the saved title's id, else the kind and TMDB id. */
+export const scoreKey = (item: Pick<ScoreItem, "mediaId" | "kind" | "tmdbId">): string => item.mediaId ?? `${item.kind}:${item.tmdbId}`;
+
 export interface RatingsRepository {
+  /**
+   * The best score known for each title, now: IMDb when saved, else the catalogue's. Titles with no saved IMDb score are
+   * then looked up in the background (at most `fill` of them, a few at a time) and each answer is passed to `onScore`.
+   * Titles with no score at all are left out of the map, so nothing is drawn for them.
+   */
+  scores(items: ScoreItem[], opts?: { fill?: number; onScore?: (key: string, score: number) => void }): Promise<Map<string, number>>;
+
   /**
    * Finds a title's IMDb id and ratings. Saved ratings are reused for a week, so opening the same title
    * again does not use up a lookup. `known` is what the page already has from the catalogue.

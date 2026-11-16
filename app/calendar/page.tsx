@@ -1,6 +1,6 @@
 // app/calendar/page.tsx
 // Months of everything you watched as one long strip you swipe along, with posters (stacked like a
-// deck on busy days), a month and year picker, a filter, a calendar download, and the picked day's
+// deck on busy days), a month and year picker, a filter, and the picked day's
 // viewings listed underneath.
 "use client";
 
@@ -17,7 +17,7 @@ import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { MONTH_NAMES, type StatRow } from "@/lib/domain/stats";
 import { loadStatRows } from "@/lib/home/rows";
 import { groupByShow, scopeLabel } from "@/lib/domain/tv";
-import { buildIcs, downloadText } from "@/lib/ics";
+import { services } from "@/lib/services";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** Most posters drawn in a day's deck; any more show as +N. */
@@ -109,7 +109,10 @@ export default function CalendarPage() {
   const [month, setMonth] = usePageState("calendar.month", today.getMonth());
   const [rows, setRows] = useState<StatRow[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [category, setCategory] = usePageState<string | null>("calendar.category", null);
+  // Several kinds can be chosen together; none chosen means all.
+  const [categories, setCategories] = usePageState<string[]>("calendar.categories", []);
+  // IMDb scores (the catalogue's when there is none) by title, which the rating filter and the list use.
+  const [scores, setScores] = useState<Map<string, number>>(new Map());
   const [minRating, setMinRating] = usePageState("calendar.minRating", 0);
   const [filterOpen, setFilterOpen] = usePageState("calendar.filterOpen", false);
   const [picked, setPicked] = usePageState<string | null>("calendar.picked", null);
@@ -135,19 +138,29 @@ export default function CalendarPage() {
     };
   }, [ready]);
 
+  useEffect(() => {
+    if (!rows) return;
+    let cancelled = false;
+    const seen = new Set<string>();
+    const items = rows.filter((r) => (r.category === "Movie" || r.category === "TV Show") && !seen.has(r.mediaId) && seen.add(r.mediaId)).map((r) => ({ mediaId: r.mediaId, kind: r.category as "Movie" | "TV Show", tmdbId: null }));
+    void services.ratings.scores(items, { fill: 15, onScore: (key, score) => !cancelled && setScores((m) => new Map(m).set(key, score)) }).then((m) => !cancelled && setScores((now) => new Map([...m, ...now])));
+    return () => {
+      cancelled = true;
+    };
+  }, [rows]);
+
   const byDay = useMemo(() => {
     const map = new Map<string, StatRow[]>();
     for (const row of rows ?? []) {
       if (row.watchedOn?.length !== 10) continue;
-      if (category && row.category !== category) continue;
-      if (minRating > 0 && (row.rating ?? 0) < minRating) continue;
+      if (categories.length > 0 && !categories.includes(row.category)) continue;
+      if (minRating > 0 && (scores.get(row.mediaId) ?? 0) < minRating) continue;
       map.set(row.watchedOn, [...(map.get(row.watchedOn) ?? []), row]);
     }
     return map;
-  }, [rows, category, minRating]);
+  }, [rows, categories, minRating, scores]);
 
   const current = abs(year, month);
-  const prefix = `${year}-${pad(month + 1)}`;
   const first = middle - HALF;
 
   /** Puts the strip so the given panel is in view, without animation. */
@@ -213,21 +226,6 @@ export default function CalendarPage() {
     if (next) requestAnimationFrame(() => document.getElementById("picked-day")?.scrollIntoView({ behavior: "smooth", block: "nearest" }));
   }
 
-  function download() {
-    const events = [...byDay.entries()]
-      .filter(([date]) => date.startsWith(prefix))
-      .flatMap(([date, list]) =>
-        list.map((row) => ({
-          uid: row.id,
-          title: row.title,
-          date,
-          description: [row.format, row.rating !== null ? `★ ${row.rating}` : null].filter(Boolean).join(" · ") || null,
-          location: row.venue,
-        })),
-      );
-    downloadText(`filme-${prefix}.ics`, buildIcs(`filmè ${MONTH_NAMES[month]} ${year}`, events));
-  }
-
   if (!ready) return null;
   const pickedRows = picked ? groupByShow(byDay.get(picked) ?? []) : [];
   const visible = current - first;
@@ -246,23 +244,26 @@ export default function CalendarPage() {
         </div>
         <div className="flex gap-2">
           <RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} />
-          <RoundButton icon="download" label="Download this month" onClick={download} />
         </div>
       </header>
 
       {filterOpen && (
         <div className="flex flex-col gap-3 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900">
           <div className="flex flex-wrap gap-2">
-            {[null, ...CATEGORIES].map((c) => (
-              <button key={c ?? "all"} type="button" aria-pressed={category === c} onClick={() => setCategory(c)}
-                className={`rounded-full border px-3 py-1 ${category === c ? "border-neutral-900 dark:border-white" : "border-neutral-300 dark:border-neutral-700"}`}>
-                {c ?? "All"}
-              </button>
-            ))}
+            {[null, ...CATEGORIES].map((c) => {
+              const on = c === null ? categories.length === 0 : categories.includes(c);
+              // All clears the others; each kind can be tapped on and off, and with none left it is All again.
+              return (
+                <button key={c ?? "all"} type="button" aria-pressed={on} onClick={() => setCategories(c === null ? [] : on ? categories.filter((x) => x !== c) : [...categories, c])}
+                  className={`rounded-full border px-3 py-1 ${on ? "border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-neutral-950" : "border-neutral-300 dark:border-neutral-700"}`}>
+                  {c ?? "All"}
+                </button>
+              );
+            })}
           </div>
           <div className="flex flex-col gap-1">
-            <span>Rated at least</span>
-            <RatingSlider label="Rated at least" value={minRating > 0 ? minRating : null} onChange={(v) => setMinRating(v ?? 0)} />
+            <span>IMDb rating at least</span>
+            <RatingSlider label="IMDb rating at least" value={minRating > 0 ? minRating : null} onChange={(v) => setMinRating(v ?? 0)} />
           </div>
         </div>
       )}
@@ -310,7 +311,7 @@ export default function CalendarPage() {
                           {parts.map((part, i) => <span key={i}>{part}</span>)}
                         </span>
                       )}
-                      <span className="text-neutral-500">{[row.venue, row.format, group.length === 1 && row.rating !== null ? `★ ${row.rating}` : null].filter(Boolean).join(" · ")}</span>
+                      <span className="text-neutral-500">{[row.venue, row.format, group.length === 1 && scores.get(row.mediaId) ? `★ ${scores.get(row.mediaId)}` : null].filter(Boolean).join(" · ")}</span>
                     </span>
                   </Link>
                 </li>

@@ -6,7 +6,10 @@ import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import RoundButton from "@/components/RoundButton";
+import ScopeSearchButton from "@/components/ScopeSearchButton";
 import SortButton from "@/components/SortButton";
+import { LIST_SORTS, sortList, type ListSort } from "@/lib/domain/listSort";
+import { scoreKey } from "@/lib/ports/ratings";
 import { usePageState } from "@/lib/pageMemory";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -16,14 +19,6 @@ import { buildIcs, downloadText } from "@/lib/ics";
 import { previewHref } from "@/lib/home/rows";
 import { withShow } from "@/lib/domain/tv";
 import { services } from "@/lib/services";
-
-type Sort = "release-new" | "release-old" | "added-new" | "added-old";
-const SORTS: { id: Sort; label: string }[] = [
-  { id: "release-new", label: "Release date, newest" },
-  { id: "release-old", label: "Release date, oldest" },
-  { id: "added-new", label: "Recently added" },
-  { id: "added-old", label: "Oldest added" },
-];
 
 interface FollowedShow {
   tmdbId: number;
@@ -44,7 +39,9 @@ export default function WantPage() {
   const [soon, setSoon] = useState<CatalogHit[]>([]);
   const [shows, setShows] = useState<FollowedShow[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
-  const [sort, setSort] = usePageState<Sort>("want.sort", "release-new");
+  const [sort, setSort] = usePageState<ListSort>("want.sort", "new");
+  // IMDb scores by title (the catalogue's when there is none), looked up in the background for titles without one.
+  const [scores, setScores] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (!ready) return;
@@ -52,8 +49,11 @@ export default function WantPage() {
     (async () => {
       const [list, location, seen] = await Promise.all([services.wanted.list(), services.settings.location(), services.log.seen()]);
       if (cancelled) return;
-      if (list.ok) setWanted(list.value);
-      else setProblem(list.error);
+      if (list.ok) {
+        setWanted(list.value);
+        const items = list.value.filter((w) => w.tmdbId !== null && (w.category === "Movie" || w.category === "TV Show")).map((w) => ({ kind: w.category as "Movie" | "TV Show", tmdbId: w.tmdbId, releaseDate: w.releaseDate }));
+        void services.ratings.scores(items, { fill: 12, onScore: (key, score) => !cancelled && setScores((m) => new Map(m).set(key, score)) }).then((m) => !cancelled && setScores((now) => new Map([...m, ...now])));
+      } else setProblem(list.error);
 
       // Theatre listings are for the user's country; Canada until their location is known.
       const region = (location.ok && location.value?.region) || "CA";
@@ -86,17 +86,12 @@ export default function WantPage() {
 
   if (!ready) return null;
 
-  // The list arrives newest-added first. Titles with no release date always go last.
-  const shownWanted = (() => {
-    const list = wanted ?? [];
-    if (sort === "added-new") return list;
-    if (sort === "added-old") return [...list].reverse();
-    const sign = sort === "release-new" ? -1 : 1;
-    return [...list].sort((a, b) => {
-      if (!a.releaseDate || !b.releaseDate) return Number(!a.releaseDate) - Number(!b.releaseDate);
-      return a.releaseDate < b.releaseDate ? sign * -1 : a.releaseDate > b.releaseDate ? sign : 0;
-    });
-  })();
+  // The list arrives newest-added first, so the position stands in for the date added. Titles missing a score or release date go last.
+  const shownWanted = sortList(wanted ?? [], sort, {
+    date: (_w, i) => String(1_000_000 - i).padStart(7, "0"),
+    score: (w) => (w.tmdbId === null ? null : scores.get(scoreKey({ kind: w.category as "Movie", tmdbId: w.tmdbId })) ?? null),
+    release: (w) => w.releaseDate,
+  });
 
   const wantedIds = new Set((wanted ?? []).flatMap((w) => (w.tmdbId === null ? [] : [`${w.category}:${w.tmdbId}`])));
   const inTheatres = now.filter((hit) => wantedIds.has(`Movie:${hit.tmdbId}`));
@@ -131,7 +126,10 @@ export default function WantPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-serif text-3xl tracking-tight">Watchlist</h1>
-        <SortButton value={sort} options={SORTS} onChange={setSort} />
+        <span className="flex items-center gap-2">
+          <ScopeSearchButton scope="watchlist" />
+          <SortButton value={sort} options={LIST_SORTS} onChange={setSort} />
+        </span>
       </div>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
@@ -203,11 +201,17 @@ export default function WantPage() {
               >
                 {poster ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-2xl object-cover" />
+                  <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-2xl object-cover shadow-[0_10px_24px_-6px_rgba(0,0,0,0.45),0_3px_8px_rgba(0,0,0,0.2)]" />
                 ) : (
-                  <div className="aspect-[2/3] w-full rounded-2xl bg-neutral-200 dark:bg-neutral-800" />
+                  <div className="aspect-[2/3] w-full rounded-2xl bg-neutral-200 shadow-[0_10px_24px_-6px_rgba(0,0,0,0.45),0_3px_8px_rgba(0,0,0,0.2)] dark:bg-neutral-800" />
                 )}
-                <span className="mt-1 block font-serif text-base leading-tight">{withShow(item.title, item.season, item.episode)}</span>
+                <span className="mt-2 block font-serif text-base leading-tight">{withShow(item.title, item.season, item.episode)}</span>
+                {/* Year · type · ★ score; whatever is not known is left out, with no empty space. */}
+                {(() => {
+                  const score = item.tmdbId === null ? null : scores.get(scoreKey({ kind: item.category as "Movie", tmdbId: item.tmdbId }));
+                  const line = [item.releaseDate?.slice(0, 4), item.category, score ? `★ ${score}` : null].filter(Boolean).join(" · ");
+                  return line ? <span className="block text-sm text-neutral-500">{line}</span> : null;
+                })()}
               </Link>
             </li>
           );

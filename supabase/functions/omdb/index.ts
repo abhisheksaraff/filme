@@ -4,8 +4,8 @@ import { enforceLimit, requireUser } from "../_shared/auth.ts";
 import { HttpError, readJson, serve } from "../_shared/http.ts";
 import { loadSlots } from "../_shared/providers.ts";
 
-// OMDb's free plan allows 1,000 a day; stay under it.
-const DAILY_LIMIT = 900;
+// OMDb's free plan allows 1,000 a day for each key; stay under it, and allow that much for every key saved.
+const DAILY_LIMIT_PER_KEY = 900;
 const TIMEOUT_MS = 10_000;
 
 serve(async (req) => {
@@ -16,12 +16,12 @@ serve(async (req) => {
   const imdbId = body.imdbId;
   if (typeof imdbId !== "string" || !/^tt\d{5,10}$/.test(imdbId)) throw new HttpError(400, "That is not an IMDb id.");
 
-  await enforceLimit(userId, "omdb", DAILY_LIMIT);
-
   const slots = await loadSlots(userId, ["omdb"]);
   if (slots.length === 0) throw new HttpError(400, "No OMDb key is saved yet. Add one under Profile → API keys.");
+  await enforceLimit(userId, "omdb", DAILY_LIMIT_PER_KEY * slots.length);
 
   let lastError = "Could not reach OMDb.";
+  let limited = 0;
   for (const slot of slots) {
     let res: Response;
     try {
@@ -44,7 +44,12 @@ serve(async (req) => {
     const data = (await res.json().catch(() => null)) as { Response?: string; Error?: string; imdbRating?: string } | null;
     if (!data) continue;
     if (data.Response === "False") {
-      if (/limit/i.test(data.Error ?? "")) throw new HttpError(429, "OMDb's daily limit is used up.");
+      // This key is used up for the day; the next saved key may still have lookups left.
+      if (/limit/i.test(data.Error ?? "")) {
+        limited++;
+        lastError = "OMDb's daily limit is used up.";
+        continue;
+      }
       if (/api key/i.test(data.Error ?? "")) {
         lastError = "OMDb rejected the saved key.";
         continue;
@@ -55,5 +60,5 @@ serve(async (req) => {
     const rating = Number(data.imdbRating);
     return { rating: Number.isFinite(rating) && rating > 0 ? rating : null };
   }
-  throw new HttpError(502, lastError);
+  throw new HttpError(limited === slots.length ? 429 : 502, lastError);
 });

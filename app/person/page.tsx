@@ -15,6 +15,7 @@ import { previewHref, seenKey } from "@/lib/home/rows";
 import PersonCircle from "@/components/PersonCircle";
 import StatusBadge from "@/components/StatusBadge";
 import { useWantedKeys } from "@/lib/useWantedKeys";
+import { scoreKey } from "@/lib/ports/ratings";
 import type { PersonDetail, PersonPick } from "@/lib/ports/browse";
 import type { CatalogPerson } from "@/lib/ports/catalog";
 import { services } from "@/lib/services";
@@ -56,6 +57,8 @@ function PersonView() {
   // Everything you have logged, so "More from" only offers what you have not seen.
   const [everSeen, setEverSeen] = useState<Set<string>>(new Set());
   const wantedKeys = useWantedKeys();
+  // IMDb scores (the catalogue's when there is none) for the films shown under "More from".
+  const [scores, setScores] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (!ready) return;
@@ -99,6 +102,21 @@ function PersonView() {
       cancelled = true;
     };
   }, [ready, id, tmdbParam]);
+
+  const listed = (other?.works ?? []).filter((w) => !everSeen.has(seenKey(w.kind, w.tmdbId))).slice(0, 24);
+  const moreKey = listed.map((h) => scoreKey(h)).join(",");
+  useEffect(() => {
+    if (listed.length === 0) return;
+    let cancelled = false;
+    void services.ratings
+      .scores(listed.slice(0, 12).map((h) => ({ kind: h.kind, tmdbId: h.tmdbId, tmdbRating: h.voteAverage ?? null, releaseDate: h.releaseDate ?? null })), { fill: 6, onScore: (key, score) => !cancelled && setScores((m) => new Map(m).set(key, score)) })
+      .then((m) => !cancelled && setScores((now) => new Map([...m, ...now])));
+    return () => {
+      cancelled = true;
+    };
+    // `listed` is rebuilt every render; its keys say when it really changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moreKey]);
 
   if (!ready) return null;
   if (!id && !tmdbParam) return <main className="p-6 text-sm">No person selected.</main>;
@@ -190,7 +208,11 @@ function PersonView() {
                         {wantedKeys.has(`tmdb:${hit.kind === "TV Show" ? "tv" : "movie"}:${hit.tmdbId}`) && <StatusBadge kind="watchlist" size={24} className="absolute right-1.5 top-1.5" />}
                       </div>
                       <span className="line-clamp-2 text-xs font-medium">{hit.title}</span>
-                      {hit.year && <span className="text-xs text-neutral-500">{hit.year}</span>}
+                      {(() => {
+                        const score = scores.get(scoreKey(hit));
+                        const line = [hit.year, hit.kind, score ? `★ ${score}` : null].filter(Boolean).join(" · ");
+                        return line ? <span className="text-xs text-neutral-500">{line}</span> : null;
+                      })()}
                     </Link>
                   </li>
                 ))}

@@ -164,6 +164,8 @@ export interface Catalog {
   browse(spec: BrowseSpec): Promise<Result<CatalogHit[]>>;
   /** Titles the catalogue suggests for people who liked this one. */
   recommendations(match: CatalogMatch): Promise<Result<CatalogHit[]>>;
+  /** Titles that share genres and themes with this one; a weaker list that still has an answer when there are no recommendations. */
+  similar(match: CatalogMatch): Promise<Result<CatalogHit[]>>;
   person(tmdbId: number): Promise<Result<CatalogPerson>>;
   /** Every movie and show a person is credited on, best known first, for the "See all" list. */
   personCredits(tmdbId: number): Promise<Result<CatalogHit[]>>;

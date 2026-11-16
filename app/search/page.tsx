@@ -20,7 +20,8 @@ import { EMPTY_FILTER, hasFilter, type LogFilter } from "@/lib/domain/askLog";
 import { discover } from "@/lib/ask/discover";
 import { EMPTY_PLAN, hasPlan, LANGUAGE_NAMES, type AskPlan } from "@/lib/domain/askPlan";
 import { GENRES } from "@/lib/domain/home";
-import { applyFilter, normalize } from "@/lib/domain/search";
+import { applyFilter, fuzzyMatches, normalize } from "@/lib/domain/search";
+import { scoreKey } from "@/lib/ports/ratings";
 import type { StatRow } from "@/lib/domain/stats";
 import { warmTitle } from "@/lib/handoff";
 import { loadStatRows, previewHref, seenKey } from "@/lib/home/rows";
@@ -68,8 +69,10 @@ interface Item {
   watched: boolean;
   wanted: boolean;
   rating: number | null;
-  /** The public score (TMDB), shown after the year; your own rating stands in when there is none. */
+  /** The IMDb score (TMDB's when there is none), shown after the type; null leaves it out. */
   score: number | null;
+  /** Where its score is looked up: the saved title, or the kind and TMDB id. Null for things with none. */
+  scoreItem: { mediaId: string | null; kind: "Movie" | "TV Show"; tmdbId: number | null; tmdbRating: number | null; releaseDate: string | null } | null;
   /** Where it ranks when several countries, languages or genres were asked for; 0 is the best group. */
   group: number;
   /** Share of a show's episodes logged, from 0 to 1, when only part of it is. */
@@ -128,7 +131,7 @@ function ResultRow({ item }: { item: Item }) {
         </span>
         <span className="flex min-w-0 flex-col justify-center text-sm">
           <span className="font-serif text-base leading-tight">{item.title}</span>
-          <span className="text-neutral-500">{[item.year, item.score !== null ? `★ ${item.score}` : null, item.kind].filter(Boolean).join(" · ")}</span>
+          <span className="text-neutral-500">{[item.year, item.kind, item.score !== null ? `★ ${item.score}` : null].filter(Boolean).join(" · ")}</span>
         </span>
       </Link>
     </li>
@@ -154,6 +157,11 @@ function SearchView() {
   const [wanted, setWanted] = useState<WantedItem[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [rows, setRows] = useState<StatRow[]>([]);
+  // Searching inside one list only: what you have watched, or your Watchlist. Opened by the search button on those pages.
+  const [scope, setScope] = usePageState<"watched" | "watchlist" | null>("search.scope", null);
+  // IMDb scores (the catalogue's when there is none) for the titles listed, looked up in the background.
+  const [scores, setScores] = useState<Map<string, number>>(new Map());
+  const requested = useRef(new Set<string>());
   // How many episodes each show has aired, for the progress ring on a partly watched one.
   const [totals, setTotals] = useState<Record<string, number>>({});
   const progressOf = useCallback((_id: string, kind: string, title: string, year: string | null): number | undefined => {
@@ -210,17 +218,38 @@ function SearchView() {
     // The setters come from usePageState and are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formatParam, extraParam, tapStamp]);
+  const scopeParam = params.get("in");
+  useEffect(() => {
+    if ((scopeParam !== "watched" && scopeParam !== "watchlist") || !tapStamp) return;
+    if (sessionStorage.getItem("filme_scope") === tapStamp) return;
+    sessionStorage.setItem("filme_scope", tapStamp);
+    Promise.resolve().then(() => {
+      setScope(scopeParam);
+      setFilter(EMPTY_FILTER);
+      setPlan(EMPTY_PLAN);
+      setQuery("");
+      setAskText("");
+      setAskOn(false);
+      setOrder("default");
+    });
+    // The setters come from usePageState and are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeParam, tapStamp]);
   const personTmdb = idParam && filter.person === nameParam ? idParam : null;
 
   const q = (askOn ? askText : query).trim();
   // The typed tags and the AI's answer are the same plan, so both work whether or not Ask AI is switched on.
   const planOn = hasPlan(plan);
   // Nothing is shown until something is typed or a filter is set, so opening Filters alone lists nothing.
-  const active = q.length >= 2 || hasFilter(filter) || planOn;
+  const active = q.length >= 2 || hasFilter(filter) || planOn || scope !== null;
+  // Inside a list, the parts of a plan that your own log can answer (people, genres, languages) are checked against the log
+  // itself. Anything else (countries, themes, titles) is looked up on TMDB and the list keeps what appears there too.
+  const planLookup = planOn && (scope === "watchlist" || plan.countries.length > 0 || plan.keywords.length > 0 || plan.titles.length > 0 || plan.like.length > 0 || plan.providers.length > 0 || plan.inTheatres !== null || plan.maxRuntime !== null || plan.minRuntime !== null);
+  const needsLookup = scope === null ? planOn : planLookup;
   // Venue, format, watch dates and rewatches exist only in your log, so TMDB has nothing to say about them.
   const logOnly = Boolean(filter.venue || filter.format || filter.extra || filter.dateFrom || filter.dateTo || filter.maxRating !== null || filter.rewatchesOnly);
-  const kinds: CatalogKind[] = logOnly || filter.category === "Concert" || filter.category === "Live Event" ? [] : filter.category ? [filter.category] : ["Movie", "TV Show"];
-  const searchKey = JSON.stringify([planOn ? plan : null, filter.sort, q, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly, personTmdb]);
+  const kinds: CatalogKind[] = scope !== null ? [] : logOnly || filter.category === "Concert" || filter.category === "Live Event" ? [] : filter.category ? [filter.category] : ["Movie", "TV Show"];
+  const searchKey = JSON.stringify([planOn ? plan : null, filter.sort, q, scope, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly, personTmdb]);
 
   useEffect(() => {
     if (!ready) return;
@@ -238,7 +267,7 @@ function SearchView() {
 
   // Titles and people from TMDB, and people already in your log.
   useEffect(() => {
-    if (!ready || !active) return;
+    if (!ready || !active || (scope !== null && !needsLookup)) return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       const personName = filter.person?.trim() || (q.length >= 2 ? q : "");
@@ -277,9 +306,9 @@ function SearchView() {
           : credits
         : null;
       // An AI plan looks people, themes and titles up first, then lists what fits.
-      if (planOn && !creditResult) {
+      if (needsLookup && !creditResult) {
         const out = await discover({
-          plan, filter, kinds, catalog: services.catalog, genreId,
+          plan, filter, kinds: scope !== null ? (filter.category === "Movie" || filter.category === "TV Show" ? [filter.category] : ["Movie", "TV Show"]) : kinds, catalog: services.catalog, genreId,
           lookupPerson: async (name) => {
             const own = await services.browse.searchPeople(name);
             const mine = own.ok ? own.value.find((p) => p.tmdbId !== null) : undefined;
@@ -379,8 +408,23 @@ function SearchView() {
 
     // Your log: one entry per title, however many times it was watched.
     // With only an AI plan (no log filter or typed words) the list is what TMDB found, not your whole log.
-    const logPart = !planOn || logOnly;
-    for (const row of logPart ? applyFilter(rows, { ...filter, text: q.length >= 2 ? q : null }) : []) {
+    const logPart = scope === "watched" ? true : scope === "watchlist" ? false : !planOn || logOnly;
+    // Inside Watched, what your log can answer itself is checked against it; the rest must also appear in TMDB's answer.
+    const fromTmdb = found?.key === searchKey ? found : null;
+    const members = scope === "watched" && planLookup ? new Set((fromTmdb?.hits ?? []).map((h) => identity(h.kind, h.title, h.year))) : null;
+    const nameIn = (pool: string[], name: string) => pool.some((p) => normalize(p) === normalize(name) || fuzzyMatches(name, p));
+    const rowFits = (row: StatRow) => {
+      if (scope !== "watched" || !planOn) return true;
+      for (const p of plan.people) {
+        const pool = p.role === "director" ? row.directors : p.role === "cast" ? [...row.actors, ...row.performers] : p.role === "writer" ? null : [...row.directors, ...row.actors, ...row.performers];
+        if (pool && !nameIn(pool, p.name)) return false;
+      }
+      for (const g of plan.genres) if (!row.genres.some((x) => normalize(x).includes(normalize(g)))) return false;
+      if (plan.languages.length > 0 && !plan.languages.some((c) => row.language !== null && [normalize(c), normalize(languageName(c))].includes(normalize(row.language)))) return false;
+      if (members && !members.has(identity(row.category, row.title, row.releaseYear ? String(row.releaseYear) : null))) return false;
+      return true;
+    };
+    for (const row of logPart ? applyFilter(rows, { ...filter, text: q.length >= 2 ? q : null }).filter(rowFits) : []) {
       if (out.has(row.mediaId)) continue;
       out.set(row.mediaId, {
         key: row.mediaId,
@@ -392,31 +436,35 @@ function SearchView() {
         watched: true,
         wanted: wantedNames.has(`${row.category}:${normalize(row.title)}`),
         rating: row.rating,
-        score: row.rating,
+        score: null,
+        scoreItem: row.category === "Movie" || row.category === "TV Show" ? { mediaId: row.mediaId, kind: row.category, tmdbId: null, tmdbRating: null, releaseDate: row.releaseYear ? String(row.releaseYear) : null } : null,
         group: 0,
         progress: progressOf(row.mediaId, row.category, row.title, row.releaseYear ? String(row.releaseYear) : null),
       });
     }
     const byIdentity = new Set([...out.values()].map((i) => identity(i.kind, i.title, i.year)));
 
-    // Your Watchlist, when typed words match.
-    if (q.length >= 2 && !logOnly) {
+    // Your Watchlist: when typed words match, or all of it when searching inside it.
+    if (scope === "watchlist" || (scope === null && q.length >= 2 && !logOnly)) {
+      const inTmdb = scope === "watchlist" && planOn ? new Set((fromTmdb?.hits ?? []).map((h) => `${h.kind}:${h.tmdbId}`)) : null;
       for (const w of wanted) {
-        if (!normalize(w.title).includes(normalize(q))) continue;
+        if (q.length >= 2 && !normalize(w.title).includes(normalize(q))) continue;
         if (filter.category && w.category !== filter.category) continue;
-        if (byIdentity.has(identity(w.category, w.title, null)) || [...byIdentity].some((k) => k.startsWith(`${w.category}:${normalize(w.title)}:`))) continue;
+        if (inTmdb && (w.tmdbId === null || !inTmdb.has(`${w.category}:${w.tmdbId}`))) continue;
+        if (scope === null && (byIdentity.has(identity(w.category, w.title, null)) || [...byIdentity].some((k) => k.startsWith(`${w.category}:${normalize(w.title)}:`)))) continue;
         const kind = w.category === "TV Show" ? "TV Show" : "Movie";
         out.set(`wanted:${w.mediaId}`, {
           key: `wanted:${w.mediaId}`,
           href: w.tmdbId === null ? `/title/?id=${w.mediaId}` : previewHref(kind, w.tmdbId),
           poster: tmdbImageUrl(w.posterPath, "w185"),
           title: w.title,
-          year: null,
+          year: w.releaseDate ? w.releaseDate.slice(0, 4) : null,
           kind: w.category,
           watched: false,
           wanted: true,
           rating: null,
           score: null,
+          scoreItem: w.tmdbId !== null && (w.category === "Movie" || w.category === "TV Show") ? { mediaId: null, kind: w.category, tmdbId: w.tmdbId, tmdbRating: null, releaseDate: w.releaseDate } : null,
           group: 0,
         });
       }
@@ -425,7 +473,7 @@ function SearchView() {
       byIdentity.has(identity(kind, title, year)) || [...out.values()].some((i) => i.kind === kind && normalize(i.title) === normalize(title) && (i.year === null || year === null));
 
     // TMDB, in TMDB's order, skipping what is already listed from your own data.
-    if (found?.key === searchKey) {
+    if (scope === null && found?.key === searchKey) {
       for (const hit of found.hits) {
         if (covered(hit.kind, hit.title, hit.year)) continue;
         // Typed words narrow what a plan found, so a title typed beside the tags still has to match.
@@ -442,13 +490,15 @@ function SearchView() {
           wanted: wantedKeys.has(key),
           rating: null,
           score: hit.voteAverage ? Math.round(hit.voteAverage * 10) / 10 : null,
+          scoreItem: { mediaId: null, kind: hit.kind, tmdbId: hit.tmdbId, tmdbRating: hit.voteAverage ?? null, releaseDate: hit.releaseDate ?? null },
           group: found.groups?.[key] ?? 0,
           progress: seen.has(key) ? progressOf(key, hit.kind, hit.title, hit.year) : undefined,
         });
       }
     }
 
-    const list = [...out.values()];
+    // The IMDb score (the catalogue's until it arrives) replaces what each title came with.
+    const list = [...out.values()].map((i) => ({ ...i, score: (i.scoreItem ? scores.get(scoreKey(i.scoreItem)) : undefined) ?? i.score }));
     // The chosen sort applies inside each group (titles matching the most typed countries, languages and genres first).
     const within = (a: Item, b: Item) =>
       order === "newest" ? (b.year ?? "").localeCompare(a.year ?? "")
@@ -461,35 +511,32 @@ function SearchView() {
       : 0;
     // Otherwise they stay in order of how well they matched; whether you have seen one does not move it.
     return list.map((item, index) => ({ item, index })).sort((a, b) => a.item.group - b.item.group || within(a.item, b.item) || a.index - b.index).map((x) => x.item);
-  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn, askOn, progressOf]);
+  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn, askOn, progressOf, scope, planLookup, plan, scores]);
 
-  // Looks up the episode count of any show in the results you have logged, once each.
+  // IMDb scores for what is listed: saved ones come back at once, and a few missing ones are looked up in the background.
+  useEffect(() => {
+    const fresh = items.slice(0, 40).filter((i) => i.scoreItem && !requested.current.has(i.key));
+    if (fresh.length === 0) return;
+    for (const i of fresh) requested.current.add(i.key);
+    void services.ratings
+      .scores(fresh.flatMap((i) => (i.scoreItem ? [i.scoreItem] : [])), { fill: 10, onScore: (key, score) => setScores((m) => new Map(m).set(key, score)) })
+      .then((m) => setScores((now) => new Map([...m, ...now])));
+  }, [items]);
+
+  // The aired-episode total of any show in the results you have logged: saved per show, so only a show with a new episode is asked about again.
   useEffect(() => {
     const shows = items.filter((i) => i.kind === "TV Show" && i.watched).slice(0, 24).filter((i) => !askedTotals.has(totalKey(i.title, i.year)));
-    for (const show of shows) {
-      const k = totalKey(show.title, show.year);
-      askedTotals.add(k);
-      void (async () => {
-        const hits = await services.catalog.search(show.title, "TV Show", 5);
-        const hit = hits.ok ? (hits.value.find((h) => !show.year || h.year === show.year) ?? hits.value[0]) : undefined;
-        if (!hit) return;
-        const status = await services.catalog.showStatus(hit.tmdbId);
-        if (!status.ok) return;
-        // Only what has aired counts, so a show that is up to date reads as finished.
-        const seasons = status.value.seasons.filter((s) => s.season > 0);
-        const last = status.value.last;
-        const total = last
-          ? seasons.filter((s) => s.season < last.season).reduce((n, s) => n + s.episodes, 0) + last.episode
-          : seasons.reduce((n, s) => n + s.episodes, 0);
-        if (total > 0) setTotals((t) => ({ ...t, [k]: total }));
-      })();
-    }
+    if (shows.length === 0) return;
+    for (const show of shows) askedTotals.add(totalKey(show.title, show.year));
+    void services.progress.airedTotals(shows.map((i) => ({ title: i.title, year: i.year, tmdbId: i.key.startsWith("TV Show:") ? Number(i.key.split(":")[1]) || null : null }))).then((map) => {
+      if (map.size > 0) setTotals((t) => ({ ...t, ...Object.fromEntries(map) }));
+    });
   }, [items]);
 
   if (!ready) return null;
 
   const current = found?.key === searchKey ? found : null;
-  const loading = active && kinds.length > 0 && !current;
+  const loading = active && (kinds.length > 0 || (scope !== null && needsLookup)) && !current;
   // Every part of the filter shows as a chip with an x, so a date or a venue can be taken out without clearing the rest.
   const filterChips: { key: string; label: string; remove: () => void }[] = [
     ...(filter.category ? [{ key: "category", label: filter.category, remove: () => set({ category: null }) }] : []),
@@ -614,8 +661,15 @@ function SearchView() {
         </div>
       )}
 
-      {(filterChips.length > 0 || planChips.length > 0 || (current?.plan?.missing.length ?? 0) > 0) && (
+      {(scope !== null || filterChips.length > 0 || planChips.length > 0 || (current?.plan?.missing.length ?? 0) > 0) && (
         <ul className="flex flex-wrap gap-2 text-xs">
+          {/* Searching inside one list; the x goes back to searching everything. */}
+          {scope !== null && (
+            <li className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-white dark:bg-white dark:text-neutral-950">
+              <span>{scope === "watched" ? "In Watched" : "In Watchlist"}</span>
+              <button type="button" aria-label="Search everything again" onClick={() => setScope(null)} className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 dark:bg-black/15"><Icon name="close" size={11} /></button>
+            </li>
+          )}
           {filterChips.map((c) => (
             <li key={c.key} className="flex items-center gap-1 rounded-full bg-neutral-100 py-1 pl-3 pr-1 dark:bg-neutral-800">
               <span>{c.label}</span>
