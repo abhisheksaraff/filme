@@ -1,5 +1,5 @@
 // app/want/page.tsx
-// Your watchlist, with theatre alerts, release reminders and new episodes of shows you follow.
+// Your watchlist, with theatre alerts and release reminders for the titles you added yourself.
 "use client";
 
 import ProblemPopup from "@/components/ProblemPopup";
@@ -13,7 +13,7 @@ import { scoreKey } from "@/lib/ports/ratings";
 import { usePageState } from "@/lib/pageMemory";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import type { CatalogHit, ShowStatus } from "@/lib/ports/catalog";
+import type { CatalogHit } from "@/lib/ports/catalog";
 import type { WantedItem } from "@/lib/ports/wanted";
 import { buildIcs, downloadText } from "@/lib/ics";
 import { previewHref } from "@/lib/home/rows";
@@ -21,24 +21,11 @@ import { withShow } from "@/lib/domain/tv";
 import { services } from "@/lib/services";
 import { formatScore } from "@/lib/domain/score";
 
-interface FollowedShow {
-  tmdbId: number;
-  title: string;
-  posterUrl: string | null;
-  status: ShowStatus;
-  /** The latest episode aired within the last two weeks. */
-  fresh: boolean;
-}
-
-const RECENT_DAYS = 14;
-const MAX_SHOWS = 12;
-
 export default function WantPage() {
   const ready = useRequireSession();
   const [wanted, setWanted] = useState<WantedItem[] | null>(null);
   const [now, setNow] = useState<CatalogHit[]>([]);
   const [soon, setSoon] = useState<CatalogHit[]>([]);
-  const [shows, setShows] = useState<FollowedShow[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [sort, setSort] = usePageState<ListSort>("want.sort", "new");
   // IMDb scores by title (the catalogue's when there is none), looked up in the background for titles without one.
@@ -48,7 +35,7 @@ export default function WantPage() {
     if (!ready) return;
     let cancelled = false;
     (async () => {
-      const [list, location, seen] = await Promise.all([services.wanted.list(), services.settings.location(), services.log.seen()]);
+      const [list, location] = await Promise.all([services.wanted.list(), services.settings.location()]);
       if (cancelled) return;
       if (list.ok) {
         setWanted(list.value);
@@ -62,23 +49,6 @@ export default function WantPage() {
       if (cancelled) return;
       if (nowRes.ok) setNow(nowRes.value);
       if (soonRes.ok) setSoon(soonRes.value);
-
-      const ids = seen.ok ? seen.value.filter((k) => k.startsWith("TV Show:")).map((k) => Number(k.split(":")[1])).slice(0, MAX_SHOWS) : [];
-      const followed = await Promise.all(
-        ids.map(async (tmdbId): Promise<FollowedShow | null> => {
-          const [status, info] = await Promise.all([services.catalog.showStatus(tmdbId), services.catalog.details({ kind: "TV Show", tmdbId })]);
-          if (!status.ok || !info.ok) return null;
-          const aired = status.value.last?.airDate;
-          return {
-            tmdbId,
-            title: info.value.title,
-            posterUrl: tmdbImageUrl(info.value.posterPath, "w185"),
-            status: status.value,
-            fresh: !!aired && (Date.now() - new Date(aired).getTime()) / 86_400_000 <= RECENT_DAYS,
-          };
-        }),
-      );
-      if (!cancelled) setShows(followed.filter((s): s is FollowedShow => s !== null));
     })();
     return () => {
       cancelled = true;
@@ -97,27 +67,10 @@ export default function WantPage() {
   const wantedIds = new Set((wanted ?? []).flatMap((w) => (w.tmdbId === null ? [] : [`${w.category}:${w.tmdbId}`])));
   const inTheatres = now.filter((hit) => wantedIds.has(`Movie:${hit.tmdbId}`));
   const opening = soon.filter((hit) => wantedIds.has(`Movie:${hit.tmdbId}`) && hit.releaseDate);
-  const fresh = shows.filter((s) => s.fresh);
-  const upcoming = shows.filter((s) => s.status.next?.airDate);
-
   function remindOpening() {
     downloadText(
       "filme-opening-soon.ics",
       buildIcs("Opening soon", opening.map((hit) => ({ uid: `open-${hit.tmdbId}`, title: `${hit.title} opens`, date: (hit.releaseDate as string).slice(0, 10) }))),
-    );
-  }
-
-  function remindEpisodes() {
-    downloadText(
-      "filme-new-episodes.ics",
-      buildIcs(
-        "New episodes",
-        upcoming.map((s) => ({
-          uid: `ep-${s.tmdbId}-${s.status.next?.season}-${s.status.next?.episode}`,
-          title: `${s.title} S${s.status.next?.season}E${s.status.next?.episode}`,
-          date: (s.status.next?.airDate as string).slice(0, 10),
-        })),
-      ),
     );
   }
 
@@ -158,27 +111,6 @@ export default function WantPage() {
             ))}
           </ul>
           <RoundButton icon="calendarPlus" label="Add to calendar" tone="dark" onClick={remindOpening} className="self-start" />
-        </section>
-      )}
-
-      {(fresh.length > 0 || upcoming.length > 0) && (
-        <section className={card}>
-          <h2 className="font-serif text-lg">Up next</h2>
-          <ul className="flex flex-col gap-2">
-            {fresh.map((s) => (
-              <li key={`new-${s.tmdbId}`}>
-                <Link href={previewHref("TV Show", s.tmdbId)} className="font-medium">{s.title}</Link>
-                <span className="block text-neutral-500">New: S{s.status.last?.season}E{s.status.last?.episode} aired {s.status.last?.airDate}</span>
-              </li>
-            ))}
-            {upcoming.map((s) => (
-              <li key={`next-${s.tmdbId}`}>
-                <Link href={previewHref("TV Show", s.tmdbId)} className="font-medium">{s.title}</Link>
-                <span className="block text-neutral-500">Next: S{s.status.next?.season}E{s.status.next?.episode} on {s.status.next?.airDate}</span>
-              </li>
-            ))}
-          </ul>
-          {upcoming.length > 0 && <RoundButton icon="calendarPlus" label="Add to calendar" tone="dark" onClick={remindEpisodes} className="self-start" />}
         </section>
       )}
 

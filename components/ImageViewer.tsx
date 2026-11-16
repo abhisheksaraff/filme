@@ -67,6 +67,36 @@ const DOTS = 7;
 const DOT_SLOT = 12;
 const onTouchApple = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const distance = (a: React.Touch, b: React.Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+/** A picture with the main-picture star drawn over its own top right corner, whatever its shape and however it is scaled to fit. */
+function ViewerPicture({ url, alt, main }: { url: string; alt: string; main: boolean }) {
+  const img = useRef<HTMLImageElement>(null);
+  const [corner, setCorner] = useState<{ left: number; top: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = img.current;
+    if (!el || !main) return;
+    // The picture's box is its shown size, so its offset inside the centred wrapper places the star on the picture itself.
+    const place = () => setCorner({ left: el.offsetLeft + el.offsetWidth, top: el.offsetTop });
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [main, url]);
+
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img ref={img} src={url} alt={alt} onLoad={() => img.current && main && setCorner({ left: img.current.offsetLeft + img.current.offsetWidth, top: img.current.offsetTop })} className="max-h-full max-w-full object-contain" />
+      {main && corner && (
+        <span role="img" aria-label="Main picture" style={{ left: corner.left - 40, top: corner.top + 8 }}
+          className="absolute flex h-8 w-8 items-center justify-center rounded-full bg-black text-white shadow-lg ring-1 ring-white/30">
+          <Icon name="star" size={16} filled />
+        </span>
+      )}
+    </>
+  );
+}
+
 const CIRCLE = "bg-white/15 text-white dark:bg-white/15 dark:text-white";
 
 /** Position dots: only a few at a time, sliding along with the current picture. Not touchable. */
@@ -198,7 +228,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
         {images.length > 1 ? <Dots count={images.length} index={at} /> : <span />}
         <div className="flex justify-end gap-2">
           {image && <RoundButton icon="download" label="Save or share" onClick={save} className={CIRCLE} />}
-          {onAdd && <RoundButton icon="upload" label="Upload a picture" onClick={onAdd} className={CIRCLE} />}
+          {onAdd && <RoundButton icon="plus" label="Upload a picture" onClick={onAdd} className={CIRCLE} />}
         </div>
       </div>
 
@@ -295,14 +325,7 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
             {Math.abs(i - at) <= 1 && (
               // The box fills the space it is given, so the picture is measured against something definite and shows at full size.
               <div ref={i === at ? zoomEl : undefined} className="relative flex h-full w-full items-center justify-center transition-transform" style={i === at ? { transform: css(view) } : undefined}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt={img.note ?? "Picture"} className="max-h-full max-w-full object-contain" />
-                {/* The main picture wears a star on its corner. */}
-                {img.isDefault && onSetDefault && (
-                  <span role="img" aria-label="Main picture" className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black text-white shadow-lg ring-1 ring-white/30">
-                    <Icon name="star" size={16} filled />
-                  </span>
-                )}
+                <ViewerPicture url={img.url} alt={img.note ?? "Picture"} main={Boolean(img.isDefault && onSetDefault)} />
               </div>
             )}
           </div>

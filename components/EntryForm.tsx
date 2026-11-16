@@ -122,9 +122,20 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
 
   /** Picking a suggestion fills the name and the address together. */
   function chooseVenue(item: VenueSuggestion) {
+    const fromAddress = suggest?.field === "address";
     setTyped(null);
     setSuggest(null);
-    // An own venue brings back the kind of place it was last used as.
+    if (fromAddress) {
+      // Choosing from the address box fills only the address; the name you typed stays, and is only filled when it was empty.
+      onChange({
+        ...draft,
+        location: draft.location.trim() ? draft.location : item.name,
+        address: item.address || draft.address,
+        venueType: draft.venueType ?? (item.own ? normalizeVenueType(item.type) : null),
+      });
+      return;
+    }
+    // Choosing from the venue box fills the name and the address together; an own venue brings back the kind of place it was last used as.
     onChange({ ...draft, location: item.name, address: item.address || draft.address, venueType: item.own ? normalizeVenueType(item.type) : draft.venueType });
   }
 

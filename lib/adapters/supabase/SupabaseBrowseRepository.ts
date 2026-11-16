@@ -242,7 +242,9 @@ export const supabaseBrowseRepository: BrowseRepository = {
       if (!known || (known.on === null && row.watched_on !== null)) last.set(row.venue_id, { on: row.watched_on, at: row.created_at, type: row.venue_type });
     }
     const rank = (id: string) => last.get(id)?.on ?? "";
+    // A venue only its deleted viewings used is not suggested; it is gone for good once those are.
     const list = venues
+      .filter((v) => last.has(v.id))
       .map((v) => ({ ...v, lastType: last.has(v.id) ? normalizeVenueType(last.get(v.id)?.type ?? v.type) : null, lastWatchedOn: last.get(v.id)?.on ?? null }))
       .sort((a, b) => Number(last.has(b.id)) - Number(last.has(a.id)) || rank(b.id).localeCompare(rank(a.id)) || (last.get(b.id)?.at ?? "").localeCompare(last.get(a.id)?.at ?? "") || a.name.localeCompare(b.name));
     return ok(list.slice(0, 20));

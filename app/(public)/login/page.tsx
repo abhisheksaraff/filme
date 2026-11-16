@@ -43,7 +43,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="self-center rounded-full bg-neutral-900 px-10 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
+          className="w-48 self-center rounded-full bg-neutral-900 px-10 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
         >
           {busy ? "Logging in…" : "Log in"}
         </button>

@@ -74,6 +74,23 @@ async function findOrCreateHome(db: SupabaseClient, entry: LogEntry): Promise<Re
   return inserted.error ? fail("Could not save your home.") : ok(inserted.data.id as string);
 }
 
+/**
+ * Removes viewings for good: their stored files first (once the rows are gone nothing would remember the paths), then the rows,
+ * then any venue no viewing uses any more, so its address and map pin do not linger.
+ */
+async function removeViewings(db: SupabaseClient, ids: string[]): Promise<Result<void>> {
+  const files = await db.from("images").select("path, source, store").in("session_id", ids);
+  for (const store of new Set((files.data ?? []).map((f) => f.store as string))) {
+    const paths = (files.data ?? []).filter((f) => f.source === "upload" && f.store === store).map((f) => f.path as string);
+    if (paths.length > 0) await storeFor(store).remove(paths);
+  }
+  const del = await db.from("watch_sessions").delete().in("id", ids);
+  if (del.error) return fail("Could not remove the deleted viewing.");
+  // Best effort: the weekly job sweeps up anything this misses.
+  await db.rpc("app_cleanup_venues");
+  return ok(undefined);
+}
+
 /** The venue a viewing is saved against, and the kind of place it counts as on that viewing. */
 interface ResolvedVenue {
   id: string | null;
@@ -450,14 +467,16 @@ export const supabaseLogRepository: LogRepository = {
     if (old.data.length === 0) return ok(0);
     const ids = old.data.map((r) => r.id as string);
 
-    // Files are removed first: once the rows are gone nothing would remember their paths.
-    const files = await db.from("images").select("path, source, store").in("session_id", ids);
-    for (const store of new Set((files.data ?? []).map((f) => f.store as string))) {
-      const paths = (files.data ?? []).filter((f) => f.source === "upload" && f.store === store).map((f) => f.path as string);
-      if (paths.length > 0) await storeFor(store).remove(paths);
-    }
-    const del = await db.from("watch_sessions").delete().in("id", ids);
-    return del.error ? fail("Could not remove old deleted viewings.") : ok(ids.length);
+    const del = await removeViewings(db, ids);
+    return del.ok ? ok(ids.length) : del;
+  },
+
+  async deleteViewingNow(id) {
+    const db = getSupabase();
+    // Only a viewing that is already in Recently deleted can be removed this way.
+    const row = await db.from("watch_sessions").select("id").eq("id", id).not("deleted_at", "is", null).maybeSingle();
+    if (row.error || !row.data) return fail("That viewing is not in Recently deleted.");
+    return removeViewings(db, [id]);
   },
 
   async deleteViewing(id) {

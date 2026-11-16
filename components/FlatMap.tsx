@@ -183,7 +183,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
       if (x < -60 || y < -60 || x > size.w + 60 || y > size.h + 60) return [];
       if (still) return [{ point, x, y, icon: pinIcon ?? ("film" as IconName), count: point.count, category: undefined as string | undefined }];
       const types = point.types.length > 0 ? point.types : [{ category: point.type, count: point.count }];
-      return types.map((kind, i) => ({ point, x: x + (i - (types.length - 1) / 2) * 42, y, icon: venueIcon(kind.category), count: kind.count, category: kind.category as string | undefined }));
+      return types.map((kind, i) => ({ point, x: x + (i - (types.length - 1) / 2) * 56, y, icon: venueIcon(kind.category), count: kind.count, category: kind.category as string | undefined }));
     });
 
     // Only pins with the same icon merge (homes with homes, theatres with theatres); a merged pin keeps that icon and shows the total.
@@ -194,12 +194,35 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
       else groups.push({ x: item.x, y: item.y, icon: item.icon, category: item.category, items: [item] });
     }
 
+    // Pins of different kinds that still crowd each other are nudged apart so every one can be seen and tapped.
+    const GAP = 50;
+    for (let round = 0; round < 8; round++) {
+      let moved = false;
+      for (let i = 0; i < groups.length; i++) {
+        for (let j = i + 1; j < groups.length; j++) {
+          const dx = groups[j].x - groups[i].x;
+          const dy = groups[j].y - groups[i].y;
+          const d = Math.hypot(dx, dy);
+          if (d >= GAP) continue;
+          // Exactly on top of each other: split sideways.
+          const [ux, uy] = d < 0.5 ? [1, 0] : [dx / d, dy / d];
+          const push = (GAP - d) / 2;
+          groups[i].x -= ux * push;
+          groups[i].y -= uy * push;
+          groups[j].x += ux * push;
+          groups[j].y += uy * push;
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+
     return groups.map((g): Pin => {
       const count = g.items.reduce((n, i) => n + i.count, 0);
       if (g.items.length > 1) return { key: `c-${g.icon}-${g.items[0].point.id}`, x: g.x, y: g.y, icon: g.icon, count, members: g.items.map((i) => i.point) };
       const { point } = g.items[0];
       return { key: `${point.id}-${g.category ?? "pin"}`, x: g.x, y: g.y, icon: g.icon, count, point, category: g.category };
-    });
+    }).sort((a, b) => a.count - b.count);
   }, [points, size, view, still, pinIcon]);
 
   const tiles = useMemo(() => {

@@ -16,6 +16,7 @@ import { usePageState } from "@/lib/pageMemory";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import type { DeletedEntry, RecentEntry } from "@/lib/ports/log";
 import { services } from "@/lib/services";
+import { ConfirmPopup } from "@/components/Popup";
 
 export default function WatchlistPage() {
   const ready = useRequireSession();
@@ -47,12 +48,19 @@ export default function WatchlistPage() {
     };
   }, [ready, reload]);
 
-  async function restore(id: string) {
-    const res = await services.log.restoreViewing(id);
-    if (res.ok) {
-      setReload((n) => n + 1);
-      toast("Viewing restored");
-    } else setProblem(res.error);
+  // Both ask first: what is asked about (and which way) is held here until the pop-up is answered.
+  const [asking, setAsking] = useState<{ id: string; title: string; action: "restore" | "remove" } | null>(null);
+  const [working, setWorking] = useState(false);
+
+  async function confirmAsking() {
+    if (!asking) return;
+    setWorking(true);
+    const res = asking.action === "restore" ? await services.log.restoreViewing(asking.id) : await services.log.deleteViewingNow(asking.id);
+    setWorking(false);
+    setAsking(null);
+    if (!res.ok) return setProblem(res.error);
+    setReload((n) => n + 1);
+    toast(asking.action === "restore" ? "Viewing restored" : "Deleted for good");
   }
 
   if (!ready) return null;
@@ -96,7 +104,10 @@ export default function WatchlistPage() {
                 {deleted.map((entry) => (
                   <li key={entry.id} className="flex items-center justify-between gap-2 text-sm">
                     <span>{entry.title} · deleted {entry.deletedAt.slice(0, 10)}</span>
-                    <RoundButton icon="undo" label="Restore" size="sm" onClick={() => restore(entry.id)} />
+                    <span className="flex gap-2">
+                      <RoundButton icon="undo" label="Restore" size="sm" onClick={() => setAsking({ id: entry.id, title: entry.title, action: "restore" })} />
+                      <RoundButton icon="trash" label="Delete now" size="sm" tone="danger" onClick={() => setAsking({ id: entry.id, title: entry.title, action: "remove" })} />
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -105,6 +116,17 @@ export default function WatchlistPage() {
         </section>
       )}
 
+      {asking && (
+        <ConfirmPopup
+          title={asking.action === "restore" ? "Restore this viewing?" : "Delete for good?"}
+          message={asking.action === "restore" ? `${asking.title} goes back to your Watched list.` : `${asking.title} is removed now, with its pictures, and cannot be restored. A venue only it used goes too.`}
+          confirmLabel={asking.action === "restore" ? "Restore" : "Delete"}
+          confirmIcon={asking.action === "restore" ? "undo" : "trash"}
+          busy={working}
+          onConfirm={() => void confirmAsking()}
+          onCancel={() => setAsking(null)}
+        />
+      )}
     </main>
   );
 }

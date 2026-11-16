@@ -32,26 +32,55 @@ import { withCoverage } from "@/lib/logShow";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
 import { savePeople, syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
+import { forgetEntry, recallEntry, rememberEntry } from "@/lib/entryMemory";
 
 const SEARCH_DELAY_MS = 500;
 
 export default function ScanPage() {
   const ready = useRequireSession();
   const router = useRouter();
-  const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
+  // What was typed before leaving the page comes back with it; saving or Clear all empties it.
+  const [kept] = useState(recallEntry);
+  const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>(kept?.photos ?? []);
   const [cropPhoto, setCropPhoto] = useState<File | null>(null);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<string[]>(kept?.images ?? []);
   const [errors, setErrors] = useState<FileProcessingError[]>([]);
-  const [poster, setPoster] = useState<CoverChoice>(null);
-  const [backdrop, setBackdrop] = useState<CoverChoice>(null);
+  const [poster, setPoster] = useState<CoverChoice>(kept?.poster ?? null);
+  const [backdrop, setBackdrop] = useState<CoverChoice>(kept?.backdrop ?? null);
   const [tmdbPictures, setTmdbPictures] = useState<{ tmdbId: number; posters: string[]; backdrops: string[] } | null>(null);
 
-  const [draft, setDraft] = useState<EntryDraft>(EMPTY_DRAFT);
-  const [match, setMatch] = useState<CatalogDetails | null>(null);
+  const [draft, setDraft] = useState<EntryDraft>(kept?.draft ?? EMPTY_DRAFT);
+  const [match, setMatch] = useState<CatalogDetails | null>(kept?.match ?? null);
   const [hits, setHits] = useState<CatalogHit[]>([]);
   /** What the blocking overlay says while something loads; null when the page is free to use. */
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+
+  // Written on every change so coming back finds the form as it was left.
+  useEffect(() => {
+    rememberEntry({ draft, match, poster, backdrop, images, photos });
+  }, [draft, match, poster, backdrop, images, photos]);
+
+  // Bumped by Clear all so the form's own boxes (venue suggestions and so on) start over too.
+  const [formKey, setFormKey] = useState(0);
+  const [clearFlash, setClearFlash] = useState(false);
+  function clearAll() {
+    forgetEntry();
+    setDraft(EMPTY_DRAFT);
+    setMatch(null);
+    setHits([]);
+    setPoster(null);
+    setBackdrop(null);
+    setImages([]);
+    setPhotos([]);
+    setErrors([]);
+    setTmdbPictures(null);
+    setProblem(null);
+    setFormKey((k) => k + 1);
+    // Shows black for a moment so the press is felt.
+    setClearFlash(true);
+    setTimeout(() => setClearFlash(false), 260);
+  }
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRound = useRef(0);
@@ -171,13 +200,20 @@ export default function ScanPage() {
     if (!prefill) return;
 
     (async () => {
+      // A title chosen from its page starts a new entry, replacing anything left from before.
+      forgetEntry();
+      setPoster(null);
+      setBackdrop(null);
+      setImages([]);
+      setPhotos([]);
       setDraft((current) => ({
-        ...current,
+        ...EMPTY_DRAFT,
         category: prefill.category,
         title: prefill.title,
         season: prefill.season != null ? String(prefill.season) : current.season,
         episode: prefill.episode != null ? String(prefill.episode) : current.episode,
       }));
+      setMatch(null);
       if (prefill.tmdbId === null || (prefill.category !== "Movie" && prefill.category !== "TV Show")) return;
       setBusy("Finding on TMDB…");
       const details = await services.catalog.details({ tmdbId: prefill.tmdbId, kind: prefill.category });
@@ -224,6 +260,7 @@ export default function ScanPage() {
       if (tmdbId && (entry.value.category === "Movie" || entry.value.category === "TV Show")) {
         await syncCredits(saved.value.mediaId, entry.value.category, tmdbId);
       }
+      forgetEntry();
       router.replace("/watchlist/");
     } catch (err) {
       setProblem(err instanceof Error ? err.message : "Could not save.");
@@ -262,6 +299,10 @@ export default function ScanPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-6">
       <LoadingOverlay active={busy !== null} hiddenAtStart />
 
+      <button type="button" onClick={clearAll}
+        className={`self-start rounded-full px-4 py-1.5 text-sm transition-colors duration-150 ${clearFlash ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
+        Clear all
+      </button>
       <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
       <UploadToImages
         id="stub-upload"
@@ -287,6 +328,7 @@ export default function ScanPage() {
 
       <form onSubmit={onSave} className="flex flex-col gap-5">
         <EntryForm
+          key={formKey}
           showTmdbId={draft.category === "TV Show" ? matchId : null}
           draft={draft}
           onChange={setDraft}
