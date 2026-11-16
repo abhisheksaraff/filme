@@ -33,12 +33,15 @@ export default function StatusBadge({ kind, size, progress, maxSize = 40, classN
       role="img"
       aria-label={kind === "watchlist" ? "On your watchlist" : partly ? "Partly watched" : "Watched"}
       style={box}
-      className={`pointer-events-none flex shrink-0 items-center justify-center rounded-full bg-black text-white shadow-md ring-2 ring-white dark:ring-neutral-950 ${className}`}
+      className={`pointer-events-none flex shrink-0 items-center justify-center rounded-full text-white ${partly ? "" : "bg-black shadow-md ring-2 ring-white dark:ring-neutral-950"} ${className}`}
     >
       <span className="relative flex h-full w-full items-center justify-center">
         {partly ? (
           <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
-            <circle cx="50" cy="50" r={R} fill="none" stroke="#6b7280" strokeWidth={STROKE} />
+            {/* A darker grey track with a hairline white edge inside and out, so the ring reads on black, grey or light pictures. */}
+            <circle cx="50" cy="50" r={R} fill="none" stroke="rgba(55,55,60,0.75)" strokeWidth={STROKE} />
+            <circle cx="50" cy="50" r={R + STROKE / 2} fill="none" stroke="#ffffff" strokeWidth={1.4} />
+            <circle cx="50" cy="50" r={R - STROKE / 2} fill="none" stroke="#ffffff" strokeWidth={1.4} />
             <circle cx="50" cy="50" r={R} fill="none" stroke="#ffffff" strokeWidth={STROKE} strokeLinecap="round" strokeDasharray={`${arc(progress) * LENGTH} ${LENGTH}`} />
           </svg>
         ) : (

@@ -270,7 +270,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
               <ul role="menu" className="absolute left-0 top-full z-40 mt-2 max-h-80 w-52 overflow-y-auto overscroll-contain rounded-3xl bg-white p-1.5 shadow-[0_14px_36px_-8px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.12)] dark:bg-neutral-900">
                 {VENUE_TYPES.map((t) => (
                   <li key={t.id} role="none">
-                    <button type="button" role="menuitemradio" aria-checked={shownType === t.id} onClick={() => { set("venueType", t.id); setTypeMenu(false); }} className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-base active:bg-neutral-100 dark:active:bg-neutral-800 ${shownType === t.id ? "bg-neutral-100 dark:bg-neutral-800" : ""}`}>
+                    <button type="button" role="menuitemradio" aria-checked={shownType === t.id} onClick={() => { set("venueType", t.id); setTypeMenu(false); }} className={`press flex w-full items-center gap-3 px-3 py-3 text-left text-base ${shownType === t.id ? "bg-neutral-100 dark:bg-neutral-800" : ""}`}>
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white"><Icon name={t.icon} size={18} /></span>
                       <span className="flex-1">{t.label}</span>
                       {shownType === t.id && <Icon name="check" size={18} />}

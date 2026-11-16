@@ -37,7 +37,7 @@ export function PopupAction({ icon, label, tone = "primary", onClick, disabled }
   );
 }
 /** One choice in a list of choices: white text in a row, with a hairline between rows. */
-export const POPUP_OPTION = "press flex w-full items-center justify-center border-t border-white/10 py-3 text-center text-sm text-white first:border-t-0 disabled:opacity-40";
+export const POPUP_OPTION = "press popup-option flex w-full items-center justify-center py-3 text-center text-sm text-white disabled:opacity-40";
 
 export default function Popup({ title, onClose, children, actions }: PopupProps) {
   // Escape closes only the popup on top, not the ones underneath it.

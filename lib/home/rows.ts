@@ -13,6 +13,8 @@ import { services } from "@/lib/services";
 import { checkNewEpisodes, inProgress, withNewEpisodes } from "@/lib/shows";
 import { withShow } from "@/lib/domain/tv";
 import type { TrackedShow } from "@/lib/ports/follows";
+import { showKey } from "@/lib/ports/progress";
+import { normalize } from "@/lib/domain/search";
 
 export interface RowItem {
   key: string;
@@ -20,6 +22,8 @@ export interface RowItem {
   subtitle: string | null;
   posterUrl: string | null;
   href: string;
+  /** For a show partly watched: how much of it is logged, from 0 to 1, drawn as a ring on its poster. */
+  progress?: number;
 }
 
 export interface RowResult {
@@ -236,21 +240,45 @@ async function trackedShows(): Promise<Result<TrackedShow[]>> {
   return services.follows.tracked();
 }
 
-function showItem(show: TrackedShow, note: string): RowItem {
-  return { key: `show:${show.mediaId}`, title: show.title, subtitle: note, posterUrl: tmdbImageUrl(show.posterPath, "w342"), href: `/title/?id=${show.mediaId}` };
+function showItem(show: TrackedShow, note: string, progress?: Map<string, number>): RowItem {
+  return { key: `show:${show.mediaId}`, title: show.title, subtitle: note, posterUrl: tmdbImageUrl(show.posterPath, "w342"), href: `/title/?id=${show.mediaId}`, progress: progress?.get(show.mediaId) };
+}
+
+/**
+ * How much of each show is logged: episodes watched over episodes aired. Both come from what is already saved (your viewings and
+ * each show's stored aired count, which is only refreshed when a new episode is due), so Home makes no extra TMDB calls.
+ */
+async function showProgress(shows: readonly TrackedShow[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (shows.length === 0) return out;
+  const [rows, totals] = await Promise.all([loadStatRows(), services.progress.airedTotals(shows.map((s) => ({ title: s.title, year: null, tmdbId: s.tmdbId })))]);
+  if (!rows.ok) return out;
+  for (const show of shows) {
+    const mine = rows.value.filter((r) => r.mediaId === show.mediaId && r.category === "TV Show");
+    // A whole series logged at once counts as finished, whatever its episode count.
+    if (mine.length === 0 || mine.some((r) => r.scope === "show")) continue;
+    const total = totals.get(showKey(show.title, null, normalize));
+    const logged = mine.reduce((n, r) => n + Math.max(1, r.episodes), 0);
+    if (total && logged > 0 && logged < total) out.set(show.mediaId, logged / total);
+  }
+  return out;
 }
 
 async function newEpisodesRow(): Promise<Result<RowResult>> {
   const res = await trackedShows();
   if (!res.ok) return res;
-  const items = withNewEpisodes(res.value).map((s) => showItem(s, `S${s.aired?.season} E${s.aired?.episode} · New`));
+  const shows = withNewEpisodes(res.value);
+  const progress = await showProgress(shows);
+  const items = shows.map((s) => showItem(s, `S${s.aired?.season} E${s.aired?.episode} · New`, progress));
   return ok({ title: "New episodes", items, empty: "Nothing new from the shows you follow." });
 }
 
 async function continueRow(): Promise<Result<RowResult>> {
   const res = await trackedShows();
   if (!res.ok) return res;
-  const items = inProgress(res.value).map((s) => showItem(s, `Up to S${s.aired?.season} E${s.aired?.episode}`));
+  const shows = inProgress(res.value);
+  const progress = await showProgress(shows);
+  const items = shows.map((s) => showItem(s, `Up to S${s.aired?.season} E${s.aired?.episode}`, progress));
   return ok({ title: "Continue watching", items, empty: "You are caught up on everything you started." });
 }
 

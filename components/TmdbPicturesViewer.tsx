@@ -39,7 +39,9 @@ export default function TmdbPicturesViewer({ kind, tmdbId, shape, currentPath, o
     );
   }
 
-  const images = paths.map((path): ViewerImage => ({ url: tmdbImageUrl(path, "w780") ?? "", tmdbPath: path, isDefault: false })).filter((image) => image.url !== "");
-  const start = Math.max(0, paths.findIndex((path) => path === currentPath));
+  // The picture the page shows may be missing from TMDB's list (it leaves some languages out), so it is put first and the viewer opens on exactly it.
+  const list = currentPath && !paths.includes(currentPath) ? [currentPath, ...paths] : paths;
+  const images = list.map((path): ViewerImage => ({ url: tmdbImageUrl(path, "w780") ?? "", tmdbPath: path, isDefault: false })).filter((image) => image.url !== "");
+  const start = Math.max(0, list.findIndex((path) => path === currentPath));
   return <ImageViewer images={images} start={start} onClose={onClose} />;
 }

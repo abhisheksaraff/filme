@@ -24,6 +24,7 @@ import { readCachedAppearance, readCachedMoving } from "@/lib/theme";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { buildStory, storyTitle, validPeriod, type Slide, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
+import { clearStored } from "@/lib/persistentCache";
 
 /** How long a slide stays before the next one. */
 const SLIDE_MS = 6000;
@@ -356,6 +357,8 @@ function StoryView() {
               <Icon name={music.on ? "sound" : "mute"} size={22} />
             </button>
           )}
+          {/* Throws away this story's saved look, stickers and music and builds them again. */}
+          <button type="button" aria-label="Make this story again" onClick={(e) => { e.stopPropagation(); if (!storyKey) return; clearStored(`story-theme:${storyKey}`); clearStored(`story-media:${storyKey}`); window.location.reload(); }} className="relative z-10 px-2"><Icon name="refresh" size={22} /></button>
           <button type="button" aria-label="Save as picture" onClick={savePicture} className="relative z-10 px-2"><Icon name="download" size={22} /></button>
           <button type="button" aria-label="Close" onClick={close} className="relative z-10 px-2"><Icon name="close" size={22} /></button>
         </span>

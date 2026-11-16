@@ -242,11 +242,28 @@ select {
   text-overflow: ellipsis;
 }
 
-/* Rows in lists and menus: a soft grey, rounded, while a finger is on them. */
+/* Rows in lists and menus are rounded; PressFeedback turns them (and every button) dark grey for a moment when pressed. */
 .press {
   border-radius: 1rem;
-  transition: background-color 0.1s;
 }
-.press:active {
-  background-color: color-mix(in srgb, currentColor 12%, transparent);
+.is-pressed {
+  background-color: #3f3f46 !important;
+  color: #fff !important;
+}
+.is-pressed-soft {
+  opacity: 0.5;
+}
+
+/* The thin line between pop-up options: soft grey in the middle, fading to nothing at both ends. */
+.popup-option {
+  position: relative;
+}
+.popup-option + .popup-option::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.28), transparent);
 }

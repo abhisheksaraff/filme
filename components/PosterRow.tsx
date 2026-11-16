@@ -24,6 +24,7 @@ export default function PosterRow({ items }: { items: RowItem[] }) {
               ) : (
                 <div className="aspect-[2/3] w-full rounded-lg bg-neutral-200 dark:bg-neutral-800" />
               )}
+              {item.progress !== undefined && <StatusBadge kind="watched" progress={item.progress} maxSize={30} className="absolute left-[4%] top-[3%]" />}
               {wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" maxSize={28} className="absolute right-[4%] top-[3%]" />}
             </div>
             {/* The year sits straight under the title, one line or two; the box keeps one fixed height so every row is the same height before and after its pictures load. */}

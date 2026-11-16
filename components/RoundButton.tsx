@@ -31,7 +31,7 @@ export default function RoundButton({ icon, label, onClick, href, tone = "light"
   const classes = `inline-flex ${box} shrink-0 items-center justify-center rounded-full transition-opacity disabled:opacity-40 ${TONES[tone]} ${pressed ? "ring-2 ring-neutral-900 dark:ring-white" : ""} ${className}`;
   const content = <Icon name={icon} size={px} filled={filled} />;
   return href ? (
-    <Link href={href} aria-label={label} title={label} className={classes}>{content}</Link>
+    <Link href={href} aria-label={label} title={label} data-press className={classes}>{content}</Link>
   ) : (
     <button type="button" aria-label={label} title={label} onClick={onClick} disabled={disabled} aria-pressed={pressed} className={classes}>{content}</button>
   );

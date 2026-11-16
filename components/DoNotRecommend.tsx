@@ -41,7 +41,7 @@ export default function DoNotRecommend({ title }: { title: HiddenTitle }) {
   if (on === null) return null;
   return (
     <button type="button" aria-pressed={on} disabled={busy} onClick={() => void toggle()}
-      className={`flex items-center justify-between gap-3 rounded-full px-5 py-3 text-sm transition-colors ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
+      className={`inline-flex w-fit items-center justify-center gap-2 self-center rounded-full px-6 py-2.5 text-center text-sm transition-colors ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
       <span>Do not recommend</span>
       {on && <Icon name="check" size={18} />}
     </button>

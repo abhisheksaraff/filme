@@ -69,7 +69,8 @@ export default function PicturesViewer({ mediaId, tmdbId, category, kind, curren
   const ownMain = mine.some((image) => image.isDefault);
   const images: ViewerImage[] = [
     ...mine.map((image): ViewerImage => ({ id: image.id, url: image.url, isDefault: image.isDefault })),
-    ...theirs
+    // The title's chosen picture may be missing from TMDB's list, so it is put first and shows as the main one.
+    ...(main && !theirs.includes(main) ? [main, ...theirs] : theirs)
       .map((path): ViewerImage => ({ url: tmdbImageUrl(path, "w780") ?? "", tmdbPath: path, isDefault: !ownMain && path === main }))
       .filter((image) => image.url !== ""),
   ];

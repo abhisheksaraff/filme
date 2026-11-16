@@ -294,6 +294,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
               zoomBy(2, { lon, lat });
             }
           }}
+          data-nopress
           className="absolute -translate-x-1/2 -translate-y-1/2"
           style={{ left: pin.x, top: pin.y }}
         >

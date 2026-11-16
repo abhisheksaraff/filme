@@ -7,6 +7,7 @@ import Shell from "@/components/Shell";
 import ToastHost from "@/components/Toast";
 import ThemeApplier from "@/components/ThemeApplier";
 import "./globals.css";
+import PressFeedback from "@/components/PressFeedback";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -90,6 +91,7 @@ export default function RootLayout({
         <Decorations />
         <Shell>{children}</Shell>
         <PageAccents />
+        <PressFeedback />
           <ToastHost />
       </body>
     </html>

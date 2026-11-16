@@ -11,6 +11,7 @@ export default function WelcomePage() {
       </p>
       <Link
         href="/login/"
+        data-press
         className="w-48 self-center rounded-full bg-neutral-900 px-10 py-3 text-center text-base font-medium text-white dark:bg-white dark:text-neutral-900"
       >
         Log in
