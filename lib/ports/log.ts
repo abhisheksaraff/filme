@@ -21,6 +21,8 @@ export interface RecentEntry {
   venue: string | null;
   venueLatitude: number | null;
   venueLongitude: number | null;
+  /** What kind of place it was (cinema, home, concert hall...), for its icon on the map. */
+  venueType: string | null;
   auditorium: string | null;
   seats: SeatDetail[];
   totalTickets: number | null;
@@ -44,6 +46,8 @@ export interface ViewingSummary {
   venueId: string | null;
   venueLatitude: number | null;
   venueLongitude: number | null;
+  /** What kind of place it was (cinema, home, concert hall...), for its icon on the map. */
+  venueType: string | null;
   auditorium: string | null;
   primaryFormat: string | null;
   addons: string[];

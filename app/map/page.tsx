@@ -11,6 +11,7 @@ import FlatMap, { KIND_ICON } from "@/components/FlatMap";
 import Icon from "@/components/Icon";
 import OpenInMaps from "@/components/OpenInMaps";
 import { LIST_SORTS, sortList, type ListSort } from "@/lib/domain/listSort";
+import { formatScore } from "@/lib/domain/score";
 import { placeQueries } from "@/lib/domain/venues";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -34,8 +35,19 @@ function MapView() {
   const [points, setPoints] = useState<VenuePoint[]>([]);
   const [finding, setFinding] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const [open, setOpen] = useState<{ point: VenuePoint; detail: VenueDetail | null; tab: string } | null>(null);
+  // `venueType` is the kind of place of the pin that was tapped, so a hall used for a film and a concert opens on one or the other; null shows everything there.
+  const [open, setOpen] = useState<{ point: VenuePoint; detail: VenueDetail | null; tab: string; venueType: string | null } | null>(null);
   const [sort, setSort] = usePageState<ListSort>("map.sort", "new");
+
+  // Opened from the menu, the map starts where you are, a little zoomed out; without permission it frames all the pins.
+  useEffect(() => {
+    if (!ready || venueParam || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setFocus({ lon: pos.coords.longitude, lat: pos.coords.latitude, zoom: 10 }),
+      () => {},
+      { timeout: 8000, maximumAge: 10 * 60_000 },
+    );
+  }, [ready, venueParam]);
 
   useEffect(() => {
     if (!ready) return;
@@ -70,15 +82,15 @@ function MapView() {
     };
   }, [ready, venueParam]);
 
-  function pick(point: VenuePoint, category: string | null) {
-    setOpen({ point, detail: null, tab: category ?? "all" });
+  function pick(point: VenuePoint, venueType: string | null) {
+    setOpen({ point, detail: null, tab: "all", venueType });
     services.browse.venue(point.id).then((res) => {
       if (res.ok) setOpen((current) => (current?.point.id === point.id ? { ...current, detail: res.value } : current));
     });
   }
 
   const shown = useMemo(() => {
-    const viewings = open?.detail?.viewings ?? [];
+    const viewings = (open?.detail?.viewings ?? []).filter((v) => !open?.venueType || v.venueType === open.venueType);
     const list = open && open.tab !== "all" ? viewings.filter((v) => v.category === open.tab) : viewings;
     // Newest and oldest go by the day watched; the rest by IMDb score (TMDB's when there is none) or release date. Anything missing goes last.
     return sortList(list, sort, { date: (v) => v.watchedOn, score: (v) => v.publicScore, release: (v) => v.releaseDate });
@@ -87,7 +99,8 @@ function MapView() {
   if (!ready) return null;
 
   const counts = new Map<string, number>();
-  for (const v of open?.detail?.viewings ?? []) counts.set(v.category, (counts.get(v.category) ?? 0) + 1);
+  const ofPin = (open?.detail?.viewings ?? []).filter((v) => !open?.venueType || v.venueType === open.venueType);
+  for (const v of ofPin) counts.set(v.category, (counts.get(v.category) ?? 0) + 1);
 
   return (
     <main className="fixed inset-0 z-10">
@@ -126,7 +139,7 @@ function MapView() {
               {TABS.filter((t) => t.id === "all" || (counts.size > 1 && counts.has(t.id))).map((t) => (
                 <button key={t.id} type="button" role="tab" aria-selected={open.tab === t.id} onClick={() => setOpen({ ...open, tab: t.id })}
                   className={`shrink-0 border-b-2 pb-1 ${open.tab === t.id ? "border-neutral-950 dark:border-white" : "border-transparent text-neutral-500"}`}>
-                  {t.label} <span className="text-xs">{t.id === "all" ? (open.detail?.viewings.length ?? open.point.count) : counts.get(t.id)}</span>
+                  {t.label} <span className="text-xs">{t.id === "all" ? (open.detail ? ofPin.length : (open.point.types.find((x) => x.category === open.venueType)?.count ?? open.point.count)) : counts.get(t.id)}</span>
                 </button>
               ))}
             </div>
@@ -146,10 +159,11 @@ function MapView() {
                     ) : (
                       <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl bg-neutral-200 shadow-[0_8px_18px_-4px_rgba(0,0,0,0.45),0_2px_6px_rgba(0,0,0,0.2)] dark:bg-white/15"><Icon name={KIND_ICON[v.category] ?? "film"} size={22} /></span>
                     )}
-                    {v.publicScore !== null && <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-1.5 text-[11px] text-white">★ {v.publicScore}</span>}
                   </span>
                   <span className="line-clamp-2 text-xs font-medium leading-tight">{v.title}</span>
-                  {v.watchedOn && <span className="text-[11px] text-neutral-500">{v.watchedOn}</span>}
+                  {(v.watchedOn || v.publicScore !== null) && (
+                    <span className="text-[11px] text-neutral-500">{[v.watchedOn, v.publicScore !== null ? `★ ${formatScore(v.publicScore)}` : null].filter(Boolean).join(" · ")}</span>
+                  )}
                 </Link>
               </li>
             ))}

@@ -30,6 +30,7 @@ import type { BrowseSpec, CatalogHit, CatalogKind } from "@/lib/ports/catalog";
 import type { WantedItem } from "@/lib/ports/wanted";
 import StatusBadge from "@/components/StatusBadge";
 import { services } from "@/lib/services";
+import { formatScore } from "@/lib/domain/score";
 
 const DEBOUNCE_MS = 350;
 /** Merges lists by taking one from each in turn. */
@@ -132,7 +133,7 @@ function ResultRow({ item }: { item: Item }) {
         </span>
         <span className="flex min-w-0 flex-col justify-center text-sm">
           <span className="font-serif text-base leading-tight">{item.title}</span>
-          <span className="text-neutral-500">{[item.year, item.kind, item.score !== null ? `★ ${item.score}` : null].filter(Boolean).join(" · ")}</span>
+          <span className="text-neutral-500">{[item.year, item.kind, item.score !== null ? `★ ${formatScore(item.score)}` : null].filter(Boolean).join(" · ")}</span>
         </span>
       </Link>
     </li>
@@ -552,8 +553,8 @@ function SearchView() {
     ...(filter.venue ? [{ key: "venue", label: `at ${filter.venue}`, remove: () => set({ venue: null }) }] : []),
     ...(filter.format ? [{ key: "format", label: filter.format, remove: () => set({ format: null }) }] : []),
     ...(filter.extra ? [{ key: "extra", label: filter.extra, remove: () => set({ extra: null }) }] : []),
-    ...(filter.minRating !== null ? [{ key: "min", label: `★ ${filter.minRating}+`, remove: () => set({ minRating: null }) }] : []),
-    ...(filter.maxRating !== null ? [{ key: "max", label: `★ up to ${filter.maxRating}`, remove: () => set({ maxRating: null }) }] : []),
+    ...(filter.minRating !== null ? [{ key: "min", label: `★ ${formatScore(filter.minRating)}+`, remove: () => set({ minRating: null }) }] : []),
+    ...(filter.maxRating !== null ? [{ key: "max", label: `★ up to ${formatScore(filter.maxRating)}`, remove: () => set({ maxRating: null }) }] : []),
     ...(filter.releaseFrom !== null || filter.releaseTo !== null ? [{ key: "released", label: filter.releaseFrom === filter.releaseTo ? `${filter.releaseFrom}` : `${filter.releaseFrom ?? "…"}–${filter.releaseTo ?? "…"}`, remove: () => set({ releaseFrom: null, releaseTo: null }) }] : []),
     ...(filter.dateFrom ? [{ key: "from", label: `from ${filter.dateFrom}`, remove: () => set({ dateFrom: null }) }] : []),
     ...(filter.dateTo ? [{ key: "to", label: `to ${filter.dateTo}`, remove: () => set({ dateTo: null }) }] : []),

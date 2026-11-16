@@ -9,6 +9,7 @@ import { FORMAT_ADDONS, PRIMARY_FORMATS, type FormatAddon, type PrimaryFormat } 
 import { MEDIA_CATEGORIES, type MediaCategory } from "@/lib/domain/media";
 import { useShowData } from "@/hooks/useShowData";
 import { services } from "@/lib/services";
+import { defaultVenueType, normalizeVenueType, venueIcon, venueTypeLabel, VENUE_TYPES, type VenueType } from "@/lib/domain/venueTypes";
 import Icon from "./Icon";
 import PeopleInput from "./PeopleInput";
 import TagInput from "./TagInput";
@@ -51,15 +52,19 @@ interface VenueSuggestion {
   name: string;
   address: string;
   own: boolean;
+  /** The kind of place, for own venues: what it was the last time it was used. */
+  type: string | null;
+  /** The day it was last used, for own venues. */
+  lastOn: string | null;
 }
 
-/** Past venues first (matching name or address), then places from the map service. */
+/** Past venues first (matching name or address, the most recently visited first), then places from the map service. */
 async function findVenues(query: string): Promise<VenueSuggestion[]> {
   const [own, places] = await Promise.all([services.browse.searchVenues(query), services.geo.search(query)]);
-  const mine: VenueSuggestion[] = own.ok ? own.value.map((v) => ({ key: `own-${v.id}`, name: v.name, address: v.address ?? "", own: true })) : [];
+  const mine: VenueSuggestion[] = own.ok ? own.value.map((v) => ({ key: `own-${v.id}`, name: v.name, address: v.address ?? "", own: true, type: v.lastType ?? v.type, lastOn: v.lastWatchedOn })) : [];
   const seen = new Set(mine.map((m) => `${m.name}|${m.address}`.toLowerCase()));
   const found: VenueSuggestion[] = places.ok
-    ? places.value.map((p, i) => ({ key: `map-${i}`, name: p.name, address: p.address, own: false })).filter((p) => !seen.has(`${p.name}|${p.address}`.toLowerCase()))
+    ? places.value.map((p, i) => ({ key: `map-${i}`, name: p.name, address: p.address, own: false, type: null, lastOn: null })).filter((p) => !seen.has(`${p.name}|${p.address}`.toLowerCase()))
     : [];
   return [...mine, ...found];
 }
@@ -107,7 +112,8 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
   function chooseVenue(item: VenueSuggestion) {
     setTyped(null);
     setSuggest(null);
-    onChange({ ...draft, location: item.name, address: item.address || draft.address });
+    // An own venue brings back the kind of place it was last used as.
+    onChange({ ...draft, location: item.name, address: item.address || draft.address, venueType: item.own ? normalizeVenueType(item.type) : draft.venueType });
   }
 
   /** "Home" with no address reuses the last home's name and address. */
@@ -121,18 +127,31 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
     onChange({ ...now, location: now.location.trim() || home.value.name, address: home.value.address ?? "" });
   }
 
+  /** Enter keeps exactly what was typed (it may be a name no map knows, like "Home") and never submits the form. */
+  function keepAsTyped(e: React.KeyboardEvent) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    setTyped(null);
+    setSuggest(null);
+  }
+
+  const [typeMenu, setTypeMenu] = useState(false);
+  // Until a kind is picked, it follows the name (Home is a home) and the kind of thing being logged.
+  const autoType: VenueType = draft.location.trim().toLowerCase() === "home" ? "home" : defaultVenueType(draft.category);
+  const shownType = draft.venueType ?? autoType;
+
   const suggestionList = (fieldName: "location" | "address") =>
     suggest?.field === fieldName && suggest.items.length > 0 ? (
-      <ul className="flex flex-col overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+      <ul className="flex max-h-72 flex-col overflow-y-auto overscroll-contain rounded-2xl bg-neutral-100 dark:bg-neutral-800">
         {suggest.items.map((item) => (
           <li key={item.key}>
             <button type="button" onClick={() => chooseVenue(item)} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950">
-                <Icon name={item.own ? "ticket" : "map"} size={15} />
+                <Icon name={item.own ? venueIcon(item.type) : "map"} size={15} />
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="truncate font-medium">{item.name}</span>
-                {item.address && <span className="truncate text-xs text-neutral-500">{item.address}</span>}
+                {(item.address || item.lastOn) && <span className="truncate text-xs text-neutral-500">{[item.address, item.lastOn ? `last ${item.lastOn}` : null].filter(Boolean).join(" · ")}</span>}
               </span>
             </button>
           </li>
@@ -211,9 +230,34 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
         </div>
       )}
 
-      <Labeled label="Venue">
-        <input className={field} placeholder="Theatre, venue or place" value={draft.location} onChange={(e) => typeVenue("location", e.target.value)} />
-      </Labeled>
+      <div className="flex flex-col gap-1">
+        <span className="px-1 text-xs text-neutral-500">Venue</span>
+        {/* One pill: a small menu for the kind of place on the left, a thin grey line, then the name to type. */}
+        <div className="relative flex h-11 items-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+          <button type="button" aria-haspopup="menu" aria-expanded={typeMenu} aria-label={`Kind of place: ${venueTypeLabel(shownType)}`} onClick={() => setTypeMenu((o) => !o)} className="flex h-full shrink-0 items-center gap-1 pl-4 pr-3">
+            <Icon name={venueIcon(shownType)} size={18} />
+            <Icon name="chevronDown" size={13} />
+          </button>
+          <span aria-hidden className="h-5 w-px shrink-0 bg-neutral-300 dark:bg-neutral-600" />
+          <input className="h-full min-w-0 flex-1 bg-transparent px-4 text-base outline-none placeholder:text-sm" placeholder="Theatre, venue or place" value={draft.location} onKeyDown={keepAsTyped} onChange={(e) => typeVenue("location", e.target.value)} />
+          {typeMenu && (
+            <>
+              <button type="button" aria-label="Close" onClick={() => setTypeMenu(false)} className="fixed inset-0 z-30 cursor-default" />
+              <ul role="menu" className="absolute left-0 top-full z-40 mt-2 max-h-80 w-64 overflow-y-auto overscroll-contain rounded-2xl bg-white py-1 shadow-[0_14px_36px_-8px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.12)] dark:bg-neutral-900">
+                {VENUE_TYPES.map((t) => (
+                  <li key={t.id} role="none">
+                    <button type="button" role="menuitemradio" aria-checked={shownType === t.id} onClick={() => { set("venueType", t.id); setTypeMenu(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm">
+                      <Icon name={t.icon} size={18} />
+                      <span className="flex-1">{t.label}</span>
+                      {shownType === t.id && <Icon name="check" size={16} />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
       {suggestionList("location")}
 
       {/* Each on its own row: a phone draws date fields wider than their box and they overlapped the rating. */}
@@ -267,7 +311,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       {more && (
         <>
           <Labeled label="Address">
-            <input className={field} placeholder="Street address" value={draft.address} onChange={(e) => typeVenue("address", e.target.value)} />
+            <input className={field} placeholder="Street address" value={draft.address} onKeyDown={keepAsTyped} onChange={(e) => typeVenue("address", e.target.value)} />
           </Labeled>
           {suggestionList("address")}
           <Labeled label="Screen or hall">

@@ -231,7 +231,7 @@ function TitleView() {
                   entry={{
                     id: v.id, mediaId: detail.mediaId, title: detail.title, category: detail.category, posterPath: detail.posterPath,
                     watchedOn: v.watchedOn, watchedAt: v.watchedAt, primaryFormat: v.primaryFormat, addons: v.addons,
-                    venueId: v.venueId, venue: v.venue, venueLatitude: v.venueLatitude, venueLongitude: v.venueLongitude,
+                    venueId: v.venueId, venue: v.venue, venueLatitude: v.venueLatitude, venueLongitude: v.venueLongitude, venueType: v.venueType,
                     auditorium: v.auditorium, seats: v.seats, totalTickets: v.totalTickets, season: v.season, episode: v.episode,
                   }}
                 />

@@ -19,6 +19,7 @@ import { scoreKey } from "@/lib/ports/ratings";
 import type { PersonDetail, PersonPick } from "@/lib/ports/browse";
 import type { CatalogPerson } from "@/lib/ports/catalog";
 import { services } from "@/lib/services";
+import { formatScore } from "@/lib/domain/score";
 
 /** People who work with this person: saved from TMDB, worked out once if not, or from your own log as a fallback. */
 async function loadRelated(personId: string | null, tmdbId: number | null): Promise<PersonPick[]> {
@@ -210,7 +211,7 @@ function PersonView() {
                       <span className="line-clamp-2 text-xs font-medium">{hit.title}</span>
                       {(() => {
                         const score = scores.get(scoreKey(hit));
-                        const line = [hit.year, hit.kind, score ? `★ ${score}` : null].filter(Boolean).join(" · ");
+                        const line = [hit.year, hit.kind, score ? `★ ${formatScore(score)}` : null].filter(Boolean).join(" · ");
                         return line ? <span className="text-xs text-neutral-500">{line}</span> : null;
                       })()}
                     </Link>

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { formatAddonSchema, primaryFormatSchema, seatDetailSchema } from "./sessions";
 import { mediaCategorySchema } from "./media";
 import { dateSchema, ratingSchema } from "./primitives";
+import { VENUE_TYPES } from "./venueTypes";
 
 /** The title as TMDB describes it, kept so the catalogue row can be created or reused. */
 export const entryMediaSchema = z.object({
@@ -22,6 +23,8 @@ export const entryMediaSchema = z.object({
 });
 export type EntryMedia = z.infer<typeof entryMediaSchema>;
 
+const venueTypeSchema = z.enum(VENUE_TYPES.map((t) => t.id) as [string, ...string[]]);
+
 export const logEntrySchema = z.object({
   category: mediaCategorySchema,
   title: z.string().trim().min(1),
@@ -30,6 +33,8 @@ export const logEntrySchema = z.object({
   episodeTitle: z.string().nullable(),
   location: z.string().nullable(),
   address: z.string().nullable(),
+  /** The kind of place, when chosen; otherwise it follows the venue, or the kind of thing logged. */
+  venueType: venueTypeSchema.nullable().optional(),
   auditorium: z.string().nullable(),
   date: dateSchema.nullable(),
   time: z.string().nullable(),

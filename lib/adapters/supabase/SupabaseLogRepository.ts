@@ -10,14 +10,8 @@ import { fail, ok, type Result } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 import { putWithFallback, storeFor } from "@/lib/files";
 import { lastHomeVenue } from "./venues";
+import { defaultVenueType, effectiveVenueType, normalizeVenueType, type VenueType } from "@/lib/domain/venueTypes";
 
-
-const VENUE_TYPE: Record<LogEntry["category"], string> = {
-  Movie: "cinema",
-  "TV Show": "home",
-  Concert: "arena",
-  "Live Event": "theatre",
-};
 
 /** Escapes % and _ so a venue name is matched literally by ILIKE. */
 const literal = (text: string) => text.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -80,20 +74,66 @@ async function findOrCreateHome(db: SupabaseClient, entry: LogEntry): Promise<Re
   return inserted.error ? fail("Could not save your home.") : ok(inserted.data.id as string);
 }
 
-async function findOrCreateVenue(db: SupabaseClient, entry: LogEntry): Promise<Result<string | null>> {
-  if (entry.auditorium?.trim().toLowerCase() === "home") return findOrCreateHome(db, entry);
-  if (!entry.location) return ok(null);
-  const found = await db.from("venues").select("id").ilike("name", literal(entry.location)).limit(1).maybeSingle();
-  if (found.error) return fail("Could not look up the venue.");
-  if (found.data) return ok(found.data.id as string);
+/** The venue a viewing is saved against, and the kind of place it counts as on that viewing. */
+interface ResolvedVenue {
+  id: string | null;
+  type: VenueType | null;
+}
 
-  const inserted = await db
-    .from("venues")
-    .insert({ name: entry.location, type: VENUE_TYPE[entry.category], address: entry.address })
-    .select("id")
-    .single();
+/**
+ * A venue is the same one only when its name and address both match, so two homes at two addresses stay two places.
+ * Without an address, the venue with that name used most recently is reused. A name typed with no match is kept exactly as typed.
+ */
+async function findOrCreateVenue(db: SupabaseClient, entry: LogEntry): Promise<Result<ResolvedVenue>> {
+  if (entry.auditorium?.trim().toLowerCase() === "home") {
+    const home = await findOrCreateHome(db, entry);
+    return home.ok ? ok({ id: home.value, type: (entry.venueType as VenueType | null | undefined) ?? "home" }) : home;
+  }
+  const name = entry.location?.trim();
+  if (!name) return ok({ id: null, type: null });
+  const address = entry.address?.trim() || null;
+  // A venue called Home is a home, unless the kind was chosen by hand.
+  const wanted = (entry.venueType as VenueType | null | undefined) ?? (name.toLowerCase() === "home" ? "home" : null);
+
+  let found: { id: string; type: string } | null = null;
+  if (address) {
+    const exact = await db.from("venues").select("id, type").ilike("name", literal(name)).ilike("address", literal(address)).limit(1).maybeSingle();
+    if (exact.error) return fail("Could not look up the venue.");
+    found = exact.data as { id: string; type: string } | null;
+    if (!found) {
+      // The same name saved earlier without an address is the same place: it gains the address instead of a twin being made.
+      const bare = await db.from("venues").select("id, type").ilike("name", literal(name)).is("address", null).limit(1).maybeSingle();
+      if (bare.error) return fail("Could not look up the venue.");
+      if (bare.data) {
+        await db.from("venues").update({ address }).eq("id", bare.data.id);
+        found = bare.data as { id: string; type: string };
+      }
+    }
+  } else {
+    const named = await db.from("venues").select("id, type").ilike("name", literal(name)).limit(20);
+    if (named.error) return fail("Could not look up the venue.");
+    const list = (named.data ?? []) as { id: string; type: string }[];
+    if (list.length === 1) found = list[0];
+    else if (list.length > 1) {
+      // Several places share the name: the one watched at most recently.
+      const latest = await db
+        .from("watch_sessions")
+        .select("venue_id")
+        .in("venue_id", list.map((v) => v.id))
+        .is("deleted_at", null)
+        .order("watched_on", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const id = latest.data?.[0]?.venue_id as string | undefined;
+      found = list.find((v) => v.id === id) ?? list[0];
+    }
+  }
+  if (found) return ok({ id: found.id, type: wanted ?? normalizeVenueType(found.type) });
+
+  const type = wanted ?? defaultVenueType(entry.category);
+  const inserted = await db.from("venues").insert({ name, type, address }).select("id").single();
   if (inserted.error) return fail("Could not save the venue.");
-  return ok(inserted.data.id as string);
+  return ok({ id: inserted.data.id as string, type });
 }
 
 /** YYYY, YYYY-MM or YYYY-MM-DD, with how precise it is. */
@@ -176,7 +216,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const session = await db
       .from("watch_sessions")
-      .insert({ media_id: media.value, venue_id: venue.value, ...sessionColumns(entry) })
+      .insert({ media_id: media.value, venue_id: venue.value.id, venue_type: venue.value.type, ...sessionColumns(entry) })
       .select("id")
       .single();
     if (session.error) return fail("Could not save the viewing.");
@@ -217,7 +257,7 @@ export const supabaseLogRepository: LogRepository = {
   async recent(limit) {
     const { data, error } = await getSupabase()
       .from("watch_sessions")
-      .select("id, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, media:media_items(title, category, poster_path, tmdb_id, release_date, imdb_rating, vote_average), venue:venues(id, name, latitude, longitude)")
+      .select("id, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, venue_type, media:media_items(title, category, poster_path, tmdb_id, release_date, imdb_rating, vote_average), venue:venues(id, name, type, latitude, longitude)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -227,7 +267,7 @@ export const supabaseLogRepository: LogRepository = {
       const media = (Array.isArray(row.media) ? row.media[0] : row.media) as
         | { title: string; category: string; poster_path: string | null; tmdb_id: number | null; release_date: string | null; imdb_rating: number | null; vote_average: number | null }
         | null;
-      const venue = one<{ id: string; name: string; latitude: number | null; longitude: number | null }>(row.venue);
+      const venue = one<{ id: string; name: string; type: string; latitude: number | null; longitude: number | null }>(row.venue);
       return {
         id: row.id,
         mediaId: row.media_id as string,
@@ -245,6 +285,7 @@ export const supabaseLogRepository: LogRepository = {
         venue: venue?.name ?? null,
         venueLatitude: venue?.latitude ?? null,
         venueLongitude: venue?.longitude ?? null,
+        venueType: venue ? effectiveVenueType(row.venue_type as string | null, venue.type, media?.category ?? "Movie") : null,
         auditorium: row.auditorium,
         seats: row.seats ?? [],
         totalTickets: row.total_tickets,
@@ -265,7 +306,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const sessions = await db
       .from("watch_sessions")
-      .select("id, watched_on, watched_at, auditorium, primary_format, addons, seats, total_tickets, rating, notes, scope, season_number, episode_number, venue:venues(id, name, latitude, longitude)")
+      .select("id, watched_on, watched_at, auditorium, primary_format, addons, seats, total_tickets, rating, notes, scope, season_number, episode_number, venue_type, venue:venues(id, name, type, latitude, longitude)")
       .eq("media_id", mediaId)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false })
@@ -293,7 +334,7 @@ export const supabaseLogRepository: LogRepository = {
       }
     }
 
-    const viewings: ViewingSummary[] = sessions.data.map((row) => ({
+        const viewings: ViewingSummary[] = sessions.data.map((row) => ({
       id: row.id,
       watchedOn: row.watched_on,
       watchedAt: row.watched_at,
@@ -301,6 +342,7 @@ export const supabaseLogRepository: LogRepository = {
       venueId: one<{ id: string }>(row.venue)?.id ?? null,
       venueLatitude: one<{ latitude: number | null }>(row.venue)?.latitude ?? null,
       venueLongitude: one<{ longitude: number | null }>(row.venue)?.longitude ?? null,
+      venueType: one<{ id: string }>(row.venue as { id: string } | { id: string }[] | null) ? effectiveVenueType(row.venue_type as string | null, one<{ type: string }>(row.venue as { type: string } | { type: string }[] | null)?.type, media.data.category as string) : null,
       auditorium: row.auditorium,
       primaryFormat: row.primary_format,
       addons: row.addons ?? [],
@@ -332,14 +374,14 @@ export const supabaseLogRepository: LogRepository = {
   async getViewing(id) {
     const { data, error } = await getSupabase()
       .from("watch_sessions")
-      .select("media_id, scope, season_number, episode_number, watched_on, watched_at, rating, notes, primary_format, addons, auditorium, seats, total_tickets, media:media_items(*), venue:venues(name, address)")
+      .select("media_id, scope, season_number, episode_number, watched_on, watched_at, rating, notes, primary_format, addons, auditorium, seats, total_tickets, venue_type, media:media_items(*), venue:venues(name, address, type)")
       .eq("id", id)
       .is("deleted_at", null)
       .maybeSingle();
     if (error || !data) return fail("Could not find that viewing.");
 
     const media = one<Record<string, unknown>>(data.media);
-    const venue = one<{ name: string; address: string | null }>(data.venue);
+    const venue = one<{ name: string; address: string | null; type: string }>(data.venue);
     if (!media) return fail("Could not find that viewing's title.");
 
     const parsed = logEntrySchema.safeParse({
@@ -350,6 +392,7 @@ export const supabaseLogRepository: LogRepository = {
       episodeTitle: null,
       location: venue?.name ?? null,
       address: venue?.address ?? null,
+      venueType: venue ? effectiveVenueType(data.venue_type as string | null, venue.type, String(media.category)) : null,
       auditorium: data.auditorium,
       date: data.watched_on,
       time: data.watched_at,
@@ -393,7 +436,7 @@ export const supabaseLogRepository: LogRepository = {
     if (!venue.ok) return venue;
     const { error } = await db
       .from("watch_sessions")
-      .update({ media_id: media.value, venue_id: venue.value, ...sessionColumns(parsed.data) })
+      .update({ media_id: media.value, venue_id: venue.value.id, venue_type: venue.value.type, ...sessionColumns(parsed.data) })
       .eq("id", id);
     return error ? fail("Could not save your changes.") : ok({ mediaId: media.value });
   },

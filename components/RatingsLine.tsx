@@ -1,6 +1,7 @@
 // components/RatingsLine.tsx
 // Under a title: a plain-text IMDb link, then IMDb's rating and your own.
 import Icon from "@/components/Icon";
+import { formatScore } from "@/lib/domain/score";
 import type { TitleLinks } from "@/lib/ports/ratings";
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
   mine: number | null;
 }
 
-const num = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+const num = formatScore;
 
 export default function RatingsLine({ links, mine }: Props) {
   const shown = links?.imdbRating ?? null;

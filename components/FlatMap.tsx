@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon, { type IconName } from "@/components/Icon";
+import { venueIcon } from "@/lib/domain/venueTypes";
 import RoundButton from "@/components/RoundButton";
 import type { VenuePoint } from "@/lib/ports/browse";
 
@@ -189,16 +190,16 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
       }
       const { point } = g.items[0];
       if (still) return [{ key: point.id, x: g.x, y: g.y, icon: pinIcon ?? "film", count: point.count, point }];
-      // A home is one pin; any other venue gets a pin per kind of thing watched there.
-      const kinds = point.type === "home" ? [{ category: "home", count: point.count }] : point.kinds;
-      return kinds.map((kind, i) => ({
+      // One pin for each kind of place the venue was used as (a hall that hosted a film and a concert gets two), each with its own count.
+      const types = point.types.length > 0 ? point.types : [{ category: point.type, count: point.count }];
+      return types.map((kind, i) => ({
         key: `${point.id}-${kind.category}`,
-        x: g.x + (i - (kinds.length - 1) / 2) * 42,
+        x: g.x + (i - (types.length - 1) / 2) * 42,
         y: g.y,
-        icon: KIND_ICON[kind.category] ?? "film",
+        icon: venueIcon(kind.category),
         count: kind.count,
         point,
-        category: kind.category === "home" ? undefined : kind.category,
+        category: kind.category,
       }));
     });
   }, [points, size, view, still, pinIcon]);

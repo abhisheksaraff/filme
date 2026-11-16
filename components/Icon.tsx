@@ -6,7 +6,8 @@ export type IconName =
   | "home" | "calendar" | "ticket" | "bookmark" | "plus" | "close" | "download" | "upload" | "star"
   | "note" | "trash" | "edit" | "filter" | "shuffle" | "refresh" | "database" | "watch" | "sliders" | "image" | "bell" | "archive"
   | "calendarPlus" | "check" | "back" | "search" | "user" | "undo" | "open" | "sparkle" | "globe" | "chart"
-  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "posterFrame" | "coverFrame" | "none" | "eye" | "sound" | "mute";
+  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "posterFrame" | "coverFrame" | "none" | "eye" | "sound" | "mute"
+  | "dancer" | "comedy" | "stadium" | "tent" | "car" | "people" | "plane" | "pin" | "chevronDown";
 
 interface Props {
   name: IconName;
@@ -130,6 +131,48 @@ export default function Icon({ name, size = 20, filled = false }: Props) {
     folder: <path d="M4 7a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />,
     logout: <path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" />,
     layers: <path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4" />,
+    dancer: (
+      <>
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 8v5M12 13l-3 7M12 13l4 7M7 10l5-1.500 5 2.500" />
+      </>
+    ),
+    // A laughing face, for comedy.
+    comedy: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8.500 10h.01M15.500 10h.01M7.500 13.500h9a4.500 4.500 0 0 1-9 0z" />
+      </>
+    ),
+    stadium: (
+      <>
+        <ellipse cx="12" cy="9" rx="8" ry="3" />
+        <path d="M4 9v6c0 1.700 3.600 3 8 3s8-1.300 8-3V9M8 11.800v5.700M12 12v6M16 11.800v5.700" />
+      </>
+    ),
+    tent: <path d="M3 20L12 5l9 15zM10 20l2-5 2 5M12 5V3" />,
+    car: (
+      <>
+        <path d="M5 16l1.500-5a2 2 0 0 1 1.900-1.400h7.200A2 2 0 0 1 17.500 11L19 16" />
+        <rect x="3" y="16" width="18" height="3.500" rx="1.500" />
+        <path d="M7.500 19.500v1M16.500 19.500v1" />
+      </>
+    ),
+    people: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <circle cx="17" cy="9" r="2.300" />
+        <path d="M3 19c0-3.300 2.700-5 6-5s6 1.700 6 5M15.500 14c3 0 5.500 1.400 5.500 4.500" />
+      </>
+    ),
+    plane: <path d="M10 14L3 11l1-2 8 1.500L17 5a1.800 1.800 0 0 1 3 1.800L15.500 12l1 8-2 1-2.500-7z" />,
+    pin: (
+      <>
+        <path d="M12 21s7-6.300 7-11a7 7 0 0 0-14 0c0 4.700 7 11 7 11z" />
+        <circle cx="12" cy="10" r="2.500" />
+      </>
+    ),
+    chevronDown: <path d="M6 9l6 6 6-6" />,
     posterFrame: (
       <>
         <rect x="7" y="3" width="10" height="15" rx="1.500" />

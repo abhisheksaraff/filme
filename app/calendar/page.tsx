@@ -18,6 +18,7 @@ import { MONTH_NAMES, type StatRow } from "@/lib/domain/stats";
 import { loadStatRows } from "@/lib/home/rows";
 import { groupByShow, scopeLabel } from "@/lib/domain/tv";
 import { services } from "@/lib/services";
+import { formatScore } from "@/lib/domain/score";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** Most posters drawn in a day's deck; any more show as +N. */
@@ -93,7 +94,7 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
             <span className={`absolute left-1.5 top-0.5 z-10 rounded px-1 font-medium leading-tight text-neutral-950 ${list.length ? "bg-white/85" : "dark:text-white"}`}>{day}</span>
             {list.length > DECK && <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-white">+{list.length - DECK}</span>}
             {single && list[0].length === 1 && list[0][0].score !== null && (
-              <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {list[0][0].score}</span>
+              <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {formatScore(list[0][0].score)}</span>
             )}
           </button>
         );
@@ -310,7 +311,7 @@ export default function CalendarPage() {
                           {parts.map((part, i) => <span key={i}>{part}</span>)}
                         </span>
                       )}
-                      <span className="text-neutral-500">{[row.venue, row.format, group.length === 1 && (scores.get(row.mediaId) ?? row.score) ? `★ ${scores.get(row.mediaId) ?? row.score}` : null].filter(Boolean).join(" · ")}</span>
+                      <span className="text-neutral-500">{[row.venue, row.format, group.length === 1 && (scores.get(row.mediaId) ?? row.score) ? `★ ${formatScore((scores.get(row.mediaId) ?? row.score) as number)}` : null].filter(Boolean).join(" · ")}</span>
                     </span>
                   </Link>
                 </li>

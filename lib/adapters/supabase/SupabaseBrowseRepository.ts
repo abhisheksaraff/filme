@@ -3,6 +3,7 @@
 import type { BrowseRepository, PersonPick, PersonWork, VenueViewing } from "@/lib/ports/browse";
 import { fail, ok } from "@/lib/ports/result";
 import { getSupabase } from "./client";
+import { effectiveVenueType, normalizeVenueType } from "@/lib/domain/venueTypes";
 import { lastHomeVenue, literal } from "./venues";
 
 const one = <T>(value: unknown): T | null => ((Array.isArray(value) ? value[0] : value) as T | undefined) ?? null;
@@ -131,7 +132,7 @@ export const supabaseBrowseRepository: BrowseRepository = {
     if (venue.error || !venue.data) return fail("Could not find that venue.");
     const sessions = await db
       .from("watch_sessions")
-      .select("id, media_id, watched_on, watched_at, rating, auditorium, seats, total_tickets, primary_format, addons, media:media_items(title, poster_path, category, vote_average, imdb_rating, release_date)")
+      .select("id, media_id, watched_on, watched_at, rating, auditorium, seats, total_tickets, primary_format, addons, venue_type, media:media_items(title, poster_path, category, vote_average, imdb_rating, release_date)")
       .eq("venue_id", id)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false });
@@ -164,6 +165,7 @@ export const supabaseBrowseRepository: BrowseRepository = {
           totalTickets: s.total_tickets as number | null,
           primaryFormat: s.primary_format as string | null,
           addons: (s.addons ?? []) as string[],
+          venueType: effectiveVenueType(s.venue_type as string | null, v.type as string, m?.category ?? "Movie"),
         };
       }),
     });
@@ -173,19 +175,23 @@ export const supabaseBrowseRepository: BrowseRepository = {
     const db = getSupabase();
     const { data, error } = await db
       .from("venues")
-      .select("id, name, type, city, country, latitude, longitude, sessions:watch_sessions(deleted_at, media:media_items(category))")
+      .select("id, name, type, city, country, latitude, longitude, sessions:watch_sessions(deleted_at, venue_type, media:media_items(category))")
       .not("latitude", "is", null)
       .not("longitude", "is", null);
     if (error) return fail("Could not load your venues.");
     return ok(
       data.flatMap((v) => {
         const counts = new Map<string, number>();
-        for (const session of v.sessions as { deleted_at: string | null; media: unknown }[]) {
+        const typeCounts = new Map<string, number>();
+        for (const session of v.sessions as { deleted_at: string | null; venue_type: string | null; media: unknown }[]) {
           if (session.deleted_at) continue;
           const category = one<{ category: string }>(session.media)?.category ?? "Movie";
           counts.set(category, (counts.get(category) ?? 0) + 1);
+          const type = effectiveVenueType(session.venue_type, v.type as string, category);
+          typeCounts.set(type, (typeCounts.get(type) ?? 0) + 1);
         }
         const kinds = [...counts.entries()].map(([category, count]) => ({ category, count }));
+        const types = [...typeCounts.entries()].map(([category, count]) => ({ category, count }));
         if (kinds.length === 0) return [];
         return [{
           id: v.id as string,
@@ -197,6 +203,7 @@ export const supabaseBrowseRepository: BrowseRepository = {
           longitude: v.longitude as number,
           count: kinds.reduce((sum, k) => sum + k.count, 0),
           kinds,
+          types,
         }];
       }),
     );
@@ -207,18 +214,38 @@ export const supabaseBrowseRepository: BrowseRepository = {
     if (q.length < 2) return ok([]);
     const db = getSupabase();
     const pattern = `%${literal(q)}%`;
+    // Typing the start of "home" also brings every home forward, whatever name it was saved under.
+    const homes = "home".startsWith(q.toLowerCase()) ? ",type.eq.home" : "";
     const { data, error } = await db
       .from("venues")
       .select("id, name, address, type")
-      .or(`name.ilike.${pattern},address.ilike.${pattern},city.ilike.${pattern}`)
-      .limit(20);
+      .or(`name.ilike.${pattern},address.ilike.${pattern},city.ilike.${pattern}${homes}`)
+      .limit(60);
     if (error) return fail("Could not search your venues.");
-    const current = await lastHomeVenue(db);
-    // The current home leads, then the rest by name.
-    const list = (data as { id: string; name: string; address: string | null; type: string }[]).sort(
-      (a, b) => Number(b.id === current?.id) - Number(a.id === current?.id) || a.name.localeCompare(b.name),
-    );
-    return ok(list.slice(0, 6));
+    const venues = data as { id: string; name: string; address: string | null; type: string }[];
+    if (venues.length === 0) return ok([]);
+
+    // When each was last used, and as what kind of place, so the ones visited most recently lead.
+    const used = await db
+      .from("watch_sessions")
+      .select("venue_id, watched_on, created_at, venue_type")
+      .in("venue_id", venues.map((v) => v.id))
+      .is("deleted_at", null)
+      .order("watched_on", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (used.error) return fail("Could not search your venues.");
+    const last = new Map<string, { on: string | null; at: string; type: string | null }>();
+    for (const row of used.data as { venue_id: string; watched_on: string | null; created_at: string; venue_type: string | null }[]) {
+      const known = last.get(row.venue_id);
+      // A dated viewing beats an undated one; among dated ones the rows already arrive newest first.
+      if (!known || (known.on === null && row.watched_on !== null)) last.set(row.venue_id, { on: row.watched_on, at: row.created_at, type: row.venue_type });
+    }
+    const rank = (id: string) => last.get(id)?.on ?? "";
+    const list = venues
+      .map((v) => ({ ...v, lastType: last.has(v.id) ? normalizeVenueType(last.get(v.id)?.type ?? v.type) : null, lastWatchedOn: last.get(v.id)?.on ?? null }))
+      .sort((a, b) => Number(last.has(b.id)) - Number(last.has(a.id)) || rank(b.id).localeCompare(rank(a.id)) || (last.get(b.id)?.at ?? "").localeCompare(last.get(a.id)?.at ?? "") || a.name.localeCompare(b.name));
+    return ok(list.slice(0, 20));
   },
 
   async lastHome() {

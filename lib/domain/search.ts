@@ -2,6 +2,7 @@
 // Typo-tolerant search and filtering over the user's own viewings.
 import type { LogFilter } from "./askLog";
 import type { StatRow } from "./stats";
+import { formatScore } from "./score";
 
 /** Lower case, accents removed, punctuation turned into spaces. */
 export function normalize(text: string): string {
@@ -92,8 +93,8 @@ export function describeFilter(filter: LogFilter): string[] {
     filter.venue && `at ${filter.venue}`,
     filter.format,
     filter.extra,
-    filter.minRating !== null && `★ ${filter.minRating}+`,
-    filter.maxRating !== null && `★ up to ${filter.maxRating}`,
+    filter.minRating !== null && `★ ${formatScore(filter.minRating)}+`,
+    filter.maxRating !== null && `★ up to ${formatScore(filter.maxRating)}`,
     (filter.releaseFrom !== null || filter.releaseTo !== null) && (filter.releaseFrom === filter.releaseTo ? `${filter.releaseFrom}` : `${filter.releaseFrom ?? "…"}–${filter.releaseTo ?? "…"}`),
     filter.dateFrom && `from ${filter.dateFrom}`,
     filter.dateTo && `to ${filter.dateTo}`,

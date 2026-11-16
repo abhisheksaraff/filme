@@ -67,6 +67,8 @@ export interface VenueViewing {
   totalTickets: number | null;
   primaryFormat: string | null;
   addons: string[];
+  /** What kind of place the viewing was at; the map shows one pin per kind. */
+  venueType: string;
 }
 
 export interface VenueDetail {
@@ -81,7 +83,7 @@ export interface VenueDetail {
   viewings: VenueViewing[];
 }
 
-/** How many viewings of one kind happened at a venue. */
+/** How many viewings of one kind happened at a venue; `category` is a movie kind or, for a pin, a venue type. */
 export interface KindCount {
   category: string;
   count: number;
@@ -93,6 +95,9 @@ export interface OwnVenue {
   name: string;
   address: string | null;
   type: string;
+  /** The kind of place it was the last time it was used, and the day of that last viewing (null when never used). */
+  lastType: string | null;
+  lastWatchedOn: string | null;
 }
 
 /** A venue with a position, for the map. */
@@ -105,8 +110,10 @@ export interface VenuePoint {
   longitude: number;
   count: number;
   type: string;
-  /** Viewings per kind; homes put everything under one pin. */
+  /** Viewings per kind of thing watched (movie, concert...), for the sheet's tabs. */
   kinds: KindCount[];
+  /** Viewings per kind of place (cinema, home, concert hall...): the map draws one pin for each. */
+  types: KindCount[];
 }
 
 /** Everything linked from a title: its credits, the people, their other work, and venues. */
@@ -125,7 +132,7 @@ export interface BrowseRepository {
   venue(id: string): Promise<Result<VenueDetail>>;
   venuePoints(): Promise<Result<VenuePoint[]>>;
   /** Venues that have no position yet. */
-  /** Own venues whose name, address or city contains the text; the current home comes first. */
+  /** Own venues whose name, address or city contains the text, the ones watched at most recently first. */
   searchVenues(query: string): Promise<Result<OwnVenue[]>>;
   /** The home used most recently, or null if none has been used. */
   lastHome(): Promise<Result<OwnVenue | null>>;

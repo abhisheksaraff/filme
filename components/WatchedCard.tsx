@@ -20,6 +20,8 @@ import type { StoredImage } from "@/lib/ports/images";
 import { reportFolded, useTallestFolded } from "@/lib/foldedHeight";
 import { useOpenCard } from "@/lib/openCard";
 import { readCachedAppearance } from "@/lib/theme";
+import { formatScore } from "@/lib/domain/score";
+import { effectiveVenueType, venueIcon } from "@/lib/domain/venueTypes";
 
 /** What a card needs; a Watched row and a viewing on a title page both fit it. */
 export interface CardData {
@@ -36,6 +38,8 @@ export interface CardData {
   venue: string | null;
   venueLatitude: number | null;
   venueLongitude: number | null;
+  /** The kind of place, which picks the icon on its small map. */
+  venueType?: string | null;
   auditorium: string | null;
   seats: SeatDetail[];
   totalTickets: number | null;
@@ -44,7 +48,7 @@ export interface CardData {
 }
 
 /** Where a viewing with no venue is drawn: the CN Tower, with a pin that says there is no location. */
-const CN_TOWER: VenuePoint = { id: "none", name: "No location", type: "other", city: null, country: null, latitude: 43.6426, longitude: -79.3871, count: 1, kinds: [] };
+const CN_TOWER: VenuePoint = { id: "none", name: "No location", type: "other", city: null, country: null, latitude: 43.6426, longitude: -79.3871, count: 1, kinds: [], types: [] };
 
 /** True once the element has come near the screen; a long list then does not load every map and picture at once. */
 function useNearScreen(ref: React.RefObject<HTMLElement | null>): boolean {
@@ -196,13 +200,13 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
           {at ? (
             located ? (
               <SmallMap
-                point={{ id: entry.venueId as string, name: entry.venue ?? "", type: "cinema", city: null, country: null, latitude: entry.venueLatitude as number, longitude: entry.venueLongitude as number, count: 1, kinds: [{ category: entry.category, count: 1 }] }}
-                icon={KIND_ICON[entry.category] ?? "film"}
+                point={{ id: entry.venueId as string, name: entry.venue ?? "", type: "cinema", city: null, country: null, latitude: entry.venueLatitude as number, longitude: entry.venueLongitude as number, count: 1, kinds: [{ category: entry.category, count: 1 }], types: [] }}
+                icon={venueIcon(effectiveVenueType(entry.venueType, null, entry.category))}
                 href={`/map/?venue=${entry.venueId}`}
                 label={`Show ${entry.venue} on the map`}
               />
             ) : (
-              <Link href={`/map/?venue=${entry.venueId}`} aria-label={`Show ${entry.venue} on the map`} className="relative z-10 flex aspect-square w-full items-center justify-center rounded-[20px] bg-neutral-200 dark:bg-neutral-800"><Icon name={KIND_ICON[entry.category] ?? "film"} size={28} /></Link>
+              <Link href={`/map/?venue=${entry.venueId}`} aria-label={`Show ${entry.venue} on the map`} className="relative z-10 flex aspect-square w-full items-center justify-center rounded-[20px] bg-neutral-200 dark:bg-neutral-800"><Icon name={venueIcon(effectiveVenueType(entry.venueType, null, entry.category))} size={28} /></Link>
             )
           ) : (
             // No venue: a map of the CN Tower with a "none" pin. It goes nowhere; a tap rolls the card out like the rest of it.
@@ -219,7 +223,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
         {(episode || rating != null) && (
           <span className="flex items-baseline justify-between text-sm text-neutral-600 dark:text-neutral-400">
             <span>{episode}</span>
-            {rating != null && <span>★ {rating}</span>}
+            {rating != null && <span>★ {formatScore(rating)}</span>}
           </span>
         )}
       </div>

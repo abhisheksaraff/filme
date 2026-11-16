@@ -19,6 +19,7 @@ import { buildIcs, downloadText } from "@/lib/ics";
 import { previewHref } from "@/lib/home/rows";
 import { withShow } from "@/lib/domain/tv";
 import { services } from "@/lib/services";
+import { formatScore } from "@/lib/domain/score";
 
 interface FollowedShow {
   tmdbId: number;
@@ -209,7 +210,7 @@ export default function WantPage() {
                 {/* Year · type · ★ score; whatever is not known is left out, with no empty space. */}
                 {(() => {
                   const score = scores.get(scoreKey({ mediaId: item.mediaId, kind: item.category as "Movie", tmdbId: item.tmdbId }));
-                  const line = [item.releaseDate?.slice(0, 4), item.category, score ? `★ ${score}` : null].filter(Boolean).join(" · ");
+                  const line = [item.releaseDate?.slice(0, 4), item.category, score ? `★ ${formatScore(score)}` : null].filter(Boolean).join(" · ");
                   return line ? <span className="block whitespace-nowrap text-[10px] leading-4 tracking-tight text-neutral-400">{line}</span> : null;
                 })()}
               </Link>

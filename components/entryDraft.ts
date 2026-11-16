@@ -7,6 +7,7 @@ import type { MediaCategory } from "@/lib/domain/media";
 import type { CatalogDetails } from "@/lib/ports/catalog";
 import type { PeopleChange, PersonRole, StarringPick } from "@/lib/adapters/supabase/credits";
 import { fail, ok, type Result } from "@/lib/ports/result";
+import type { VenueType } from "@/lib/domain/venueTypes";
 
 export interface DraftSeat {
   section: string;
@@ -22,6 +23,8 @@ export interface EntryDraft {
   episodeTitle: string;
   location: string;
   address: string;
+  /** The kind of place when chosen by hand; null follows the venue name and the kind of thing logged. */
+  venueType: VenueType | null;
   auditorium: string;
   date: string;
   time: string;
@@ -106,6 +109,7 @@ export const EMPTY_DRAFT: EntryDraft = {
   episodeTitle: "",
   location: "",
   address: "",
+  venueType: null,
   auditorium: "",
   date: "",
   time: "",
@@ -175,6 +179,7 @@ export function entryFromDraft(draft: EntryDraft, media: EntryMedia | null): Res
     episodeTitle: isShow ? orNull(draft.episodeTitle) : null,
     location: orNull(draft.location),
     address: orNull(draft.address),
+    venueType: draft.location.trim() ? draft.venueType : null,
     auditorium: orNull(draft.auditorium),
     date: orNull(draft.date),
     time: orNull(draft.time),
@@ -227,6 +232,7 @@ export function draftFromEntry(entry: LogEntry): EntryDraft {
     episodeTitle: text(entry.episodeTitle),
     location: text(entry.location),
     address: text(entry.address),
+    venueType: (entry.venueType as VenueType | null | undefined) ?? null,
     auditorium: text(entry.auditorium),
     date: /^\d{4}(-\d{2}(-\d{2})?)?$/.test(entry.date ?? "") ? (entry.date as string) : "",
     time: text(entry.time),
