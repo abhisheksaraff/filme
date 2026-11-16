@@ -15,8 +15,8 @@ export interface StoryThemeState {
   retry: () => void;
 }
 
-/** `input` is null until the story's content is known. `fresh` skips what was saved, for the debug story. */
-export function useStoryTheme(storyKey: string | null, input: Omit<StoryThemeInput, "recentMusic"> | null, fresh: boolean): StoryThemeState {
+/** `input` is null until the story's content is known. */
+export function useStoryTheme(storyKey: string | null, input: Omit<StoryThemeInput, "recentMusic"> | null): StoryThemeState {
   const [state, setState] = useState<{ done: boolean; theme: StoryTheme | null }>({ done: false, theme: null });
   const [attempt, setAttempt] = useState(0);
   const inputKey = input ? JSON.stringify(input) : null;
@@ -26,13 +26,13 @@ export function useStoryTheme(storyKey: string | null, input: Omit<StoryThemeInp
     let cancelled = false;
     (async () => {
       await Promise.resolve();
-      const res = await loadStoryTheme(storyKey, JSON.parse(inputKey) as Omit<StoryThemeInput, "recentMusic">, fresh);
+      const res = await loadStoryTheme(storyKey, JSON.parse(inputKey) as Omit<StoryThemeInput, "recentMusic">);
       if (!cancelled) setState({ done: true, theme: res.ok ? res.value : null });
     })();
     return () => {
       cancelled = true;
     };
-  }, [storyKey, inputKey, fresh, attempt]);
+  }, [storyKey, inputKey, attempt]);
 
   const retry = () => {
     setState({ done: false, theme: null });

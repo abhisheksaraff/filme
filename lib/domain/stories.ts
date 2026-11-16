@@ -26,8 +26,6 @@ export interface Slide {
   /** The viewings this slide talks about, so their ticket stubs and photos can decorate it. */
   sessionIds?: string[];
   design?: SlideDesign;
-  /** Small lines under the slide, used by the temporary debug story. */
-  lines?: string[];
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -165,16 +163,3 @@ export function buildStory(rows: StatRow[], kind: StoryKind, period: string): Sl
   return kind === "day" ? daySlides(rows, period) : periodSlides(rows, kind, period);
 }
 
-/**
- * The temporary debug story: the year-style slides over the whole log, each with a poster (borrowed from the log when
- * the slide has none) so there is always something to look at while the pictures and music are being checked.
- */
-export function buildAllTime(rows: StatRow[]): Slide[] {
-  const slides = periodSlides(rows, "year", "");
-  const posters = [...new Set(rows.map((row) => row.posterPath).filter((p): p is string => p !== null))];
-  return slides.map((slide, i) => ({
-    ...slide,
-    heading: i === 0 ? "All time" : slide.heading,
-    posterPath: slide.posterPath ?? posters[i % Math.max(1, posters.length)] ?? null,
-  }));
-}

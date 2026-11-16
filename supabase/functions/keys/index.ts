@@ -3,7 +3,7 @@
 // Keys go into Vault and never come back out.
 import { adminClient, enforceLimit, requireUser } from "../_shared/auth.ts";
 import { HttpError, readJson, serve } from "../_shared/http.ts";
-import { AI_PROVIDERS, isProvider, loadSlots, PROVIDERS, validateKey, type AiProvider } from "../_shared/providers.ts";
+import { AI_PROVIDERS, isProvider, loadSlots, PROVIDERS, recordKeyResult, validateKey, type AiProvider } from "../_shared/providers.ts";
 
 const DAILY_LIMIT = 300;
 const MAX_KEYS = 20;
@@ -60,8 +60,10 @@ serve(async (req) => {
 
       // One at a time so the saved order matches the order they were typed.
       for (const secret of secrets) {
-        const { error } = await db.rpc("app_add_api_key", { p_user: userId, p_provider: provider, p_label: null, p_secret: secret });
+        const { data: newId, error } = await db.rpc("app_add_api_key", { p_user: userId, p_provider: provider, p_label: null, p_secret: secret });
         if (error) throw new HttpError(500, "Could not save a key.");
+        // It was checked a moment ago, so it starts with a tick.
+        if (typeof newId === "string") await recordKeyResult(userId, newId, true, "Key works.", true);
       }
       return { added: secrets.length };
     }
@@ -85,6 +87,7 @@ serve(async (req) => {
       for (const slot of slots) {
         const check = await validateKey(slot.provider, slot.secret);
         results.push({ id: slot.id, provider: slot.provider, ok: check.ok, message: check.message });
+        await recordKeyResult(userId, slot.id, check.ok, check.message, true);
       }
       return { results };
     }

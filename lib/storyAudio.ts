@@ -2,7 +2,6 @@
 // Story music, kept on the phone. A track is downloaded in full ahead of time and stored, so a story plays from its own
 // copy instead of streaming from a music site while it opens. If a site does not allow the download, the track is
 // streamed as before. The ready track is handed to the player once and dropped when the story closes.
-import { debugLog } from "@/lib/debug";
 import type { MediaTrack } from "@/lib/ports/media";
 
 interface Ready {
@@ -52,7 +51,6 @@ async function savedUrl(track: MediaTrack): Promise<string | null> {
 export async function saveFirstTrack(tracks: MediaTrack[]): Promise<MediaTrack[]> {
   for (const [i, track] of tracks.entries()) {
     if (await saveTrack(track)) {
-      debugLog(`music saved on the phone (${new URL(track.url).host})`);
       return [track, ...tracks.filter((_, j) => j !== i)];
     }
   }
@@ -87,7 +85,6 @@ export async function preloadTrack(tracks: MediaTrack[]): Promise<void> {
       el.src = local ?? track.url;
       el.load();
     });
-    debugLog(`track preload: ${outcome} (${local ? "from the phone" : new URL(track.url).host})`);
     if (outcome !== "error") {
       ready = { track, el };
       return;

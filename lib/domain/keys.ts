@@ -27,6 +27,10 @@ export interface KeySummary {
   label: string | null;
   sortOrder: number;
   hint: string | null;
+  /** How the key did the last time it was used or tested; null for both until then. */
+  lastOk: boolean | null;
+  lastMessage: string | null;
+  lastCheckedAt: string | null;
 }
 
 /** One model name in a provider's list. */

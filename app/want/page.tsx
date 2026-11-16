@@ -210,7 +210,7 @@ export default function WantPage() {
                 {(() => {
                   const score = scores.get(scoreKey({ mediaId: item.mediaId, kind: item.category as "Movie", tmdbId: item.tmdbId }));
                   const line = [item.releaseDate?.slice(0, 4), item.category, score ? `★ ${score}` : null].filter(Boolean).join(" · ");
-                  return line ? <span className="block text-xs leading-4 text-neutral-400">{line}</span> : null;
+                  return line ? <span className="block whitespace-nowrap text-[10px] leading-4 tracking-tight text-neutral-400">{line}</span> : null;
                 })()}
               </Link>
             </li>

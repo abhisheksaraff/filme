@@ -4,7 +4,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { debugLog } from "@/lib/debug";
 import { services } from "@/lib/services";
 
 export interface Memory {
@@ -45,7 +44,6 @@ export function useStoryMemories(sessionIds: string[] | undefined, label: string
     Promise.all(ids.map(load)).then((lists) => {
       if (cancelled) return;
       const all = lists.flat();
-      debugLog(`${label}: ${all.filter((m) => m.kind === "stub").length} stubs, ${all.filter((m) => m.kind === "photo").length} photos from ${ids.length} viewings`);
       setMemories(all);
     });
     return () => {

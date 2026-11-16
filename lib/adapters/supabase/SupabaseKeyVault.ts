@@ -15,7 +15,7 @@ export const supabaseKeyVault: KeyVault = {
   async load() {
     const db = getSupabase();
     const [keys, models, order] = await Promise.all([
-      db.from("api_keys").select("id, provider, label, sort_order, hint").order("sort_order"),
+      db.from("api_keys").select("id, provider, label, sort_order, hint, last_ok, last_message, last_checked_at").order("sort_order"),
       db.from("provider_models").select("id, provider, model, sort_order").order("sort_order"),
       db.from("provider_order").select("provider").order("sort_order"),
     ]);
@@ -29,6 +29,9 @@ export const supabaseKeyVault: KeyVault = {
         label: r.label,
         sortOrder: r.sort_order,
         hint: r.hint,
+        lastOk: r.last_ok ?? null,
+        lastMessage: r.last_message ?? null,
+        lastCheckedAt: r.last_checked_at ?? null,
       })),
       models: models.data.map((r) => ({ id: r.id, provider: r.provider, model: r.model, sortOrder: r.sort_order })),
       providerOrder: [...ranked, ...AI_KEY_PROVIDERS.filter((p) => !ranked.includes(p))],

@@ -47,7 +47,7 @@ export interface Gradient {
 /** A rich, dark gradient for a hue, dark enough that white text always reads on it. */
 export function gradientFor(hue: number, saturation = 0.55): Gradient {
   const h = ((hue % 360) + 360) % 360;
-  return { from: `hsl(${h} ${Math.round(saturation * 100)}% 30%)`, to: `hsl(${(h + 40) % 360} ${Math.round(saturation * 100)}% 12%)` };
+  return { from: `hsl(${h} ${Math.round(saturation * 100)}% 30%)`, to: `hsl(${h} ${Math.round(saturation * 100)}% 12%)` };
 }
 
 const sampled = new Map<string, Gradient | null>();

@@ -2,7 +2,7 @@
 // Looks up a title's IMDb rating on OMDb with the user's saved key, so the key never reaches the browser.
 import { enforceLimit, requireUser } from "../_shared/auth.ts";
 import { HttpError, readJson, serve } from "../_shared/http.ts";
-import { loadSlots } from "../_shared/providers.ts";
+import { loadSlots, recordKeyResult } from "../_shared/providers.ts";
 
 // OMDb's free plan allows 1,000 a day for each key; stay under it, and allow that much for every key saved.
 const DAILY_LIMIT_PER_KEY = 900;
@@ -35,6 +35,7 @@ serve(async (req) => {
     if (res.status === 401) {
       await res.body?.cancel();
       lastError = "OMDb rejected the saved key.";
+      await recordKeyResult(userId, slot.id, false, lastError);
       continue;
     }
     if (!res.ok) {
@@ -52,11 +53,14 @@ serve(async (req) => {
       }
       if (/api key/i.test(data.Error ?? "")) {
         lastError = "OMDb rejected the saved key.";
+        await recordKeyResult(userId, slot.id, false, lastError);
         continue;
       }
-      // The title is simply not there: no rating.
+      // The title is simply not there: no rating, but the key itself worked.
+      await recordKeyResult(userId, slot.id, true, "Worked on its last use.");
       return { rating: null };
     }
+    await recordKeyResult(userId, slot.id, true, "Worked on its last use.");
     const rating = Number(data.imdbRating);
     return { rating: Number.isFinite(rating) && rating > 0 ? rating : null };
   }

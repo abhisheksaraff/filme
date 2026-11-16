@@ -20,10 +20,9 @@ import { useStoryTheme } from "@/hooks/useStoryTheme";
 import { storyThemeInput } from "@/lib/storyLoaders";
 import { gradientFor, gradientFromPicture, type Gradient } from "@/lib/color";
 import { moodFor } from "@/lib/domain/storyMood";
-import { readDebugLog, setDebugBypass } from "@/lib/debug";
 import { readCachedAppearance, readCachedMoving } from "@/lib/theme";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import { buildAllTime, buildStory, storyTitle, validPeriod, type Slide, type StoryKind } from "@/lib/domain/stories";
+import { buildStory, storyTitle, validPeriod, type Slide, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
 
 /** How long a slide stays before the next one. */
@@ -54,9 +53,7 @@ function StoryView() {
   const params = useSearchParams();
   const kind = params.get("kind");
   const period = params.get("period") ?? "";
-  // The temporary debug story covers the whole log and asks for its pictures and music afresh every time.
-  const isDebug = kind === "debug";
-  const valid = isDebug || (isKind(kind) && validPeriod(kind, period));
+  const valid = isKind(kind) && validPeriod(kind, period);
 
   const [slides, setSlides] = useState<Slide[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -73,24 +70,18 @@ function StoryView() {
   const [grads, setGrads] = useState<Record<string, Gradient>>({});
   const [animate] = useState(() => readCachedAppearance().animationsEnabled);
 
-  useEffect(() => {
-    if (!isDebug) return;
-    setDebugBypass(true);
-    return () => setDebugBypass(false);
-  }, [isDebug]);
   const mood = useMemo(() => {
     if (!valid) return null;
-    if (isDebug) return moodFor("year", String(new Date().getFullYear()), readCachedMoving());
     return isKind(kind) ? moodFor(kind, period, readCachedMoving()) : null;
-  }, [valid, isDebug, kind, period]);
+  }, [valid, kind, period]);
   const storyKey = valid ? `${kind}:${period}` : null;
   // What the AI is told: the story's own headlines, once they are known. The searches wait for its answer.
   const themeInput = useMemo(
     () =>
-      slides && mood ? storyThemeInput(slides, mood, isDebug ? "Everything watched" : isKind(kind) ? storyTitle(kind, period) : "") : null,
-    [slides, mood, isDebug, kind, period],
+      slides && mood ? storyThemeInput(slides, mood, isKind(kind) ? storyTitle(kind, period) : "") : null,
+    [slides, mood, kind, period],
   );
-  const themeState = useStoryTheme(storyKey, themeInput, isDebug);
+  const themeState = useStoryTheme(storyKey, themeInput);
   const media = useStoryMedia(storyKey, mood, themeState.theme);
   const music = useStoryMusic(media.tracks);
   // Real cut-outs when enough were found; otherwise a festival's own drawn charms.
@@ -105,13 +96,12 @@ function StoryView() {
     loadStatRows().then((res) => {
       if (cancelled) return;
       if (!res.ok) return setProblem(res.error);
-      if (isDebug) setSlides([...buildAllTime(res.value), { heading: "Checks", big: "Debug", caption: null, posterPath: null, lines: [] }]);
-      else if (isKind(kind)) setSlides(buildStory(res.value, kind, period));
+      if (isKind(kind)) setSlides(buildStory(res.value, kind, period));
     });
     return () => {
       cancelled = true;
     };
-  }, [ready, valid, isDebug, kind, period]);
+  }, [ready, valid, kind, period]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,13 +117,6 @@ function StoryView() {
     };
   }, [slides]);
 
-  // Ticks while the debug checks are on screen, so the lines follow the searches as they finish.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (!isDebug) return;
-    const timer = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(timer);
-  }, [isDebug]);
   const slideNow = slides?.[index];
   const memories = useStoryMemories(slideNow?.sessionIds?.length ? slideNow.sessionIds : slides?.[0]?.sessionIds, slideNow?.heading ?? "story");
 
@@ -144,14 +127,13 @@ function StoryView() {
 
   /** Counts taps so a tap starts the slide's time again. */
   const [taps, setTaps] = useState(0);
-  const checksOn = isDebug && slideNow?.heading === "Checks";
   const lastIndex = slides ? slides.length - 1 : 0;
-  // Goes on by itself; stops on the last slide and on the debug checks.
+  // Goes on by itself; stops on the last slide.
   useEffect(() => {
-    if (!slides || !started || index >= lastIndex || checksOn) return;
+    if (!slides || !started || index >= lastIndex) return;
     const timer = setTimeout(() => setIndex((i) => Math.min(i + 1, lastIndex)), SLIDE_MS);
     return () => clearTimeout(timer);
-  }, [slides, started, index, lastIndex, checksOn, taps]);
+  }, [slides, started, index, lastIndex, taps]);
 
   function step(by: 1 | -1) {
     if (!slides) return;
@@ -268,11 +250,11 @@ function StoryView() {
   if (!ready) return null;
   if (!valid) return <main className="p-6 text-sm">That story does not exist.</main>;
 
-  // The story opens only once its AI theme, pictures and first track are ready. The debug story opens without a theme so its checks can be read.
-  const opened = isDebug ? themeState.done && (themeState.theme === null || media.ready) : themeState.theme !== null && media.ready;
+  // The story opens only once its AI theme, pictures and first track are ready.
+  const opened = themeState.theme !== null && media.ready;
   const empty = slides !== null && slides.length === 0;
   if (!problem && !empty && !(opened && revealed)) {
-    if (!isDebug && themeState.done && themeState.theme === null) {
+    if (themeState.done && themeState.theme === null) {
       return (
         <main className="fixed inset-0 flex flex-col items-center justify-center gap-5 bg-neutral-950 px-8 text-center text-white">
           <p className="font-serif text-2xl">We couldn&apos;t make this story right now.</p>
@@ -284,25 +266,38 @@ function StoryView() {
       );
     }
     return (
-      <>
+      // Pulling down closes the story while it loads, as it does once it is open. Touches on the overlay reach this wrapper through React.
+      <div
+        onTouchStart={(e) => { touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+        onTouchMove={(e) => {
+          const start = touchStart.current;
+          if (!start) return;
+          const dy = e.touches[0].clientY - start.y;
+          if (dy > 0 && dy > Math.abs(e.touches[0].clientX - start.x)) {
+            setPulling(true);
+            setPull(dy);
+          }
+        }}
+        onTouchEnd={(e) => {
+          const start = touchStart.current;
+          touchStart.current = null;
+          setPulling(false);
+          if (start === null) return;
+          const dx = e.changedTouches[0].clientX - start.x;
+          const dy = e.changedTouches[0].clientY - start.y;
+          if (dy > 120 && dy > Math.abs(dx)) return close();
+          setPull(0);
+        }}
+      >
         {/* Nothing of the story is ready to show, so the overlay blurs the story's own colours. */}
-        <div aria-hidden className="fixed inset-0" style={{ background: `linear-gradient(160deg, ${gradientFor(mood?.hue ?? 220).from}, ${gradientFor(mood?.hue ?? 220).to})` }} />
-        <LoadingOverlay active={!opened} onDone={() => setRevealed(true)} progress={((themeState.theme !== null || (isDebug && themeState.done) ? 1 : 0) + (media.ready ? 1 : 0)) / 2} />
+        <div aria-hidden className="fixed inset-0" style={{ background: `linear-gradient(160deg, ${gradientFor(mood?.hue ?? 220).from}, ${gradientFor(mood?.hue ?? 220).to})`, transform: pull > 0 ? `translateY(${pull}px)` : undefined, transition: pulling ? "none" : "transform 200ms ease-out" }} />
+        <LoadingOverlay offsetY={pull} active={!opened} onDone={() => setRevealed(true)} progress={((themeState.theme !== null ? 1 : 0) + (media.ready ? 1 : 0)) / 2} />
         <button type="button" aria-label="Close" onClick={close} className="fixed right-4 top-[max(1rem,env(safe-area-inset-top))] z-[60] p-2 text-white"><Icon name="close" size={22} /></button>
-      </>
+      </div>
     );
   }
 
   const slide = slides?.[index];
-  // The debug checks slide: what each search found, whether anything played, and what the security policy blocked.
-  const checks = isDebug && slide?.heading === "Checks"
-    ? [
-        `stickers: ${media.stickers.length} found, ${pool.length > 0 ? `${pool[0].kind === "picture" ? "pictures" : "drawn charms"} in use` : "none in use"}`,
-        `music: ${media.tracks.length} found, ${music.playing ? "playing" : music.on ? "on, not playing" : "off"}`,
-        `stubs and photos on the story: ${memories.filter((m) => m.kind === "stub").length} and ${memories.filter((m) => m.kind === "photo").length}`,
-        ...readDebugLog(),
-      ]
-    : null;
   const poster = tmdbImageUrl(slide?.posterPath, "w342");
   const grad = (slide?.posterPath ? grads[slide.posterPath] : undefined) ?? gradientFor((mood?.hue ?? 220) + index * 28);
   const last = slides !== null && index === slides.length - 1;
@@ -340,11 +335,11 @@ function StoryView() {
         if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
       }}
     >
-      <StoryStickers pool={pool} index={index} animate={animate} memories={(isDebug && slide?.heading === "Checks") || slide?.design?.type === "busy" || slide?.design?.type === "tickets" ? [] : memories} />
+      <StoryStickers pool={pool} index={index} animate={animate} memories={slide?.design?.type === "busy" || slide?.design?.type === "tickets" ? [] : memories} />
       <div className="relative z-10 flex gap-1 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
         {slides?.map((_, i) => (
           <div key={i} className="h-1 flex-1 overflow-hidden rounded-full bg-white/30">
-            {i < index || (i === index && started && (!animate || last || checks !== null)) ? (
+            {i < index || (i === index && started && (!animate || last)) ? (
               <div className="h-full w-full bg-white" />
             ) : i === index && started ? (
               <div key={`${index}-${taps}`} className="h-full bg-white" style={{ animation: `story-fill ${SLIDE_MS}ms linear forwards` }} />
@@ -353,7 +348,7 @@ function StoryView() {
         ))}
       </div>
       <div className="relative z-50 flex items-center justify-between px-4 py-3 text-sm text-white/70">
-        <span>{isDebug ? "Debug · all time" : isKind(kind) ? storyTitle(kind, period) : ""}{mood?.holiday ? ` · ${mood.holiday.name}` : ""}</span>
+        <span>{isKind(kind) ? storyTitle(kind, period) : ""}{mood?.holiday ? ` · ${mood.holiday.name}` : ""}</span>
         <span className="flex items-center gap-3">
           {music.available && (
             <button type="button" aria-pressed={music.on} aria-label={music.on ? "Turn the music off" : "Turn the music on"}
@@ -385,14 +380,9 @@ function StoryView() {
             )}
             <p className="font-serif text-4xl leading-tight tracking-tight">{slide.big}</p>
             {slide.caption && <p className="text-white/70">{slide.caption}</p>}
-            {themeState.theme && !checks && (
+            {themeState.theme && (
               // One caption per slide from the AI's few, going round without repeating until they run out.
               <p className="font-serif text-lg italic text-white/80">{themeState.theme.lines[index % themeState.theme.lines.length]}</p>
-            )}
-            {checks && (
-              <ul className="flex max-h-[45vh] w-full flex-col gap-1 overflow-y-auto text-left text-xs leading-snug text-white/80">
-                {checks.map((line, i) => <li key={i} className="truncate">{line}</li>)}
-              </ul>
             )}
             {last && credits.length > 0 && (
               <ul className="absolute inset-x-6 bottom-6 flex flex-col gap-0.5 text-[11px] leading-snug text-white/50">

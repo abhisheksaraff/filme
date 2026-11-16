@@ -2,7 +2,6 @@
 // Everything a story needs before it can open: the AI's theme, the sticker pictures and the music. The story page asks for
 // these when opened, and Home asks ahead of time for the stories it shows, so they are usually ready by the first tap.
 import { isCutout } from "@/lib/color";
-import { debugBypass, debugLog } from "@/lib/debug";
 import { moodFor, type Mood } from "@/lib/domain/storyMood";
 import { buildStory, storyTitle, type Slide, type StoryKind } from "@/lib/domain/stories";
 import { readStored, writeStored } from "@/lib/persistentCache";
@@ -57,24 +56,20 @@ export function storyThemeInput(slides: Slide[], mood: Mood, label: string): Omi
   };
 }
 
-/** The story's theme: the saved one when there is one, otherwise asked of the AI (and saved). `fresh` ignores and skips saving. */
-export async function loadStoryTheme(storyKey: string, input: Omit<StoryThemeInput, "recentMusic">, fresh: boolean): Promise<Result<StoryTheme>> {
-  const kept = fresh ? undefined : readStored<StoryTheme>(`story-theme:${storyKey}`, THEME_KEEP_MS);
+/** The story's theme: the saved one when there is one, otherwise asked of the AI (and saved). */
+export async function loadStoryTheme(storyKey: string, input: Omit<StoryThemeInput, "recentMusic">): Promise<Result<StoryTheme>> {
+  const kept = readStored<StoryTheme>(`story-theme:${storyKey}`, THEME_KEEP_MS);
   if (kept) {
-    debugLog(`theme: saved, music "${kept.music}"`);
     return { ok: true, value: kept };
   }
-  debugLog("theme: asking the AI");
   const res = await Promise.race([
     services.ai.storyTheme({ ...input, recentMusic: recentMusic() }),
     new Promise<Result<never>>((resolve) => setTimeout(() => resolve(fail("The AI took too long to answer.")), GIVE_UP_MS)),
   ]);
   if (!res.ok) {
-    debugLog(`theme: ${res.error.slice(0, 70)}`);
     return res;
   }
-  debugLog(`theme: asked the AI, music "${res.value.music}", ${res.value.pictures.length} pictures, ${res.value.lines.length} lines`);
-  if (!fresh) writeStored(`story-theme:${storyKey}`, res.value);
+  writeStored(`story-theme:${storyKey}`, res.value);
   rememberMusic(res.value.music);
   return res;
 }
@@ -86,7 +81,6 @@ async function findStickers(queries: string[]): Promise<MediaPicture[]> {
     const candidates = (await services.media.pictures(query)).slice(0, 5);
     const clean = await Promise.all(candidates.map(async (c) => ((await isCutout(c.url)) ? c : null)));
     const good = clean.filter((c): c is MediaPicture => c !== null);
-    debugLog(`stickers "${query}": ${candidates.length} pictures, ${good.length} cut-outs`);
     found.push(...good.slice(0, 2));
   }
   return found;
@@ -95,7 +89,6 @@ async function findStickers(queries: string[]): Promise<MediaPicture[]> {
 async function findTracks(queries: string[]): Promise<MediaTrack[]> {
   for (const query of queries.slice(0, 2)) {
     const tracks = await services.media.music(query);
-    debugLog(`music "${query}": ${tracks.length} tracks of 1 to 5 minutes`);
     if (tracks.length > 0) return tracks.slice(0, 4);
   }
   return [];
@@ -103,12 +96,12 @@ async function findTracks(queries: string[]): Promise<MediaTrack[]> {
 
 /** The story's sticker pictures and music: the saved ones, or searched for using the AI's picks. */
 export async function loadStoryMedia(storyKey: string, mood: Mood, theme: StoryTheme): Promise<StoryMediaFound> {
-  const kept = debugBypass() ? undefined : readStored<StoryMediaFound>(`story-media:${storyKey}`, MEDIA_KEEP_MS);
+  const kept = readStored<StoryMediaFound>(`story-media:${storyKey}`, MEDIA_KEEP_MS);
   if (kept) return kept;
   const [stickers, tracks] = await Promise.all([findStickers([...theme.pictures, ...mood.stickers]), findTracks([theme.music, ...mood.music])]);
   const found = { stickers, tracks };
   // Nothing found is not remembered, so a slow moment does not leave the story bare for a month.
-  if (!debugBypass() && (stickers.length > 0 || tracks.length > 0)) writeStored(`story-media:${storyKey}`, found);
+  if ((stickers.length > 0 || tracks.length > 0)) writeStored(`story-media:${storyKey}`, found);
   return found;
 }
 
@@ -143,7 +136,7 @@ export async function prepareStories(rows: StatRow[], stories: { kind: StoryKind
       const slides = buildStory(rows, kind, period);
       if (slides.length === 0) continue;
       const mood = moodFor(kind, period, readCachedMoving());
-      const theme = await loadStoryTheme(storyKey, storyThemeInput(slides, mood, storyTitle(kind, period)), false);
+      const theme = await loadStoryTheme(storyKey, storyThemeInput(slides, mood, storyTitle(kind, period)));
       if (!theme.ok) {
         prepared.delete(storyKey);
         continue;

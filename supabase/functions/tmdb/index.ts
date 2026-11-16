@@ -2,7 +2,7 @@
 // Forwards read-only requests to TMDB using the user's saved key, so the key never reaches the browser.
 import { enforceLimit, requireUser } from "../_shared/auth.ts";
 import { HttpError, readJson, serve } from "../_shared/http.ts";
-import { loadSlots } from "../_shared/providers.ts";
+import { loadSlots, recordKeyResult } from "../_shared/providers.ts";
 
 // SECURITY: a runaway loop or a stolen session must not be able to burn through the saved keys or the project's call allowance.
 const DAILY_LIMIT = 10_000;
@@ -86,11 +86,16 @@ serve(async (req) => {
       continue;
     }
 
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      await recordKeyResult(userId, slot.id, true, "Worked on its last use.");
+      return await res.json();
+    }
     if (res.status === 404) throw new HttpError(404, "Not found on TMDB.");
     lastStatus = res.status;
     // Rate limited or refused: this key is out for a while, but a 5xx is TMDB's trouble, not the key's.
     if (res.status === 429 || res.status === 401 || res.status === 403) cooling.set(slot.id, Date.now() + COOLDOWN_MS);
+    // Only a refusal says the key is bad; running out of requests for now (429) says nothing about the key itself.
+    if (res.status === 401 || res.status === 403) await recordKeyResult(userId, slot.id, false, "TMDB rejected this key.");
     await res.body?.cancel();
   }
   throw new HttpError(502, lastStatus === 0 ? "Could not reach TMDB." : `TMDB refused the request (status ${lastStatus}).`);

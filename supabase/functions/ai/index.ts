@@ -4,7 +4,7 @@
 import { enforceLimit, requireUser } from "../_shared/auth.ts";
 import { HttpError, readJson, serve } from "../_shared/http.ts";
 import { callModel, ModelError, type ModelRequest } from "../_shared/models.ts";
-import { loadAiPlan } from "../_shared/providers.ts";
+import { loadAiPlan, recordKeyResult } from "../_shared/providers.ts";
 import {
   ASK_SHAPE,
   ASK_SYSTEM,
@@ -316,11 +316,15 @@ serve(async (req) => {
         if (badKeys.has(key.id)) continue;
         try {
           const data = validate(await callModel(provider, model, key.secret, request));
+          await recordKeyResult(userId, key.id, true, "Worked on its last use.");
           return { data, provider, model };
         } catch (err) {
           const failure = err instanceof ModelError ? err : new ModelError("unexpected error");
           notes.push(`${provider}/${model}: ${failure.message}`);
-          if (failure.kind === "key") badKeys.add(key.id);
+          if (failure.kind === "key") {
+            badKeys.add(key.id);
+            await recordKeyResult(userId, key.id, false, failure.message);
+          }
           if (failure.kind === "model") break;
         }
       }

@@ -43,6 +43,27 @@ export async function loadSlots(userId: string, providers: readonly Provider[], 
   }));
 }
 
+/** The last result written for each key by this running copy of the function, so busy calls do not write on every request. */
+const recorded = new Map<string, { ok: boolean; at: number }>();
+const RECORD_AGAIN_MS = 60 * 60 * 1000;
+
+/**
+ * Notes that a key worked or was refused, for the tick or cross on the keys page. A key that keeps giving the same answer
+ * is written at most once an hour; a change of answer, or `force` (a test the user asked for), is written at once.
+ * Never throws: a failure to note it must not break the request that was being served.
+ */
+export async function recordKeyResult(userId: string, id: string, ok: boolean, message: string, force = false): Promise<void> {
+  const before = recorded.get(id);
+  const now = Date.now();
+  if (!force && before && before.ok === ok && now - before.at < RECORD_AGAIN_MS) return;
+  recorded.set(id, { ok, at: now });
+  try {
+    await adminClient().rpc("app_record_key_result", { p_user: userId, p_id: id, p_ok: ok, p_message: message });
+  } catch {
+    // Not worth failing the request over.
+  }
+}
+
 export interface KeyCheck {
   ok: boolean;
   message: string;

@@ -5,7 +5,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { debugLog } from "@/lib/debug";
 import type { MediaTrack } from "@/lib/ports/media";
 import { clearPreloaded, takePreloaded } from "@/lib/storyAudio";
 
@@ -41,7 +40,6 @@ export function useStoryMusic(tracks: MediaTrack[]) {
       if (i >= tracks.length || closed.current) return;
       if (preSrc.current !== tracks[i].url) el.src = tracks[i].url;
       el.onerror = () => {
-        debugLog(`track ${i + 1} could not load (${new URL(tracks[i].url).host})`);
         attempt(i + 1);
       };
       el.play().then(() => {
@@ -51,10 +49,8 @@ export function useStoryMusic(tracks: MediaTrack[]) {
         }
         const ctx = context.current;
         if (ctx && gain.current) gain.current.gain.setTargetAtTime(VOLUME, ctx.currentTime, 1.2);
-        debugLog(`track ${i + 1} playing`);
         setPlaying(tracks[i]);
-      }).catch((e) => {
-        debugLog(`track ${i + 1} refused: ${e instanceof Error ? e.name : "error"}`);
+      }).catch(() => {
         attempt(i + 1);
       });
     };

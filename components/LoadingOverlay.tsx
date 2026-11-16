@@ -22,6 +22,8 @@ interface Props {
    * true. Without this, an overlay that mounts already finished still plays the fill-and-fade before calling `onDone`.
    */
   hiddenAtStart?: boolean;
+  /** Moves the overlay down by this many pixels, for a page that lets it be pulled down to close. */
+  offsetY?: number;
 }
 
 /** An indeterminate wait stops short of full, since nothing says when it will end. */
@@ -37,7 +39,7 @@ const STROKE = 8;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-function Circle({ progress, active, onFinished }: { progress?: number | null; active: boolean; onFinished: () => void }) {
+function Circle({ progress, active, onFinished, offsetY }: { progress?: number | null; active: boolean; onFinished: () => void; offsetY: number }) {
   const [shown, setShown] = useState(0.02);
   const [fading, setFading] = useState(false);
   const indeterminate = progress === undefined || progress === null;
@@ -81,8 +83,8 @@ function Circle({ progress, active, onFinished }: { progress?: number | null; ac
       role="status"
       aria-live="polite"
       aria-label="Loading"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6 backdrop-blur-sm transition-opacity"
-      style={{ opacity: fading ? 0 : 1, transitionDuration: `${FADE_MS}ms` }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6 backdrop-blur-sm"
+      style={{ opacity: fading ? 0 : 1, transform: offsetY > 0 ? `translateY(${offsetY}px)` : undefined, transition: `opacity ${FADE_MS}ms${offsetY > 0 ? "" : ", transform 200ms ease-out"}` }}
     >
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden className="-rotate-90">
         <circle cx={SIZE / 2} cy={SIZE / 2} r={RADIUS} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={STROKE} />
@@ -92,7 +94,7 @@ function Circle({ progress, active, onFinished }: { progress?: number | null; ac
   );
 }
 
-export default function LoadingOverlay({ progress, active = true, onDone, hiddenAtStart = false }: Props) {
+export default function LoadingOverlay({ progress, active = true, onDone, hiddenAtStart = false, offsetY = 0 }: Props) {
   const [on, setOn] = useState(active || !hiddenAtStart);
   // Work starting again brings the overlay back.
   if (active && !on) setOn(true);
@@ -102,6 +104,7 @@ export default function LoadingOverlay({ progress, active = true, onDone, hidden
       <Circle
         progress={progress}
         active={active}
+        offsetY={offsetY}
         onFinished={() => {
           setOn(false);
           onDone?.();
