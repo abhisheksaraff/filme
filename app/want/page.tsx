@@ -51,8 +51,8 @@ export default function WantPage() {
       if (cancelled) return;
       if (list.ok) {
         setWanted(list.value);
-        const items = list.value.filter((w) => w.tmdbId !== null && (w.category === "Movie" || w.category === "TV Show")).map((w) => ({ kind: w.category as "Movie" | "TV Show", tmdbId: w.tmdbId, releaseDate: w.releaseDate }));
-        void services.ratings.scores(items, { fill: 12, onScore: (key, score) => !cancelled && setScores((m) => new Map(m).set(key, score)) }).then((m) => !cancelled && setScores((now) => new Map([...m, ...now])));
+        const items = list.value.filter((w) => w.category === "Movie" || w.category === "TV Show").map((w) => ({ mediaId: w.mediaId, kind: w.category as "Movie" | "TV Show", tmdbId: w.tmdbId, releaseDate: w.releaseDate }));
+        void services.ratings.scores(items, { fill: 20, onScore: (key, score) => !cancelled && setScores((m) => new Map(m).set(key, score)) }).then((m) => !cancelled && setScores((now) => new Map([...m, ...now])));
       } else setProblem(list.error);
 
       // Theatre listings are for the user's country; Canada until their location is known.
@@ -89,7 +89,7 @@ export default function WantPage() {
   // The list arrives newest-added first, so the position stands in for the date added. Titles missing a score or release date go last.
   const shownWanted = sortList(wanted ?? [], sort, {
     date: (_w, i) => String(1_000_000 - i).padStart(7, "0"),
-    score: (w) => (w.tmdbId === null ? null : scores.get(scoreKey({ kind: w.category as "Movie", tmdbId: w.tmdbId })) ?? null),
+    score: (w) => scores.get(scoreKey({ mediaId: w.mediaId, kind: w.category as "Movie", tmdbId: w.tmdbId })) ?? null,
     release: (w) => w.releaseDate,
   });
 
@@ -183,11 +183,11 @@ export default function WantPage() {
 
       {!wanted && <div className="skeleton h-40 rounded-2xl" />}
       {wanted?.length === 0 && <p className="text-sm text-neutral-500">Nothing here yet.</p>}
-      <ul className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+      <ul className="grid grid-cols-3 gap-3 md:grid-cols-5 lg:grid-cols-7">
         {wanted && shownWanted.map((item) => {
           const poster = tmdbImageUrl(item.posterPath, "w342");
           return (
-            <li key={`${item.mediaId}:${item.season ?? ""}:${item.episode ?? ""}`} className="flex flex-col gap-2">
+            <li key={`${item.mediaId}:${item.season ?? ""}:${item.episode ?? ""}`} className="flex flex-col gap-1">
               <Link
                 href={
                   item.episode !== null
@@ -201,16 +201,16 @@ export default function WantPage() {
               >
                 {poster ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-2xl object-cover shadow-[0_10px_24px_-6px_rgba(0,0,0,0.45),0_3px_8px_rgba(0,0,0,0.2)]" />
+                  <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-lg object-cover shadow-[0_5px_12px_-5px_rgba(0,0,0,0.3),0_1px_3px_rgba(0,0,0,0.14)]" />
                 ) : (
-                  <div className="aspect-[2/3] w-full rounded-2xl bg-neutral-200 shadow-[0_10px_24px_-6px_rgba(0,0,0,0.45),0_3px_8px_rgba(0,0,0,0.2)] dark:bg-neutral-800" />
+                  <div className="aspect-[2/3] w-full rounded-lg bg-neutral-200 shadow-[0_5px_12px_-5px_rgba(0,0,0,0.3),0_1px_3px_rgba(0,0,0,0.14)] dark:bg-neutral-800" />
                 )}
-                <span className="mt-2 block font-serif text-base leading-tight">{withShow(item.title, item.season, item.episode)}</span>
+                <span className="mt-1 line-clamp-2 block text-xs font-medium leading-4">{withShow(item.title, item.season, item.episode)}</span>
                 {/* Year · type · ★ score; whatever is not known is left out, with no empty space. */}
                 {(() => {
-                  const score = item.tmdbId === null ? null : scores.get(scoreKey({ kind: item.category as "Movie", tmdbId: item.tmdbId }));
+                  const score = scores.get(scoreKey({ mediaId: item.mediaId, kind: item.category as "Movie", tmdbId: item.tmdbId }));
                   const line = [item.releaseDate?.slice(0, 4), item.category, score ? `★ ${score}` : null].filter(Boolean).join(" · ");
-                  return line ? <span className="block text-sm text-neutral-500">{line}</span> : null;
+                  return line ? <span className="block text-xs leading-4 text-neutral-400">{line}</span> : null;
                 })()}
               </Link>
             </li>

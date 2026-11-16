@@ -82,7 +82,7 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
               // A lone viewing fills the square; a busy day cascades down and to the right, each card under the last.
               const box = single ? { left: 0, top: 0, width: "100%", height: "100%" } : { left: `${n * STEP}%`, top: `${n * STEP}%`, width: `${CARD}%`, height: `${CARD}%` };
               return (
-                <span key={row.id} className="absolute overflow-hidden rounded-md bg-neutral-300 shadow-[0_2px_5px_rgba(0,0,0,0.4)] ring-1 ring-white/70 dark:bg-neutral-700 dark:ring-black/60" style={{ ...box, zIndex: DECK - n }}>
+                <span key={row.id} className={`absolute overflow-hidden rounded-md bg-neutral-300 shadow-[0_1px_3px_rgba(0,0,0,0.22)] dark:bg-neutral-700 ${single ? "" : "ring-1 ring-white/70 dark:ring-black/60"}`} style={{ ...box, zIndex: DECK - n }}>
                   {poster && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={poster} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -92,8 +92,8 @@ const MonthGrid = memo(function MonthGrid({ index, byDay, picked, onPick }: Grid
             })}
             <span className={`absolute left-1.5 top-0.5 z-10 rounded px-1 font-medium leading-tight text-neutral-950 ${list.length ? "bg-white/85" : "dark:text-white"}`}>{day}</span>
             {list.length > DECK && <span className="absolute bottom-0.5 right-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-white">+{list.length - DECK}</span>}
-            {single && list[0].length === 1 && list[0][0].rating !== null && (
-              <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {list[0][0].rating}</span>
+            {single && list[0].length === 1 && list[0][0].score !== null && (
+              <span className="absolute bottom-0.5 left-0.5 z-10 rounded bg-black/70 px-1 text-[10px] text-amber-300">★ {list[0][0].score}</span>
             )}
           </button>
         );
@@ -154,7 +154,7 @@ export default function CalendarPage() {
     for (const row of rows ?? []) {
       if (row.watchedOn?.length !== 10) continue;
       if (categories.length > 0 && !categories.includes(row.category)) continue;
-      if (minRating > 0 && (scores.get(row.mediaId) ?? 0) < minRating) continue;
+      if (minRating > 0 && (scores.get(row.mediaId) ?? row.score ?? 0) < minRating) continue;
       map.set(row.watchedOn, [...(map.get(row.watchedOn) ?? []), row]);
     }
     return map;
@@ -234,7 +234,7 @@ export default function CalendarPage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-4 px-4 pb-4 pt-6">
       <h1 className="px-1 font-serif text-3xl tracking-tight">Calendar</h1>
 
-      <header className="mt-3 flex items-center justify-between px-1">
+      <header className="relative z-30 mt-3 flex items-center justify-between px-1">
         <div className="flex items-center gap-1">
           <RoundButton icon="left" label="Previous month" size="sm" onClick={() => goTo(current - 1)} />
           <button type="button" onClick={() => setPickerOpen(true)} aria-label="Choose month and year" className="rounded-full px-2 py-1 font-serif text-xl tracking-tight">
@@ -245,28 +245,27 @@ export default function CalendarPage() {
         <div className="flex gap-2">
           <RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} />
         </div>
+        {filterOpen && (
+          <div className="absolute inset-x-0 top-full mt-2 flex flex-col gap-3 rounded-2xl bg-white p-4 text-sm shadow-[0_14px_36px_-8px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.12)] dark:bg-neutral-900">
+            <div className="flex flex-wrap gap-2">
+              {[null, ...CATEGORIES].map((c) => {
+                const on = c === null ? categories.length === 0 : categories.includes(c);
+                // All clears the others; each kind can be tapped on and off, and with none left it is All again.
+                return (
+                  <button key={c ?? "all"} type="button" aria-pressed={on} onClick={() => setCategories(c === null ? [] : on ? categories.filter((x) => x !== c) : [...categories, c])}
+                    className={`rounded-full px-3 py-1 ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
+                    {c ?? "All"}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-col gap-1">
+              <span>IMDb rating at least</span>
+              <RatingSlider label="IMDb rating at least" value={minRating > 0 ? minRating : null} onChange={(v) => setMinRating(v ?? 0)} />
+            </div>
+          </div>
+        )}
       </header>
-
-      {filterOpen && (
-        <div className="flex flex-col gap-3 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900">
-          <div className="flex flex-wrap gap-2">
-            {[null, ...CATEGORIES].map((c) => {
-              const on = c === null ? categories.length === 0 : categories.includes(c);
-              // All clears the others; each kind can be tapped on and off, and with none left it is All again.
-              return (
-                <button key={c ?? "all"} type="button" aria-pressed={on} onClick={() => setCategories(c === null ? [] : on ? categories.filter((x) => x !== c) : [...categories, c])}
-                  className={`rounded-full border px-3 py-1 ${on ? "border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-neutral-950" : "border-neutral-300 dark:border-neutral-700"}`}>
-                  {c ?? "All"}
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex flex-col gap-1">
-            <span>IMDb rating at least</span>
-            <RatingSlider label="IMDb rating at least" value={minRating > 0 ? minRating : null} onChange={(v) => setMinRating(v ?? 0)} />
-          </div>
-        </div>
-      )}
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {!rows && !problem && <div className="skeleton h-96 rounded-2xl" />}
@@ -311,7 +310,7 @@ export default function CalendarPage() {
                           {parts.map((part, i) => <span key={i}>{part}</span>)}
                         </span>
                       )}
-                      <span className="text-neutral-500">{[row.venue, row.format, group.length === 1 && scores.get(row.mediaId) ? `★ ${scores.get(row.mediaId)}` : null].filter(Boolean).join(" · ")}</span>
+                      <span className="text-neutral-500">{[row.venue, row.format, group.length === 1 && (scores.get(row.mediaId) ?? row.score) ? `★ ${scores.get(row.mediaId) ?? row.score}` : null].filter(Boolean).join(" · ")}</span>
                     </span>
                   </Link>
                 </li>

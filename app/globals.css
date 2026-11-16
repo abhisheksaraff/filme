@@ -186,6 +186,25 @@ h1, h2, h3, h4, h5, h6,
   user-select: text;
 }
 
+/* Behave like an app, not a web page: no link preview when a link or poster is held, no highlighting of text, no zoom on a double tap
+   and no bounce past the top or bottom. Typing fields and notes stay selectable. */
+html, body {
+  overscroll-behavior-y: none;
+}
+body {
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+a, img {
+  -webkit-touch-callout: none;
+}
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* Calendar on a wide, landscape screen (iPad on its side, a laptop): the month is sized to the screen height so it
    needs no scrolling. The poster tiles keep their 2:3 shape, so it is the whole grid that gets narrower and sits in the
    middle. Phones and portrait are untouched. */

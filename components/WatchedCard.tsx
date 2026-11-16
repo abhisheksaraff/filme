@@ -236,7 +236,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
         <div className="min-h-0 overflow-hidden">
           <div className="flex flex-col gap-2 px-3 pt-2">
             <ViewingDetails view="more" auditorium={entry.auditorium} seats={entry.seats} totalTickets={entry.totalTickets} format={entry.primaryFormat} addons={entry.addons} watchedOn={null} watchedAt={null} />
-            {notes && <p className="text-sm">{notes}</p>}
+            {notes && <p className="select-text text-sm">{notes}</p>}
           </div>
         </div>
       </div>

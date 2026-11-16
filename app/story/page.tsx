@@ -64,6 +64,8 @@ function StoryView() {
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   /** How far a downward swipe has pulled the story, in pixels; it closes once pulled far enough. */
   const [pull, setPull] = useState(0);
+  // Set once the loading circle has closed completely, so the story never appears over a half-filled circle.
+  const [revealed, setRevealed] = useState(false);
   const [pulling, setPulling] = useState(false);
   /** False until the first tap on the "Tap to play" screen, which also lets the phone start the sound. */
   const [started, setStarted] = useState(false);
@@ -269,7 +271,7 @@ function StoryView() {
   // The story opens only once its AI theme, pictures and first track are ready. The debug story opens without a theme so its checks can be read.
   const opened = isDebug ? themeState.done && (themeState.theme === null || media.ready) : themeState.theme !== null && media.ready;
   const empty = slides !== null && slides.length === 0;
-  if (!problem && !empty && !opened) {
+  if (!problem && !empty && !(opened && revealed)) {
     if (!isDebug && themeState.done && themeState.theme === null) {
       return (
         <main className="fixed inset-0 flex flex-col items-center justify-center gap-5 bg-neutral-950 px-8 text-center text-white">
@@ -285,7 +287,7 @@ function StoryView() {
       <>
         {/* Nothing of the story is ready to show, so the overlay blurs the story's own colours. */}
         <div aria-hidden className="fixed inset-0" style={{ background: `linear-gradient(160deg, ${gradientFor(mood?.hue ?? 220).from}, ${gradientFor(mood?.hue ?? 220).to})` }} />
-        <LoadingOverlay label="Getting your story ready…" progress={((themeState.theme !== null || (isDebug && themeState.done) ? 1 : 0) + (media.ready ? 1 : 0)) / 2} />
+        <LoadingOverlay active={!opened} onDone={() => setRevealed(true)} progress={((themeState.theme !== null || (isDebug && themeState.done) ? 1 : 0) + (media.ready ? 1 : 0)) / 2} />
         <button type="button" aria-label="Close" onClick={close} className="fixed right-4 top-[max(1rem,env(safe-area-inset-top))] z-[60] p-2 text-white"><Icon name="close" size={22} /></button>
       </>
     );
@@ -312,7 +314,7 @@ function StoryView() {
 
   return (
     <main
-      className="fixed inset-0 flex flex-col text-white"
+      className="fixed inset-0 flex select-none flex-col text-white [-webkit-touch-callout:none]"
       style={{ background: `linear-gradient(160deg, ${grad.from}, ${grad.to})`, transform: pull > 0 ? `translateY(${pull}px)` : undefined, transition: pulling ? "none" : "transform 200ms ease-out" }}
       onClick={() => { music.touch(); setTaps((n) => n + 1); }}
       onTouchStart={(e) => { touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}

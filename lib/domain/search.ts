@@ -47,8 +47,8 @@ export function applyFilter(rows: StatRow[], filter: LogFilter): StatRow[] {
   const found = rows.filter((row) => {
     if (filter.text && !fuzzyMatches(filter.text, haystack(row))) return false;
     if (filter.category && row.category !== filter.category) return false;
-    if (filter.minRating !== null && (row.rating ?? 0) < filter.minRating) return false;
-    if (filter.maxRating !== null && (row.rating === null || row.rating > filter.maxRating)) return false;
+    if (filter.minRating !== null && (row.score ?? 0) < filter.minRating) return false;
+    if (filter.maxRating !== null && (row.score === null || row.score > filter.maxRating)) return false;
     if (filter.format && !sameFold(row.format, filter.format)) return false;
     if (filter.extra && !row.addons.some((a) => sameFold(a, filter.extra as string))) return false;
     if (filter.venue && !sameFold(row.venue, filter.venue)) return false;
@@ -76,7 +76,7 @@ export function applyFilter(rows: StatRow[], filter: LogFilter): StatRow[] {
   }
 
   const sorted = [...result];
-  if (filter.sort === "rating") sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  if (filter.sort === "rating") sorted.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   else if (filter.sort === "oldest") sorted.sort((a, b) => (a.watchedOn ?? "").localeCompare(b.watchedOn ?? ""));
   else sorted.sort((a, b) => (b.watchedOn ?? "").localeCompare(a.watchedOn ?? ""));
   return sorted;

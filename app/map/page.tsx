@@ -146,7 +146,7 @@ function MapView() {
                     ) : (
                       <span className="flex aspect-[2/3] w-full items-center justify-center rounded-xl bg-neutral-200 shadow-[0_8px_18px_-4px_rgba(0,0,0,0.45),0_2px_6px_rgba(0,0,0,0.2)] dark:bg-white/15"><Icon name={KIND_ICON[v.category] ?? "film"} size={22} /></span>
                     )}
-                    {v.rating !== null && <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-1.5 text-[11px] text-white">★ {v.rating}</span>}
+                    {v.publicScore !== null && <span className="absolute bottom-1 left-1 rounded-full bg-black/70 px-1.5 text-[11px] text-white">★ {v.publicScore}</span>}
                   </span>
                   <span className="line-clamp-2 text-xs font-medium leading-tight">{v.title}</span>
                   {v.watchedOn && <span className="text-[11px] text-neutral-500">{v.watchedOn}</span>}

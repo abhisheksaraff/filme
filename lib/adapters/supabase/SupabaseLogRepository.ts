@@ -525,7 +525,7 @@ export const supabaseLogRepository: LogRepository = {
       const { data, error } = await db
         .from("watch_sessions")
         .select(
-          "id, media_id, watched_on, primary_format, addons, rating, total_tickets, notes, scope, season_number, episode_number, episodes_covered, seasons_covered, minutes, media:media_items(title, category, runtime, original_language, poster_path, release_date), venue:venues(name)",
+          "id, media_id, watched_on, primary_format, addons, rating, total_tickets, notes, scope, season_number, episode_number, episodes_covered, seasons_covered, minutes, media:media_items(title, category, runtime, original_language, poster_path, release_date, imdb_rating, vote_average), venue:venues(name)",
         )
         .is("deleted_at", null)
         .order("created_at")
@@ -534,7 +534,7 @@ export const supabaseLogRepository: LogRepository = {
       if (error) return fail("Could not load your statistics.");
 
       for (const row of data) {
-        const media = one<{ title: string; category: string; runtime: number | null; original_language: string | null; poster_path: string | null; release_date: string | null }>(row.media);
+        const media = one<{ title: string; category: string; runtime: number | null; original_language: string | null; poster_path: string | null; release_date: string | null; imdb_rating: number | null; vote_average: number | null }>(row.media);
         rows.push({
           id: row.id as string,
           mediaId: row.media_id as string,
@@ -548,6 +548,7 @@ export const supabaseLogRepository: LogRepository = {
           format: row.primary_format,
           addons: row.addons ?? [],
           rating: row.rating === null ? null : Number(row.rating),
+          score: media?.imdb_rating != null ? Number(media.imdb_rating) : media?.vote_average != null && Number(media.vote_average) > 0 ? Math.round(Number(media.vote_average) * 10) / 10 : null,
           tickets: row.total_tickets,
           language: media?.original_language ?? null,
           notes: row.notes ?? null,

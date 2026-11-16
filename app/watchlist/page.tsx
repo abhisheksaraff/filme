@@ -77,7 +77,7 @@ export default function WatchlistPage() {
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
-        {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} rating={entry.rating} notes={entry.notes} />)}
+        {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} rating={scores.get(scoreKey({ mediaId: entry.mediaId, kind: entry.category as "Movie", tmdbId: entry.tmdbId })) ?? entry.score} notes={entry.notes} />)}
         {recent === null && !failed && Array.from({ length: 3 }, (_, i) => <li key={i} className="skeleton h-64 rounded-2xl" />)}
         {failed && <li className="text-sm text-neutral-500">We&apos;re having some trouble loading your viewings. Please check back later.</li>}
         {recent !== null && recent.length === 0 && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}

@@ -19,6 +19,8 @@ export interface StatRow {
   /** Extras such as IMAX or D-BOX. */
   addons: string[];
   rating: number | null;
+  /** The title's IMDb score, or the catalogue's when IMDb has none; what the app shows and filters by. */
+  score: number | null;
   tickets: number | null;
   language: string | null;
   notes: string | null;
