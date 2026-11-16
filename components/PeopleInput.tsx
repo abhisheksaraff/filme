@@ -122,7 +122,7 @@ export default function PeopleInput({ label, people, onChange, disabled }: Props
         <ul className="flex flex-col overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
           {items.map((s) => (
             <li key={`${s.personId ?? "t"}-${s.tmdbId ?? s.name}`}>
-              <button type="button" onClick={() => add(s)} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
+              <button type="button" onClick={() => add(s)} className="press flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
                 <Face path={s.profilePath} size={32} />
                 <span className="font-medium">{s.name}</span>
                 <span className="ml-auto text-xs text-neutral-500">{s.own ? "In your log" : "TMDB"}</span>
@@ -131,7 +131,7 @@ export default function PeopleInput({ label, people, onChange, disabled }: Props
           ))}
           {!exact && (
             <li>
-              <button type="button" onClick={() => add({ personId: null, tmdbId: null, name: text, profilePath: null })} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
+              <button type="button" onClick={() => add({ personId: null, tmdbId: null, name: text, profilePath: null })} className="press flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
                 <Face path={null} size={32} />
                 <span>Add “{text}”</span>
               </button>

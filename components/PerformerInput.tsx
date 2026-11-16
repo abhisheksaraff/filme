@@ -60,7 +60,7 @@ export default function PerformerInput({ mediaId, onAdded }: Props) {
         <ul className="flex flex-col gap-1 text-sm">
           {hits.map((hit) => (
             <li key={hit.id}>
-              <button type="button" onClick={() => add(hit.name, hit.id)} className="flex w-full flex-col rounded-xl px-2 py-1.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800">
+              <button type="button" onClick={() => add(hit.name, hit.id)} className="press flex w-full flex-col px-2 py-1.5 text-left">
                 <span className="font-medium">{hit.name}</span>
                 {hit.note && <span className="text-xs text-neutral-500">{hit.note}</span>}
               </button>

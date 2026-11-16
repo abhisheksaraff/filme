@@ -125,7 +125,7 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
         <ul className="flex flex-col overflow-hidden rounded-2xl bg-neutral-100 text-sm dark:bg-neutral-800" aria-label={`${label} suggestions`}>
           {suggestions.map((s) => (
             <li key={s.id} className="border-t border-neutral-200 first:border-t-0 dark:border-neutral-700">
-              <button type="button" onClick={() => add(s)} className="flex w-full items-center gap-3 px-3 py-2 text-left">
+              <button type="button" onClick={() => add(s)} className="press flex w-full items-center gap-3 px-3 py-2 text-left">
                 {s.image !== undefined && <Face image={s.image} size={36} />}
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate">{s.label}</span>

@@ -176,38 +176,29 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
     const scale = TILE * 2 ** view.zoom;
     const cx = mx(view.lon) * scale;
     const cy = my(view.lat) * scale;
-    const placed = points.map((point) => ({
-      point,
-      x: mx(point.longitude) * scale - cx + size.w / 2,
-      y: my(point.latitude) * scale - cy + size.h / 2,
-    }));
+    // One item for each kind of place a venue was used as (a hall that hosted a film and a concert gets two), side by side.
+    const items = points.flatMap((point) => {
+      const x = mx(point.longitude) * scale - cx + size.w / 2;
+      const y = my(point.latitude) * scale - cy + size.h / 2;
+      if (x < -60 || y < -60 || x > size.w + 60 || y > size.h + 60) return [];
+      if (still) return [{ point, x, y, icon: pinIcon ?? ("film" as IconName), count: point.count, category: undefined as string | undefined }];
+      const types = point.types.length > 0 ? point.types : [{ category: point.type, count: point.count }];
+      return types.map((kind, i) => ({ point, x: x + (i - (types.length - 1) / 2) * 42, y, icon: venueIcon(kind.category), count: kind.count, category: kind.category as string | undefined }));
+    });
 
-    // Venues that sit too close together are merged into one numbered pin.
-    const groups: { x: number; y: number; items: typeof placed }[] = [];
-    for (const item of placed) {
-      if (item.x < -60 || item.y < -60 || item.x > size.w + 60 || item.y > size.h + 60) continue;
-      const near = groups.find((g) => Math.hypot(g.x - item.x, g.y - item.y) < CLUSTER_PX);
+    // Only pins with the same icon merge (homes with homes, theatres with theatres); a merged pin keeps that icon and shows the total.
+    const groups: { x: number; y: number; icon: IconName; category?: string; items: typeof items }[] = [];
+    for (const item of items) {
+      const near = groups.find((g) => g.icon === item.icon && g.category === item.category && Math.hypot(g.x - item.x, g.y - item.y) < CLUSTER_PX);
       if (near) near.items.push(item);
-      else groups.push({ x: item.x, y: item.y, items: [item] });
+      else groups.push({ x: item.x, y: item.y, icon: item.icon, category: item.category, items: [item] });
     }
 
-    return groups.flatMap((g): Pin[] => {
-      if (g.items.length > 1) {
-        return [{ key: `c-${g.items[0].point.id}`, x: g.x, y: g.y, icon: "layers", count: g.items.reduce((n, i) => n + i.point.count, 0), members: g.items.map((i) => i.point) }];
-      }
+    return groups.map((g): Pin => {
+      const count = g.items.reduce((n, i) => n + i.count, 0);
+      if (g.items.length > 1) return { key: `c-${g.icon}-${g.items[0].point.id}`, x: g.x, y: g.y, icon: g.icon, count, members: g.items.map((i) => i.point) };
       const { point } = g.items[0];
-      if (still) return [{ key: point.id, x: g.x, y: g.y, icon: pinIcon ?? "film", count: point.count, point }];
-      // One pin for each kind of place the venue was used as (a hall that hosted a film and a concert gets two), each with its own count.
-      const types = point.types.length > 0 ? point.types : [{ category: point.type, count: point.count }];
-      return types.map((kind, i) => ({
-        key: `${point.id}-${kind.category}`,
-        x: g.x + (i - (types.length - 1) / 2) * 42,
-        y: g.y,
-        icon: venueIcon(kind.category),
-        count: kind.count,
-        point,
-        category: kind.category,
-      }));
+      return { key: `${point.id}-${g.category ?? "pin"}`, x: g.x, y: g.y, icon: g.icon, count, point, category: g.category };
     });
   }, [points, size, view, still, pinIcon]);
 
@@ -284,9 +275,9 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
           style={{ left: pin.x, top: pin.y }}
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-950 text-white shadow-lg ring-2 ring-white">
-            {pin.point ? <Icon name={pin.icon} size={18} /> : <span className="text-sm font-medium">{pin.count}</span>}
+            <Icon name={pin.icon} size={18} />
           </span>
-          {pin.point && !still && (
+          {!still && (
             <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-semibold text-neutral-950 shadow">
               {pin.count}
             </span>

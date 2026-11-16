@@ -104,6 +104,17 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
     };
   }, [typed]);
 
+  // The list stays open while you move between the venue and address boxes or tap a suggestion; a tap anywhere else closes it.
+  const listOpen = suggest !== null;
+  useEffect(() => {
+    if (!listOpen) return;
+    const away = (e: PointerEvent) => {
+      if (!(e.target as Element | null)?.closest?.("[data-venue-suggest]")) setSuggest(null);
+    };
+    document.addEventListener("pointerdown", away, true);
+    return () => document.removeEventListener("pointerdown", away, true);
+  }, [listOpen]);
+
   function typeVenue(field: "location" | "address", text: string) {
     setTyped({ field, text });
     set(field, text);
@@ -143,16 +154,17 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
 
   const suggestionList = (fieldName: "location" | "address") =>
     suggest?.field === fieldName && suggest.items.length > 0 ? (
-      <ul className="flex max-h-72 flex-col overflow-y-auto overscroll-contain rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+      <ul data-venue-suggest className="flex max-h-72 flex-col gap-0.5 overflow-y-auto overscroll-contain rounded-2xl bg-neutral-100 p-1 dark:bg-neutral-800">
         {suggest.items.map((item) => (
           <li key={item.key}>
-            <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={() => chooseVenue(item)} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
+            <button type="button" onClick={() => chooseVenue(item)} className="press flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950">
                 <Icon name={item.own ? venueIcon(item.type) : "map"} size={15} />
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="truncate font-medium">{item.name}</span>
-                {(item.address || item.lastOn) && <span className="truncate text-xs text-neutral-500">{[item.address, item.lastOn ? `last ${item.lastOn}` : null].filter(Boolean).join(" · ")}</span>}
+                {item.address && <span className="line-clamp-2 text-xs text-neutral-500">{item.address}</span>}
+                {item.lastOn && <span className="text-xs text-neutral-400">last {item.lastOn}</span>}
               </span>
             </button>
           </li>
@@ -240,7 +252,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
             <Icon name="chevronDown" size={13} />
           </button>
           <span aria-hidden className="h-5 w-px shrink-0 bg-neutral-300 dark:bg-neutral-600" />
-          <input className="h-full min-w-0 flex-1 bg-transparent px-4 text-base outline-none placeholder:text-sm" placeholder="Theatre, venue or place" value={draft.location} onKeyDown={keepAsTyped} onBlur={() => setSuggest(null)} onChange={(e) => typeVenue("location", e.target.value)} />
+          <input className="h-full min-w-0 flex-1 bg-transparent px-4 text-base outline-none placeholder:text-sm" data-venue-suggest placeholder="Theatre, venue or place" value={draft.location} onKeyDown={keepAsTyped} onChange={(e) => typeVenue("location", e.target.value)} />
           {typeMenu && (
             <>
               <button type="button" aria-label="Close" onClick={() => setTypeMenu(false)} className="fixed inset-0 z-30 cursor-default" />
@@ -262,7 +274,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       {suggestionList("location")}
       {/* Always shown under the venue: a venue is its name and its address together, which is how two homes stay apart. */}
       <Labeled label="Address">
-        <input className={field} placeholder="Street address" value={draft.address} onKeyDown={keepAsTyped} onBlur={() => setSuggest(null)} onChange={(e) => typeVenue("address", e.target.value)} />
+        <input className={field} data-venue-suggest placeholder="Street address" value={draft.address} onKeyDown={keepAsTyped} onChange={(e) => typeVenue("address", e.target.value)} />
       </Labeled>
       {suggestionList("address")}
 
