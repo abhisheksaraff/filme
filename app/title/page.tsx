@@ -31,6 +31,7 @@ import { scopeRank, type Cover } from "@/lib/domain/tv";
 import type { TitleCredits } from "@/lib/ports/browse";
 import type { TitleDetail } from "@/lib/ports/log";
 import { services } from "@/lib/services";
+import DoNotRecommend from "@/components/DoNotRecommend";
 
 const card = "flex flex-col gap-2 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900";
 const ROLE_LABEL: Record<string, string> = { actor: "Cast", director: "Director", producer: "Producer", writer: "Writer", creator: "Creator", performer: "Performers", opener: "Openers" };
@@ -217,6 +218,9 @@ function TitleView() {
             </section>
 
             {detail.tmdbId !== null && (detail.category === "Movie" || detail.category === "TV Show") && <MoreLikeThis kind={detail.category} tmdbId={detail.tmdbId} />}
+            {detail.tmdbId !== null && (detail.category === "Movie" || detail.category === "TV Show") && (
+              <DoNotRecommend title={{ category: detail.category, tmdbId: detail.tmdbId, title: detail.title, posterPath: detail.posterPath }} />
+            )}
 
             <h2 className="font-serif text-xl">Your viewings</h2>
             <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">

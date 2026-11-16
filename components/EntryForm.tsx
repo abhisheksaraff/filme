@@ -81,7 +81,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => onChange({ ...draft, [key]: value });
   // Rarely used fields stay tucked away unless they already hold something.
   const [more, setMore] = useState(
-    () => !!(draft.address || draft.auditorium || draft.totalTickets || draft.notes || draft.seats.length || draft.addons.length),
+    () => !!(draft.auditorium || draft.totalTickets || draft.notes || draft.seats.length || draft.addons.length),
   );
   const [suggest, setSuggest] = useState<{ field: "location" | "address"; items: VenueSuggestion[] } | null>(null);
   const [typed, setTyped] = useState<{ field: "location" | "address"; text: string } | null>(null);
@@ -146,7 +146,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       <ul className="flex max-h-72 flex-col overflow-y-auto overscroll-contain rounded-2xl bg-neutral-100 dark:bg-neutral-800">
         {suggest.items.map((item) => (
           <li key={item.key}>
-            <button type="button" onClick={() => chooseVenue(item)} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
+            <button type="button" onPointerDown={(e) => e.preventDefault()} onClick={() => chooseVenue(item)} className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950">
                 <Icon name={item.own ? venueIcon(item.type) : "map"} size={15} />
               </span>
@@ -240,7 +240,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
             <Icon name="chevronDown" size={13} />
           </button>
           <span aria-hidden className="h-5 w-px shrink-0 bg-neutral-300 dark:bg-neutral-600" />
-          <input className="h-full min-w-0 flex-1 bg-transparent px-4 text-base outline-none placeholder:text-sm" placeholder="Theatre, venue or place" value={draft.location} onKeyDown={keepAsTyped} onChange={(e) => typeVenue("location", e.target.value)} />
+          <input className="h-full min-w-0 flex-1 bg-transparent px-4 text-base outline-none placeholder:text-sm" placeholder="Theatre, venue or place" value={draft.location} onKeyDown={keepAsTyped} onBlur={() => setSuggest(null)} onChange={(e) => typeVenue("location", e.target.value)} />
           {typeMenu && (
             <>
               <button type="button" aria-label="Close" onClick={() => setTypeMenu(false)} className="fixed inset-0 z-30 cursor-default" />
@@ -260,6 +260,11 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
         </div>
       </div>
       {suggestionList("location")}
+      {/* Always shown under the venue: a venue is its name and its address together, which is how two homes stay apart. */}
+      <Labeled label="Address">
+        <input className={field} placeholder="Street address" value={draft.address} onKeyDown={keepAsTyped} onBlur={() => setSuggest(null)} onChange={(e) => typeVenue("address", e.target.value)} />
+      </Labeled>
+      {suggestionList("address")}
 
       {/* Each on its own row: a phone draws date fields wider than their box and they overlapped the rating. */}
       <Labeled label="When">
@@ -311,10 +316,6 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
 
       {more && (
         <>
-          <Labeled label="Address">
-            <input className={field} placeholder="Street address" value={draft.address} onKeyDown={keepAsTyped} onChange={(e) => typeVenue("address", e.target.value)} />
-          </Labeled>
-          {suggestionList("address")}
           <Labeled label="Screen or hall">
             <input className={field} placeholder="Screen or hall, such as Screen 4" value={draft.auditorium} onChange={(e) => void typeScreen(e.target.value)} />
           </Labeled>

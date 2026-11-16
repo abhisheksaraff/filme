@@ -1,16 +1,12 @@
 // components/ShowSection.tsx
-// A show's page body: progress, what to watch next (with a New tag), its seasons, and following for new episodes.
+// A show's page body: progress, what to watch next (with a New tag) and its seasons.
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import SeasonTiles from "@/components/SeasonTiles";
-import { toast } from "@/components/Toast";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import { isFollowing, isNewSince, progressOf, watchedWithinYear, type Cover, type EpisodeKey } from "@/lib/domain/tv";
+import { isNewSince, progressOf, type Cover, type EpisodeKey } from "@/lib/domain/tv";
 import type { ShowData } from "@/lib/logShow";
-import type { FollowMode } from "@/lib/ports/follows";
-import { services } from "@/lib/services";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -21,35 +17,12 @@ interface Props {
 }
 
 export default function ShowSection({ mediaId, data, covers }: Props) {
-  const [mode, setMode] = useState<FollowMode | null | undefined>(undefined);
-
-  useEffect(() => {
-    let cancelled = false;
-    services.follows.mode(mediaId).then((res) => !cancelled && res.ok && setMode(res.value));
-    return () => {
-      cancelled = true;
-    };
-  }, [mediaId]);
-
   if (!data) return <div className="skeleton h-32 rounded-2xl" />;
 
   const keys: EpisodeKey[] = data.seasons.flatMap((s) => s.episodes.map((e) => ({ season: e.season, episode: e.episode, airDate: e.airDate })));
   const progress = progressOf(covers, keys, today());
   const nextEp = progress.next ? data.seasons.flatMap((s) => s.episodes).find((e) => e.season === progress.next?.season && e.episode === progress.next?.episode) : null;
   const upcoming = data.status.next;
-  const recent = watchedWithinYear(covers, new Date());
-  const following = isFollowing({ mode: mode ?? null, recent, running: data.status.running });
-
-  async function toggleFollow() {
-    const next: FollowMode = following ? "off" : "on";
-    setMode(next);
-    const res = await services.follows.set(mediaId, next);
-    if (!res.ok) {
-      setMode(mode);
-      return toast(res.error);
-    }
-    toast(next === "on" ? "Following for new episodes" : "Unfollowed");
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -57,9 +30,6 @@ export default function ShowSection({ mediaId, data, covers }: Props) {
         <div className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between text-sm">
             <span>{progress.watched} of {progress.aired} episodes watched</span>
-            <button type="button" onClick={toggleFollow} aria-pressed={following} className={`rounded-full border px-3 py-1 text-xs ${following ? "border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-neutral-950" : "border-neutral-300 dark:border-neutral-700"}`}>
-              {following ? "Following" : "Follow"}
-            </button>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
             <div className="h-full rounded-full bg-neutral-950 dark:bg-white" style={{ width: `${(progress.watched / progress.aired) * 100}%` }} />

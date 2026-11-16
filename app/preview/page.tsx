@@ -7,7 +7,6 @@ import { toast } from "@/components/Toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { ConfirmPopup } from "@/components/Popup";
 import WhenPopup from "@/components/WhenPopup";
 import PersonCircle from "@/components/PersonCircle";
 import SeasonTiles from "@/components/SeasonTiles";
@@ -17,7 +16,6 @@ import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
 import TmdbPicturesViewer from "@/components/TmdbPicturesViewer";
 import { handoffFor } from "@/lib/handoff";
-import { clearHomeCache } from "@/lib/home/rows";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { useShowData } from "@/hooks/useShowData";
@@ -28,6 +26,7 @@ import type { CatalogDetails, CatalogKind } from "@/lib/ports/catalog";
 import type { TitleLinks } from "@/lib/ports/ratings";
 import type { TitleStatus } from "@/lib/ports/wanted";
 import { services } from "@/lib/services";
+import DoNotRecommend from "@/components/DoNotRecommend";
 
 const ROLES: [string, string][] = [["actor", "Cast"], ["director", "Director"], ["creator", "Creator"], ["producer", "Producer"], ["writer", "Writer"]];
 
@@ -43,9 +42,6 @@ function PreviewView() {
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [links, setLinks] = useState<TitleLinks | null>(null);
-  // "Not interested": null while unknown, then whether this title is already hidden from Home.
-  const [hidden, setHidden] = useState<boolean | null>(null);
-  const [confirmHide, setConfirmHide] = useState(false);
   const [last, setLast] = useState<LastViewing | null>(null);
   const [menu, setMenu] = useState(false);
   // Which kind of picture the viewer is showing, if it is open.
@@ -65,7 +61,6 @@ function PreviewView() {
         setStatus(s.value);
         if (s.value.mediaId && s.value.logged) services.log.lastViewing(s.value.mediaId).then((l) => !cancelled && l.ok && setLast(l.value));
       }
-      services.hidden.list().then((h) => !cancelled && h.ok && setHidden(h.value.some((t) => t.category === kind && t.tmdbId === id)));
       if (d.ok) {
         services.ratings
           .forTitle({ mediaId: s.ok ? s.value.mediaId : null, kind, tmdbId: id, known: { imdbId: d.value.imdbId, tmdbRating: d.value.voteAverage } })
@@ -97,20 +92,6 @@ function PreviewView() {
       else setProblem(res.error);
     }
     setBusy(false);
-  }
-
-  async function hideTitle() {
-    if (!details) return;
-    setBusy(true);
-    const res = await services.hidden.hide({ category: details.category, tmdbId: details.tmdbId, title: details.title, posterPath: details.posterPath });
-    setBusy(false);
-    setConfirmHide(false);
-    if (!res.ok) return setProblem(res.error);
-    // Rows already on screen are rebuilt without it the next time Home opens.
-    clearHomeCache();
-    toast("Hidden from recommendations");
-    if (window.history.length > 1) router.back();
-    else router.push("/home/");
   }
 
   /** From the + on a show: the whole series or a season, today, on a chosen date, or with no date. */
@@ -202,16 +183,8 @@ function PreviewView() {
 
             <MoreLikeThis kind={details.category === "TV Show" ? "TV Show" : "Movie"} tmdbId={details.tmdbId} />
 
-            {/* Only for titles you have not logged: a way to stop them coming up on Home. */}
-            {status && !status.logged && hidden !== null && (
-              hidden ? (
-                <p className="self-center py-2 text-sm text-neutral-500">Hidden from recommendations.</p>
-              ) : (
-                <button type="button" onClick={() => setConfirmHide(true)} className="self-center py-2 text-sm text-neutral-500">
-                  Not interested
-                </button>
-              )
-            )}
+            {/* Keeps it out of Home's recommendations; shown on every movie and show page so its state is always visible. */}
+            <DoNotRecommend title={{ category: details.category === "TV Show" ? "TV Show" : "Movie", tmdbId: details.tmdbId, title: details.title, posterPath: details.posterPath }} />
           </div>
         )}
       </div>
@@ -238,16 +211,6 @@ function PreviewView() {
         />
       )}
 
-      {confirmHide && (
-        <ConfirmPopup
-          title="Not interested in this?"
-          message="It will be hidden from your Home recommendations. You can undo this under Profile, Not interested."
-          confirmLabel="Hide" confirmIcon="close"
-          busy={busy}
-          onConfirm={hideTitle}
-          onCancel={() => setConfirmHide(false)}
-        />
-      )}
     </main>
   );
 }

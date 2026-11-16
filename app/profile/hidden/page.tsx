@@ -1,5 +1,5 @@
 // app/profile/hidden/page.tsx
-// Titles marked "Not interested", with a way to bring each one back into Home's recommendations.
+// Titles marked "Do not recommend", with a way to bring each one back into Home's recommendations.
 "use client";
 
 import { keepIfSame } from "@/lib/same";
@@ -55,7 +55,7 @@ export default function HiddenPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-6">
-      <h1 className="font-serif text-3xl tracking-tight">Not interested</h1>
+      <h1 className="font-serif text-3xl tracking-tight">Do not recommend</h1>
       <p className="text-sm text-neutral-500">These stay out of your Home recommendations. Search still finds them.</p>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {!titles && !problem && <div className="skeleton h-40 rounded-2xl" />}

@@ -235,3 +235,9 @@ input, textarea, [contenteditable="true"] {
 @keyframes story-col-down { from { transform: translateY(-50%); } to { transform: translateY(0); } }
 @keyframes story-spin { to { transform: rotate(360deg); } }
 .story-spin { animation: story-spin linear infinite; }
+
+/* Dropdowns read at hint size, so their choices ("Any type", "Choose a format") fit their pill instead of being cut off. */
+select {
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+}

@@ -63,8 +63,9 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "filmè", statusBarStyle: "default" },
 };
 
-// viewport-fit=cover lets the bottom bar sit above the iPhone's home indicator.
-export const viewport: Viewport = { viewportFit: "cover", width: "device-width", initialScale: 1 };
+// viewport-fit=cover lets the bottom bar sit above the iPhone's home indicator. maximumScale stops Safari zooming in when a
+// field or dropdown is tapped (so dropdowns can use smaller text); pinching to zoom still works on iPhone.
+export const viewport: Viewport = { viewportFit: "cover", width: "device-width", initialScale: 1, maximumScale: 1 };
 
 // Runs before the page paints so a dark phone does not flash white. It only reads the saved look.
 const themeScript = `try{var a=JSON.parse(localStorage.getItem("filme-appearance")||"{}");var d=a.themeMode==="dark"||(a.themeMode!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d)}catch(e){}`;
