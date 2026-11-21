@@ -8,7 +8,7 @@ import { hasMoreAfter, placeIn } from "@/lib/domain/tv";
 import type { Reset } from "@/lib/domain/passes";
 import type { ShowData } from "@/lib/logShow";
 import type { ViewingSummary } from "@/lib/ports/log";
-import type { StackEdit } from "@/lib/ports/passes";
+import type { Completion, StackEdit } from "@/lib/ports/passes";
 import { buildPasses, type ShowPasses } from "@/lib/showPasses";
 import { services } from "@/lib/services";
 
@@ -17,6 +17,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 export interface ShowPassState {
   passes: ShowPasses | null;
   edits: StackEdit[];
+  completions: Completion[];
   /** True while the show is on Home's Continue watching; progress rings only show then. */
   inContinue: boolean;
   /** Empties the rewatch in progress for a season (or the series when null). */
@@ -27,6 +28,7 @@ export interface ShowPassState {
 export function useShowPasses(mediaId: string | null, viewings: readonly ViewingSummary[], data: ShowData | null): ShowPassState {
   const [resets, setResets] = useState<Reset[]>([]);
   const [edits, setEdits] = useState<StackEdit[]>([]);
+  const [completions, setCompletions] = useState<Completion[]>([]);
   const [inContinue, setInContinue] = useState(false);
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion((n) => n + 1), []);
@@ -34,10 +36,11 @@ export function useShowPasses(mediaId: string | null, viewings: readonly Viewing
   useEffect(() => {
     if (!mediaId) return;
     let cancelled = false;
-    Promise.all([services.passes.resets(mediaId), services.passes.edits(mediaId), services.follows.tracked()]).then(([r, e, t]) => {
+    Promise.all([services.passes.resets(mediaId), services.passes.edits(mediaId), services.follows.tracked(), services.passes.completions()]).then(([r, e, t, c]) => {
       if (cancelled) return;
       if (r.ok) setResets(r.value);
       if (e.ok) setEdits(e.value);
+      if (c.ok) setCompletions(c.value.filter((x) => x.mediaId === mediaId));
       setInContinue(false);
       if (t.ok && data) {
         const mine = t.value.find((s) => s.mediaId === mediaId);
@@ -63,5 +66,5 @@ export function useShowPasses(mediaId: string | null, viewings: readonly Viewing
     [mediaId, refresh],
   );
 
-  return { passes, edits, inContinue, reset, refresh };
+  return { passes, edits, completions, inContinue, reset, refresh };
 }

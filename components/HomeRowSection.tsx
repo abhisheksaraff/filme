@@ -78,7 +78,7 @@ export default function HomeRowSection({ rowId, nonce, eager, mayFold, onSettled
   // Takes a Continue watching poster off Home: saved first, then dropped from what is on screen without reloading the row.
   const remove = useCallback(async (item: RowItem): Promise<string | null> => {
     if (!item.removable) return null;
-    const res = await services.follows.removeFromContinue(item.removable.mediaId, item.removable.addedAt);
+    const res = item.removable.collectionId !== undefined ? await services.passes.hideCollection(item.removable.collectionId, item.removable.addedAt) : await services.follows.removeFromContinue(item.removable.mediaId, item.removable.addedAt);
     if (!res.ok) return res.error;
     forgetRow(rowId);
     setLoaded((now) => (now && now.res.ok ? { key: now.key, res: ok({ ...now.res.value, items: now.res.value.items.filter((i) => i.key !== item.key) }) } : now));
@@ -95,7 +95,7 @@ export default function HomeRowSection({ rowId, nonce, eager, mayFold, onSettled
   // A row with nothing to show (or that failed) is left out, but only once the rows above it have settled.
   if (empty && mayFold) return null;
 
-  const label = HOME_ROWS.find((row) => row.id === rowId)?.label ?? (rowId.startsWith("holiday:") ? "Holiday picks" : "");
+  const label = HOME_ROWS.find((row) => row.id === rowId.split(":")[0])?.label ?? (rowId.startsWith("holiday:") ? "Holiday picks" : "");
   const shown = done?.ok && !empty ? done.value : null;
 
   return (

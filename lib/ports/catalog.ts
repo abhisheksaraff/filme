@@ -37,6 +37,19 @@ export interface CatalogDetails {
   backdropPath: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
+  /** For movies: the collection (trilogy, franchise) it belongs to, or null. */
+  collection?: { id: number; name: string } | null;
+}
+
+/** A movie collection with every film in it. */
+export interface CollectionDetail {
+  id: number;
+  name: string;
+  overview: string | null;
+  posterPath: string | null;
+  backdropPath: string | null;
+  /** In release order; films with no date yet last. */
+  parts: { tmdbId: number; title: string; releaseDate: string | null; posterPath: string | null }[];
 }
 
 /** One search result: enough to show a pick-list and to fetch the full details. */
@@ -193,4 +206,8 @@ export interface Catalog {
   /** Films in cinemas now, or opening soon, in a country. */
   theatres(when: "now" | "soon", region: string): Promise<Result<CatalogHit[]>>;
   details(match: CatalogMatch): Promise<Result<CatalogDetails>>;
+  /** Collections whose name fits the text, for discovery. */
+  searchCollections(query: string, page?: number): Promise<Result<{ id: number; name: string; posterPath: string | null }[]>>;
+  /** A TMDB movie collection with its films, in release order. */
+  collection(id: number): Promise<Result<CollectionDetail>>;
 }

@@ -14,6 +14,8 @@ import { checkNewEpisodes, continueCandidates } from "@/lib/shows";
 import { hasMoreAfter, isNewSince, placeIn, withShow } from "@/lib/domain/tv";
 import type { TrackedShow } from "@/lib/ports/follows";
 import { showKey } from "@/lib/ports/progress";
+import { loadCollection } from "@/lib/collections";
+import type { CollectionDetail } from "@/lib/ports/catalog";
 import { normalize } from "@/lib/domain/search";
 
 export interface RowItem {
@@ -25,7 +27,7 @@ export interface RowItem {
   /** For a show partly watched: how far into it you are, from 0 to 1, drawn as a ring on its poster. */
   progress?: number;
   /** Set on a Continue watching poster: what taking it off Home needs. */
-  removable?: { mediaId: string; addedAt: string };
+  removable?: { mediaId: string; addedAt: string; collectionId?: number };
 }
 
 export interface RowResult {
@@ -92,6 +94,7 @@ export function clearHomeCache(): void {
   resolved.clear();
   clearStored("row:");
   usedSurprises.clear();
+  collectionPools.clear();
 }
 
 export function seenKey(kind: CatalogKind, tmdbId: number): string {
@@ -276,7 +279,125 @@ async function continueRow(): Promise<Result<RowResult>> {
       removable: { mediaId: show.mediaId, addedAt: latest.addedAt },
     });
   }
+  items.push(...(await collectionItems()));
   return ok({ title: "Continue watching", items, empty: "You are caught up on everything you started." });
+}
+
+/**
+ * Movie collections partly watched: the next film you have not seen yet, with "Continue" and the collection's name under it,
+ * and a ring for how far through you are. Taken off Home the same way as a show.
+ */
+async function collectionItems(): Promise<RowItem[]> {
+  const [seen, hiddenAt, noRec] = await Promise.all([services.passes.collectionsSeen(), services.passes.hiddenCollections(), services.passes.hiddenCollectionIds()]);
+  if (!seen.ok) return [];
+  const loaded = await Promise.all(seen.value.slice(0, 12).map((c) => loadCollection(c.collectionId)));
+  const out: RowItem[] = [];
+  for (const res of loaded) {
+    if (!res.ok) continue;
+    const { detail, passes, next, viewings } = res.value;
+    if (!next || passes.seen === 0 || passes.seen >= passes.total || (noRec.ok && noRec.value.has(detail.id))) continue;
+    const inPass = new Set(passes.events.map((e) => e.viewingId));
+    const latest = viewings.filter((v) => inPass.has(v.id)).map((v) => v.addedAt).sort().at(-1);
+    if (!latest) continue;
+    const removedAt = hiddenAt.ok ? hiddenAt.value.get(detail.id) : undefined;
+    if (removedAt && Date.parse(latest) <= Date.parse(removedAt)) continue;
+    out.push({
+      key: `collection:${detail.id}`,
+      title: detail.name,
+      subtitle: `${passes.seen} of ${passes.total} watched`,
+      posterUrl: tmdbImageUrl(detail.posterPath ?? next.posterPath, "w342"),
+      href: `/collection/?id=${detail.id}`,
+      progress: passes.seen / passes.total,
+      removable: { mediaId: "", addedAt: latest, collectionId: detail.id },
+    });
+  }
+  return out;
+}
+
+// ---- Collection rows: a few collections at a time, each listing the films you have not seen.
+
+interface CollectionPick {
+  detail: CollectionDetail;
+  /** Films out already and not seen yet, in release order. */
+  films: CollectionDetail["parts"];
+  subtitle: string;
+}
+
+/** The collections picked for this visit to Home, kept so the three rows show three different ones. */
+const collectionPools = new Map<"mine" | "new", Promise<CollectionPick[]>>();
+
+const released = (p: CollectionDetail["parts"][number]) => !!p.releaseDate && p.releaseDate <= new Date().toISOString().slice(0, 10);
+
+/** Words to search collection names with, so discovery turns up franchises from anywhere and any era. */
+const COLLECTION_WORDS = ["man", "night", "love", "war", "king", "dark", "story", "la", "der", "il", "no", "dragon", "black", "red", "city", "last", "return", "blood", "road", "girl", "ghost", "super", "mission", "day", "dead", "star", "toy", "kung", "ring"];
+
+async function minePool(): Promise<CollectionPick[]> {
+  const [seenCollections, noRec, hiddenFilms] = await Promise.all([services.passes.collectionsSeen(), services.passes.hiddenCollectionIds(), hiddenKeys()]);
+  if (!seenCollections.ok) return [];
+  const skipFilm = new Set(hiddenFilms);
+  const loaded = await Promise.all(shuffle(seenCollections.value).slice(0, 15).map((c) => loadCollection(c.collectionId)));
+  const picks: CollectionPick[] = [];
+  for (const res of loaded) {
+    if (!res.ok) continue;
+    const { detail, passes } = res.value;
+    if ((noRec.ok && noRec.value.has(detail.id)) || detail.parts.filter(released).length < 2 || passes.seen === 0) continue;
+    const have = new Set(passes.events.map((e) => e.episode));
+    const films = detail.parts.filter((p) => released(p) && !have.has(p.tmdbId) && !skipFilm.has(seenKey("Movie", p.tmdbId)));
+    if (films.length > 0) picks.push({ detail, films, subtitle: `${passes.seen} of ${passes.total} watched` });
+  }
+  return picks;
+}
+
+async function newPool(): Promise<CollectionPick[]> {
+  const [seenCollections, noRec, seenFilms, hiddenFilms, favourites] = await Promise.all([
+    services.passes.collectionsSeen(),
+    services.passes.hiddenCollectionIds(),
+    services.log.seen(),
+    hiddenKeys(),
+    services.log.favourites(3),
+  ]);
+  const started = new Set(seenCollections.ok ? seenCollections.value.map((c) => c.collectionId) : []);
+  const skipFilm = new Set([...(seenFilms.ok ? seenFilms.value : []), ...hiddenFilms]);
+
+  // Following your taste: the collections that films recommended from your favourites belong to.
+  const tasteIds: number[] = [];
+  if (favourites.ok) {
+    const lists = await Promise.all(favourites.value.filter((m) => m.kind === "Movie").map((m) => services.catalog.recommendations(m)));
+    const hits = shuffle(lists.flatMap((l) => (l.ok ? l.value : []))).filter((h) => h.kind === "Movie").slice(0, 12);
+    const details = await Promise.all(hits.map((h) => services.catalog.details({ tmdbId: h.tmdbId, kind: "Movie" })));
+    for (const d of details) if (d.ok && d.value.collection) tasteIds.push(d.value.collection.id);
+  }
+  // Pure chance: collections named like a few random words, from any country and decade.
+  const found = await Promise.all(shuffle(COLLECTION_WORDS).slice(0, 4).map((w) => services.catalog.searchCollections(w, randomPage(3))));
+  const randomIds = shuffle(found.flatMap((r) => (r.ok ? r.value : []))).map((c) => c.id);
+
+  const ids = [...new Set(interleave(shuffle(tasteIds), randomIds))].filter((id) => !started.has(id) && !(noRec.ok && noRec.value.has(id))).slice(0, 14);
+  const details = await Promise.all(ids.map((id) => services.catalog.collection(id)));
+  const picks: CollectionPick[] = [];
+  for (const res of details) {
+    if (!res.ok) continue;
+    const out = res.value.parts.filter(released);
+    const films = out.filter((p) => !skipFilm.has(seenKey("Movie", p.tmdbId)));
+    // Two films out at least, and something left to see.
+    if (out.length >= 2 && films.length > 0) picks.push({ detail: res.value, films, subtitle: `${out.length} films` });
+  }
+  return picks;
+}
+
+async function collectionRow(kind: "mine" | "new", n: number): Promise<Result<RowResult>> {
+  let pool = collectionPools.get(kind);
+  if (!pool) {
+    pool = kind === "mine" ? minePool() : newPool();
+    collectionPools.set(kind, pool);
+  }
+  const pick = (await pool)[n];
+  if (!pick) return ok({ title: "", items: [], empty: "" });
+  return ok({
+    title: pick.detail.name,
+    subtitle: pick.subtitle,
+    empty: "",
+    items: pick.films.map((f) => ({ key: `film:${pick.detail.id}:${f.tmdbId}`, title: f.title, subtitle: f.releaseDate?.slice(0, 4) ?? null, posterUrl: tmdbImageUrl(f.posterPath, "w342"), href: previewHref("Movie", f.tmdbId) })),
+  });
 }
 
 async function favouritesRow(): Promise<Result<RowResult>> {
@@ -518,6 +639,8 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id === "like-movie") return likeRow("Movie");
     if (id === "like-tv") return likeRow("TV Show");
     if (id === "continue") return continueRow();
+    if (id.startsWith("collections-mine:")) return collectionRow("mine", Number(id.split(":")[1]));
+    if (id.startsWith("collections-new:")) return collectionRow("new", Number(id.split(":")[1]));
     if (id === "want") return wantRow();
     if (id === "want-pick") return wantPickRow();
     if (id === "because-saved") return becauseSavedRow();

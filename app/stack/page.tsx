@@ -16,6 +16,9 @@ import { viewingIdsOf, type StackNode } from "@/lib/domain/passes";
 import type { LogEntry } from "@/lib/domain/entry";
 import { loadSeasons } from "@/lib/logShow";
 import type { StackFields } from "@/lib/ports/passes";
+import SessionPicturesEditor from "@/components/SessionPicturesEditor";
+import { loadCollection } from "@/lib/collections";
+import type { Completion, Subject } from "@/lib/ports/passes";
 import { services } from "@/lib/services";
 import { buildPasses, findStack } from "@/lib/showPasses";
 
@@ -29,8 +32,12 @@ function StackEditView() {
   const params = useSearchParams();
   const mediaId = params.get("id");
   const sParam = params.get("s");
-  const season = sParam === "show" ? null : Number(sParam);
+  // A movie collection's card is opened with c (its TMDB id); its films stand in for a season, number 1.
+  const cParam = Number(params.get("c")) || null;
+  const season = cParam !== null ? 1 : sParam === "show" ? null : Number(sParam);
   const passKey = params.get("k");
+  const subject: Subject | null = cParam !== null ? { collectionId: cParam } : mediaId;
+  const [comp, setComp] = useState<Completion | null>(null);
 
   const [node, setNode] = useState<StackNode | null>(null);
   const [title, setTitle] = useState("");
@@ -42,9 +49,31 @@ function StackEditView() {
   const [ask, setAsk] = useState<Ask>(null);
 
   useEffect(() => {
-    if (!ready || !mediaId || !passKey) return;
+    if (!ready || (!mediaId && cParam === null) || !passKey) return;
     let cancelled = false;
     (async () => {
+      if (cParam !== null) {
+        const res = await loadCollection(cParam);
+        if (cancelled) return;
+        if (!res.ok) return setProblem(res.error);
+        const found = findStack(res.value.stacks, 1, passKey);
+        if (!found) return setProblem("This card is no longer there.");
+        const base = await services.log.getViewing(found.last.viewingId);
+        if (cancelled) return;
+        if (!base.ok) return setProblem(base.error);
+        const saved = res.value.edits.find((e) => e.season === 1 && e.passKey === passKey)?.fields;
+        const { venueId: _a, venueLatitude: _b, venueLongitude: _c, ...own } = saved ?? {};
+        void _a; void _b; void _c;
+        setTitle(res.value.detail.name);
+        setNode(found);
+        setOriginal(base.value.entry);
+        setDraft({ ...draftFromEntry({ ...base.value.entry, ...own }), season: "", episode: "" });
+        setEpisodeIds(viewingIdsOf(found));
+        const row = await services.passes.completion({ collectionId: cParam }, 1, passKey);
+        if (!cancelled && row.ok) setComp(row.value);
+        return;
+      }
+      if (!mediaId) return;
       const detail = await services.log.titleDetail(mediaId);
       if (cancelled) return;
       if (!detail.ok || detail.value.tmdbId === null) return setProblem(detail.ok ? "This show has no catalogue page." : detail.error);
@@ -67,15 +96,17 @@ function StackEditView() {
       setDraft({ ...draftFromEntry({ ...entry, ...own }), season: season === null ? "" : String(season), episode: "" });
       const scopes = new Map(detail.value.viewings.map((v) => [v.id, v.scope] as const));
       setEpisodeIds(viewingIdsOf(found).filter((id) => scopes.get(id) === "episode"));
+      const row = await services.passes.completion(mediaId, season, passKey);
+      if (!cancelled && row.ok) setComp(row.value);
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, mediaId, passKey, season]);
+  }, [ready, mediaId, cParam, passKey, season]);
 
   function leave() {
     if (window.history.length > 1) router.back();
-    else router.replace(mediaId ? `/title/?id=${mediaId}` : "/watchlist/");
+    else router.replace(mediaId ? `/title/?id=${mediaId}` : cParam !== null ? `/collection/?id=${cParam}` : "/watchlist/");
   }
 
   function onSubmit(e: FormEvent) {
@@ -85,7 +116,7 @@ function StackEditView() {
 
   /** Keeps only what differs from the last episode, so everything else keeps mirroring it. */
   async function onSave() {
-    if (!mediaId || !passKey || !draft || !original) return;
+    if (!subject || !passKey || !draft || !original) return;
     const entry = entryFromDraft(draft, null);
     if (!entry.ok) return setProblem(entry.error);
     const next = entry.value;
@@ -115,16 +146,16 @@ function StackEditView() {
     if (!same(next.notes, original.notes)) fields.notes = next.notes;
 
     setBusy(true);
-    const res = Object.keys(fields).length === 0 ? await services.passes.clearEdit(mediaId, season, passKey) : await services.passes.saveEdit(mediaId, season, passKey, fields);
+    const res = Object.keys(fields).length === 0 ? await services.passes.clearEdit(subject, season, passKey) : await services.passes.saveEdit(subject, season, passKey, fields);
     setBusy(false);
     if (!res.ok) return setProblem(res.error);
     leave();
   }
 
   async function onReset() {
-    if (!mediaId || !passKey) return;
+    if (!subject || !passKey) return;
     setBusy(true);
-    const res = await services.passes.clearEdit(mediaId, season, passKey);
+    const res = await services.passes.clearEdit(subject, season, passKey);
     setBusy(false);
     if (!res.ok) return setProblem(res.error);
     leave();
@@ -132,7 +163,7 @@ function StackEditView() {
 
   /** Deletes every episode viewing in this pass; they wait in Recently deleted for 24 hours. */
   async function onDelete() {
-    if (!mediaId || !passKey) return;
+    if (!subject || !passKey) return;
     setBusy(true);
     for (const id of episodeIds) {
       const res = await services.log.deleteViewing(id);
@@ -142,14 +173,14 @@ function StackEditView() {
         return setProblem(res.error);
       }
     }
-    await services.passes.clearEdit(mediaId, season, passKey);
+    await services.passes.clearEdit(subject, season, passKey);
     setBusy(false);
     router.replace("/watchlist/");
   }
 
   if (!ready) return null;
-  if (!mediaId || !passKey) return <main className="p-6 text-sm">No card selected.</main>;
-  const label = season === null ? "Series completed" : `Season ${season} completed`;
+  if ((!mediaId && cParam === null) || !passKey) return <main className="p-6 text-sm">No card selected.</main>;
+  const label = cParam !== null ? "Collection completed" : season === null ? "Series completed" : `Season ${season} completed`;
 
   return (
     <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 py-8">
@@ -164,6 +195,7 @@ function StackEditView() {
         <form onSubmit={onSubmit} className="flex flex-col gap-5">
           <p className="text-sm text-neutral-500">This card copies the last episode you watched. Anything you change here stays as you set it.</p>
           <EntryForm draft={draft} onChange={setDraft} disabled={busy} lockTitle hideScope />
+          {comp && <SessionPicturesEditor sessionId={node.last.viewingId} completion={{ id: comp.id, own: comp.ownPictures }} />}
           <button type="submit" disabled={busy} className="rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
             Save changes
           </button>
@@ -182,7 +214,7 @@ function StackEditView() {
       {ask === "cancel" && <ConfirmPopup title="Discard your changes?" message="Your edits won't be saved." confirmLabel="Discard" confirmIcon="trash" onConfirm={() => { setAsk(null); leave(); }} onCancel={() => setAsk(null)} />}
       {ask === "reset" && <ConfirmPopup title="Go back to automatic?" message="The card will copy the last episode again, and your changes are removed." confirmLabel="Reset" confirmIcon="refresh" busy={busy} onConfirm={() => { setAsk(null); void onReset(); }} onCancel={() => setAsk(null)} />}
       {ask === "delete" && (
-        <ConfirmPopup title="Delete this card?" message={`This also deletes the ${episodeIds.length} ${episodeIds.length === 1 ? "episode" : "episodes"} watched in it. You can restore them from Watched for 24 hours.`}
+        <ConfirmPopup title="Delete this card?" message={`This also deletes the ${episodeIds.length} ${cParam !== null ? (episodeIds.length === 1 ? "film" : "films") : episodeIds.length === 1 ? "episode" : "episodes"} watched in it. You can restore them from Watched for 24 hours.`}
           confirmLabel="Delete" confirmIcon="trash" busy={busy} onConfirm={() => void onDelete()} onCancel={() => setAsk(null)} />
       )}
     </main>

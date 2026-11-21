@@ -36,7 +36,7 @@ export interface Pass {
   index: number;
   /** The episodes seen, oldest first, repeats kept. */
   events: PassEvent[];
-  /** True when a season or series was logged whole to finish it: no stack then. */
+  /** True when one viewing logged the whole season or series: no stack then. */
   whole: boolean;
   last: PassEvent;
 }
@@ -102,7 +102,8 @@ export function computePasses(viewings: readonly PassViewing[], episodes: readon
     have.add(key(ev.season, ev.episode));
     const required = aired.filter((e) => airedBy(e.airDate, ev.date));
     if (required.length > 0 && required.every((e) => have.has(key(e.season, e.episode)))) {
-      passes.push({ index: passes.length, events: cur, whole: ev.scope !== "episode", last: ev });
+      // Finished by one viewing alone (the whole series or a whole season logged at once): there is nothing to stack.
+      passes.push({ index: passes.length, events: cur, whole: new Set(cur.map((e) => e.viewingId)).size === 1 && ev.scope !== "episode", last: ev });
       cur = [];
       have = new Set();
     }
@@ -144,13 +145,22 @@ export interface StackNode {
   /** The last episode seen, whose details the card mirrors. */
   last: PassEvent;
   items: StackItem[];
-  /** False for a season card nested in a series card, which is derived and cannot be edited on its own. */
+  /** A season card inside a series card is edited like any season card; they share edits when they are the same pass. */
   editable: boolean;
 }
 export type StackItem = { type: "viewing"; viewingId: string } | { type: "stack"; node: StackNode };
 
-/** Every viewing in an episode pass, in order. */
-const viewingItems = (events: readonly PassEvent[]): StackItem[] => events.filter((e) => e.scope === "episode").map((e) => ({ type: "viewing", viewingId: e.viewingId }));
+/** Every distinct viewing in a pass, in order; an episode watched again is another viewing, so it stays. */
+const viewingItems = (events: readonly PassEvent[]): StackItem[] => {
+  const seen = new Set<string>();
+  const items: StackItem[] = [];
+  for (const e of events) {
+    if (seen.has(e.viewingId)) continue;
+    seen.add(e.viewingId);
+    items.push({ type: "viewing", viewingId: e.viewingId });
+  }
+  return items;
+};
 
 /** The completion cards of a season (`season` given) or the series (null), none for passes finished by logging the whole thing. */
 export function stacksOf(passes: readonly Pass[], season: number | null): StackNode[] {
@@ -173,7 +183,7 @@ export function stacksOf(passes: readonly Pass[], season: number | null): StackN
         const whole = group[group.length - 1].viewingId;
         if (!items.some((i) => i.type === "viewing" && i.viewingId === whole)) items.push({ type: "viewing", viewingId: whole });
       } else {
-        items.push({ type: "stack", node: { id: `${id}-s${s}`, season: s, passKey: eps[0].viewingId, last: eps[eps.length - 1], items: viewingItems(eps), editable: false } });
+        items.push({ type: "stack", node: { id: `${id}-s${s}`, season: s, passKey: eps[0].viewingId, last: eps[eps.length - 1], items: viewingItems(eps), editable: true } });
       }
     }
     out.push({ id, season: null, passKey: first, last: pass.last, items, editable: true });

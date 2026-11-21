@@ -11,7 +11,7 @@ export interface StoredImage {
 }
 
 /** Whose image it is: a viewing's own, or a title's. */
-export type ImageOwner = { sessionId: string } | { mediaId: string };
+export type ImageOwner = { sessionId: string } | { mediaId: string } | { completionId: string };
 
 export type ImageKind = "ticket" | "photo" | "poster" | "backdrop";
 

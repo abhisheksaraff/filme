@@ -44,6 +44,8 @@ export const TV_GENRES: readonly { id: number; label: string }[] = [
 export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "like-movie", label: "You might also like" },
   { id: "continue", label: "Continue watching" },
+  { id: "collections-mine", label: "From your collections" },
+  { id: "collections-new", label: "Discover collections" },
   { id: "like-tv", label: "TV shows you might like" },
   { id: "want", label: "Watchlist" },
   { id: "want-pick", label: "From your watchlist" },
@@ -62,11 +64,22 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
 
 /** Shown until the user customises Home. */
 export const DEFAULT_HOME_ROWS: readonly string[] = [
-  "continue", "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
+  "continue", "collections-mine", "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
 ];
 
 /** Rows the very first saved layouts predate; they are added once to layouts saved before rows were tracked. */
 const ADDED_LATER = ["like-tv", "continue"];
+
+/** Rows that show several rows at once: a collections entry on Home is this many rows, each a different collection. */
+export const COLLECTION_ROWS = 3;
+
+/** Turns the layout's ids into the rows drawn: "collections-mine" becomes three rows, "collections-mine:0" to ":2". */
+export function expandRows(ids: readonly string[]): string[] {
+  return ids.flatMap((id) => (id === "collections-mine" || id === "collections-new" ? Array.from({ length: COLLECTION_ROWS }, (_, i) => `${id}:${i}`) : [id]));
+}
+
+/** The layout id behind a drawn row ("collections-mine:1" is "collections-mine"). */
+export const baseRowId = (id: string): string => (id.startsWith("collections-") ? id.split(":")[0] : id);
 
 /**
  * Adds rows a saved layout has not been offered yet. `seen` is the list it was last saved against;

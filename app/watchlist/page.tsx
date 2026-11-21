@@ -17,9 +17,22 @@ import { useRequireSession } from "@/hooks/useRequireSession";
 import type { DeletedEntry, RecentEntry } from "@/lib/ports/log";
 import { services } from "@/lib/services";
 import { ConfirmPopup } from "@/components/Popup";
-import StackCard from "@/components/StackCard";
-import { loadStacks, type LoadedStacks } from "@/lib/showStacks";
+import StackCard, { type LoadedCard } from "@/components/StackCard";
+import { loadStacks } from "@/lib/showStacks";
+import { loadCollection } from "@/lib/collections";
+import { findStack } from "@/lib/showPasses";
 import type { StackNode } from "@/lib/domain/passes";
+import type { Completion, StackEdit } from "@/lib/ports/passes";
+import type { CollectionViewing } from "@/lib/ports/log";
+
+/** A stored completion card with what its first paint needs. */
+interface WatchedStack {
+  completion: Completion;
+  node: StackNode;
+  viewings: Map<string, CollectionViewing>;
+  edits: StackEdit[];
+  date: string | null;
+}
 
 export default function WatchlistPage() {
   const ready = useRequireSession();
@@ -33,22 +46,55 @@ export default function WatchlistPage() {
   const [sort, setSort] = usePageState<ListSort>("watched.sort", "new");
   // IMDb scores by title (the catalogue's when there is none), looked up in the background for titles without one.
   const [scores, setScores] = useState<Map<string, number>>(new Map());
-  // Seasons and series finished episode by episode, as completion cards among the viewings.
-  const [stacked, setStacked] = useState<LoadedStacks[]>([]);
+  // Seasons, series and collections finished, stored, so they are in place from the first paint.
+  const [stored, setStored] = useState<WatchedStack[]>([]);
 
   useEffect(() => {
-    if (!recent) return;
+    if (!ready) return;
     let cancelled = false;
-    const counts = new Map<string, number>();
-    for (const r of recent) if (r.category === "TV Show" && r.scope === "episode") counts.set(r.mediaId, (counts.get(r.mediaId) ?? 0) + 1);
-    const ids = [...counts].filter(([, n]) => n >= 2).map(([id]) => id).slice(0, 8);
-    Promise.all(ids.map((id) => loadStacks(id))).then((all) => {
-      if (!cancelled) setStacked(all.filter((x): x is LoadedStacks => x !== null));
-    });
+    (async () => {
+      const [rows, edits] = await Promise.all([services.passes.completions(), services.passes.allEdits()]);
+      if (cancelled || !rows.ok) return;
+      const cards = rows.value.filter((c) => c.lastViewingId);
+      const views = await services.log.viewingsByIds([...new Set(cards.map((c) => c.lastViewingId as string))]);
+      if (cancelled || !views.ok) return;
+      const byId = new Map(views.value.map((v) => [v.id, v] as const));
+      const out: WatchedStack[] = [];
+      for (const c of cards) {
+        const last = byId.get(c.lastViewingId as string);
+        if (!last) continue;
+        const node: StackNode = {
+          id: `${c.collectionId ?? c.mediaId}-${c.passKey}`,
+          season: c.season,
+          passKey: c.passKey,
+          last: { viewingId: last.id, scope: "episode", season: c.season ?? 1, episode: 0, date: c.completedOn, addedAt: last.addedAt },
+          items: [],
+          editable: true,
+        };
+        const mine = (edits.ok ? edits.value : []).filter((e) => (c.collectionId !== null ? e.collectionId === c.collectionId : e.mediaId === c.mediaId));
+        out.push({ completion: c, node, viewings: new Map([[last.id, last]]), edits: mine, date: c.completedOn });
+      }
+      if (!cancelled) setStored(out);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [recent]);
+  }, [ready, reload]);
+
+  /** A card's episodes or films, fetched when it is opened. */
+  async function loadItems(card: WatchedStack): Promise<LoadedCard | null> {
+    const c = card.completion;
+    if (c.collectionId !== null) {
+      const res = await loadCollection(c.collectionId);
+      if (!res.ok) return null;
+      const node = findStack(res.value.stacks, c.season, c.passKey);
+      return node ? { node, viewings: new Map(res.value.viewings.map((v) => [v.id, v] as const)), edits: res.value.edits } : null;
+    }
+    if (!c.mediaId) return null;
+    const res = await loadStacks(c.mediaId);
+    const node = res ? findStack(res.stacks, c.season, c.passKey) : null;
+    return res && node ? { node, viewings: res.viewings, edits: res.edits } : null;
+  }
 
   useEffect(() => {
     if (!ready) return;
@@ -92,14 +138,12 @@ export default function WatchlistPage() {
   });
 
   // Completion cards sit among the viewings by the day they were completed; under a sort that is not by date they go last.
-  type Item = { entry: RecentEntry } | { node: StackNode; loaded: LoadedStacks };
+  type Item = { entry: RecentEntry } | { card: WatchedStack };
   const merged: Item[] = ordered.map((entry) => ({ entry }));
-  for (const loaded of stacked) {
-    for (const node of loaded.stacks) {
-      const day = node.last.date ?? "";
-      const at = sort === "new" ? merged.findIndex((m) => "entry" in m && (m.entry.watchedOn ?? "") <= day) : sort === "old" ? merged.findIndex((m) => "entry" in m && (m.entry.watchedOn ?? "") >= day) : -1;
-      merged.splice(at < 0 ? merged.length : at, 0, { node, loaded });
-    }
+  for (const card of stored) {
+    const day = card.date ?? "";
+    const at = sort === "new" ? merged.findIndex((m) => "entry" in m && (m.entry.watchedOn ?? "") <= day) : sort === "old" ? merged.findIndex((m) => "entry" in m && (m.entry.watchedOn ?? "") >= day) : -1;
+    merged.splice(at < 0 ? merged.length : at, 0, { card });
   }
 
   return (
@@ -115,9 +159,12 @@ export default function WatchlistPage() {
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
-        {merged.map((item, i) => "node" in item ? (
-          <StackCard key={item.node.id} node={item.node} viewings={item.loaded.viewings} edits={item.loaded.edits} showTitle index={i}
-            show={{ mediaId: item.loaded.mediaId, title: item.loaded.title, category: "TV Show", posterPath: item.loaded.posterPath }} />
+        {merged.map((item, i) => "card" in item ? (
+          <StackCard key={item.card.node.id} node={item.card.node} viewings={item.card.viewings} edits={item.card.edits} showTitle index={i}
+            completions={[item.card.completion]} collectionId={item.card.completion.collectionId ?? undefined}
+            label={item.card.completion.collectionId !== null ? `${item.card.completion.collectionName ?? "Collection"} completed` : undefined}
+            load={() => loadItems(item.card)}
+            show={(() => { const v = item.card.viewings.get(item.card.node.last.viewingId); const coll = item.card.completion.collectionId !== null; return { mediaId: v?.mediaId ?? "", title: coll ? item.card.completion.collectionName ?? v?.title ?? "" : v?.title ?? "", category: coll ? "Movie" : "TV Show", posterPath: v?.posterPath ?? null }; })()} />
         ) : <WatchedCard key={item.entry.id} entry={item.entry} index={i} rating={scores.get(scoreKey({ mediaId: item.entry.mediaId, kind: item.entry.category as "Movie", tmdbId: item.entry.tmdbId })) ?? item.entry.score} notes={item.entry.notes} />)}
         {recent === null && !failed && Array.from({ length: 3 }, (_, i) => <li key={i} className="skeleton h-64 rounded-2xl" />)}
         {failed && <li className="text-sm text-neutral-500">We&apos;re having some trouble loading your viewings. Please check back later.</li>}

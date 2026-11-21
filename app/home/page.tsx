@@ -14,7 +14,7 @@ import Icon from "@/components/Icon";
 import RoundButton from "@/components/RoundButton";
 import { searchFocus } from "@/lib/searchFocus";
 import { useRequireSession } from "@/hooks/useRequireSession";
-import { resolveHomeRows } from "@/lib/domain/home";
+import { baseRowId, expandRows, resolveHomeRows } from "@/lib/domain/home";
 import { clearHomeCache } from "@/lib/home/rows";
 import { homeSnapshot } from "@/lib/home/session";
 import { keepIfSame } from "@/lib/same";
@@ -41,7 +41,7 @@ export default function HomePage() {
       let ids = resolveHomeRows(layout.ok ? layout.value : []);
       if (shuffle.ok && shuffle.value) {
         // Random order, drawn once per visit: coming back with Back keeps the order already on screen.
-        const kept = homeSnapshot.rows?.filter((id) => ids.includes(id));
+        const kept = homeSnapshot.rows ? [...new Set(homeSnapshot.rows.map(baseRowId))].filter((id) => ids.includes(id)) : undefined;
         if (kept && kept.length === ids.length) ids = kept;
         else {
           ids = [...ids];
@@ -51,7 +51,7 @@ export default function HomePage() {
           }
         }
       }
-      const next = theme ? [`holiday:${theme.slug}`, ...ids.filter((id) => id !== `holiday:${theme.slug}`)] : ids;
+      const next = expandRows(theme ? [`holiday:${theme.slug}`, ...ids.filter((id) => id !== `holiday:${theme.slug}`)] : ids);
       // The same list changes nothing on screen.
       setRows((now) => keepIfSame(now, next));
       homeSnapshot.rows = next;

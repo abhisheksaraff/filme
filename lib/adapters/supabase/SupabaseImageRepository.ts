@@ -10,7 +10,7 @@ import { getSupabase } from "./client";
 const PUBLIC = "covers";
 const EXTENSION: Record<string, string> = { "image/webp": "webp", "image/jpeg": "jpg", "image/png": "png" };
 
-const column = (owner: ImageOwner) => ("sessionId" in owner ? (["session_id", owner.sessionId] as const) : (["media_id", owner.mediaId] as const));
+const column = (owner: ImageOwner) => ("sessionId" in owner ? (["session_id", owner.sessionId] as const) : "completionId" in owner ? (["completion_id", owner.completionId] as const) : (["media_id", owner.mediaId] as const));
 const isCover = (kind: string) => kind === "poster" || kind === "backdrop";
 
 async function userId(): Promise<string | null> {
@@ -138,8 +138,12 @@ export const supabaseImageRepository: ImageRepository = {
     const del = await db.from("images").delete().eq("id", imageId);
     if (del.error) return fail("Could not delete the image.");
     if (image.data.source === "upload") {
-      if (isCover(image.data.kind as string)) await db.storage.from(PUBLIC).remove([image.data.path as string]);
-      else await storeFor(image.data.store).remove([image.data.path as string]);
+      // A completion card can share a file with the viewing it copied; the file stays while any picture still uses it.
+      const still = await db.from("images").select("id", { count: "exact", head: true }).eq("path", image.data.path as string);
+      if ((still.count ?? 0) === 0) {
+        if (isCover(image.data.kind as string)) await db.storage.from(PUBLIC).remove([image.data.path as string]);
+        else await storeFor(image.data.store).remove([image.data.path as string]);
+      }
     }
     return ok(undefined);
   },

@@ -289,7 +289,7 @@ function SeasonView() {
                 <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
                   {rows.map((row, i) =>
                     "node" in row ? (
-                      <StackCard key={row.node.id} node={row.node} viewings={byId} edits={sp.edits} show={showRef} index={i} />
+                      <StackCard key={row.node.id} node={row.node} viewings={byId} edits={sp.edits} completions={sp.completions} show={showRef} index={i} />
                     ) : (
                       <WatchedCard key={row.v.id} index={i} showTitle={false} animate rating={row.v.rating} notes={row.v.notes} entry={cardOf(row.v, showRef)} />
                     ),

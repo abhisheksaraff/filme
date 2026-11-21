@@ -20,6 +20,9 @@ export const entryMediaSchema = z.object({
   voteCount: z.number().int().nullable(),
   posterPath: z.string().nullable(),
   backdropPath: z.string().nullable(),
+  /** The TMDB collection a movie belongs to (a trilogy or franchise); null when it has none, left out when not known. */
+  collectionId: z.number().int().nullable().optional(),
+  collectionName: z.string().nullable().optional(),
 });
 export type EntryMedia = z.infer<typeof entryMediaSchema>;
 

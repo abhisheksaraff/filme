@@ -5,7 +5,7 @@ import { logEntrySchema, type LogEntry } from "@/lib/domain/entry";
 import type { LastViewing } from "@/lib/domain/lastWatched";
 import type { StatRow } from "@/lib/domain/stats";
 import type { CatalogMatch } from "@/lib/ports/catalog";
-import type { DeletedEntry, LogRepository, OwnHit, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
+import type { CollectionViewing, DeletedEntry, LogRepository, OwnHit, RecentEntry, TitleDetail, ViewingSummary } from "@/lib/ports/log";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 import { putWithFallback, storeFor } from "@/lib/files";
@@ -49,6 +49,9 @@ export async function findOrCreateMedia(
       poster_path: media?.posterPath ?? null,
       backdrop_path: media?.backdropPath ?? null,
       last_synced_at: media ? new Date().toISOString() : null,
+      collection_id: media?.collectionId ?? null,
+      collection_name: media?.collectionName ?? null,
+      collection_checked: media?.collectionId !== undefined,
     })
     .select("id")
     .single();
@@ -80,8 +83,11 @@ async function findOrCreateHome(db: SupabaseClient, entry: LogEntry): Promise<Re
  */
 async function removeViewings(db: SupabaseClient, ids: string[]): Promise<Result<void>> {
   const files = await db.from("images").select("path, source, store").in("session_id", ids);
+  // A completion card may keep its own copy of a picture; the file stays while the card still uses it.
+  const shared = await db.from("images").select("path").not("completion_id", "is", null).in("path", (files.data ?? []).map((f) => f.path as string));
+  const kept = new Set((shared.data ?? []).map((r) => r.path as string));
   for (const store of new Set((files.data ?? []).map((f) => f.store as string))) {
-    const paths = (files.data ?? []).filter((f) => f.source === "upload" && f.store === store).map((f) => f.path as string);
+    const paths = (files.data ?? []).filter((f) => f.source === "upload" && f.store === store && !kept.has(f.path as string)).map((f) => f.path as string);
     if (paths.length > 0) await storeFor(store).remove(paths);
   }
   const del = await db.from("watch_sessions").delete().in("id", ids);
@@ -214,6 +220,41 @@ function scopeOf(entry: LogEntry): "show" | "season" | "episode" {
   if (entry.category !== "TV Show") return "show";
   if (entry.episode !== null) return "episode";
   return entry.season !== null ? "season" : "show";
+}
+
+const COLLECTION_COLUMNS = "id, watched_on, watched_at, auditorium, primary_format, addons, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, venue_type, media_id";
+
+/** One viewing row (with its title and venue) as the pages show it. */
+function toCollectionViewing(row: Record<string, unknown>): CollectionViewing {
+  const media = one<{ title: string; category: string; tmdb_id: number | null; poster_path: string | null }>(row.media as never);
+  const venue = one<{ id: string; name: string; type: string; latitude: number | null; longitude: number | null }>(row.venue as never);
+  return {
+    id: row.id as string,
+    mediaId: row.media_id as string,
+    tmdbId: media?.tmdb_id ?? null,
+    title: media?.title ?? "",
+    posterPath: media?.poster_path ?? null,
+    category: media?.category ?? "Movie",
+    watchedOn: row.watched_on as string | null,
+    watchedAt: row.watched_at as string | null,
+    venue: venue?.name ?? null,
+    venueId: venue?.id ?? null,
+    venueLatitude: venue?.latitude ?? null,
+    venueLongitude: venue?.longitude ?? null,
+    venueType: venue ? effectiveVenueType(row.venue_type as string | null, venue.type, media?.category ?? "Movie") : null,
+    auditorium: row.auditorium as string | null,
+    primaryFormat: row.primary_format as ViewingSummary["primaryFormat"],
+    addons: ((row.addons ?? []) as string[]),
+    seats: (row.seats ?? []) as ViewingSummary["seats"],
+    totalTickets: row.total_tickets as number | null,
+    rating: row.rating === null || row.rating === undefined ? null : Number(row.rating),
+    notes: row.notes as string | null,
+    scope: ((row.scope as ViewingSummary["scope"]) ?? "show"),
+    season: (row.season_number as number | null) ?? null,
+    episode: (row.episode_number as number | null) ?? null,
+    stubUrls: [],
+    addedAt: (row.created_at as string) ?? "",
+  };
 }
 
 export const supabaseLogRepository: LogRepository = {
@@ -389,6 +430,29 @@ export const supabaseLogRepository: LogRepository = {
       viewings,
     };
     return ok(detail);
+  },
+
+  async collectionViewings(collectionId) {
+    const rows = await getSupabase()
+      .from("watch_sessions")
+      .select(`${COLLECTION_COLUMNS}, media:media_items!inner(title, category, tmdb_id, poster_path, collection_id), venue:venues(id, name, type, latitude, longitude)`)
+      .eq("media_items.collection_id", collectionId)
+      .is("deleted_at", null)
+      .order("watched_on", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    if (rows.error) return fail("Could not load your viewings.");
+    return ok((rows.data as unknown as Record<string, unknown>[]).map(toCollectionViewing));
+  },
+
+  async viewingsByIds(ids) {
+    if (ids.length === 0) return ok([]);
+    const rows = await getSupabase()
+      .from("watch_sessions")
+      .select(`${COLLECTION_COLUMNS}, media:media_items(title, category, tmdb_id, poster_path), venue:venues(id, name, type, latitude, longitude)`)
+      .in("id", ids)
+      .is("deleted_at", null);
+    if (rows.error) return fail("Could not load your viewings.");
+    return ok((rows.data as unknown as Record<string, unknown>[]).map(toCollectionViewing));
   },
 
   async getViewing(id) {

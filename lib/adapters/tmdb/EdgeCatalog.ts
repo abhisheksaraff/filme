@@ -422,8 +422,25 @@ const rawCatalog: Catalog = {
       backdropPath: d.backdrop_path ?? null,
       posterUrl: tmdbImageUrl(d.poster_path),
       backdropUrl: tmdbImageUrl(d.backdrop_path, "w780"),
+      collection: isMovie ? (d.belongs_to_collection ? { id: d.belongs_to_collection.id as number, name: d.belongs_to_collection.name as string } : null) : undefined,
     };
     return ok(details);
+  },
+
+  async searchCollections(query, page = 1) {
+    const res = await callFunction<{ results: { id: number; name: string; poster_path?: string | null }[] }>("tmdb", { path: "/search/collection", params: { query, page: String(page), include_adult: "false" } });
+    if (!res.ok) return fail(res.error);
+    return ok((res.value.results ?? []).map((c) => ({ id: c.id, name: c.name, posterPath: c.poster_path ?? null })));
+  },
+
+  async collection(id) {
+    const res = await callFunction<Record<string, any>>("tmdb", { path: `/collection/${id}`, params: {} }); // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (!res.ok) return fail(res.error);
+    const d = res.value;
+    const parts = ((d.parts ?? []) as { id: number; title: string; release_date?: string | null; poster_path?: string | null }[])
+      .map((p) => ({ tmdbId: p.id, title: p.title, releaseDate: p.release_date || null, posterPath: p.poster_path ?? null }))
+      .sort((a, b) => (a.releaseDate ?? "9999").localeCompare(b.releaseDate ?? "9999"));
+    return ok({ id: d.id as number, name: d.name as string, overview: (d.overview as string) || null, posterPath: d.poster_path ?? null, backdropPath: d.backdrop_path ?? null, parts });
   },
 };
 
@@ -459,7 +476,9 @@ function remember<T>(key: string, run: () => Promise<Result<T>>, ttl = SHORT_MS,
 
 export const edgeCatalog: Catalog = {
   ...rawCatalog,
-  details: (match) => remember(`details:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match), DAY_MS, true),
+  // "details2": answers kept before the collection was added are left behind.
+  details: (match) => remember(`details2:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match), DAY_MS, true),
+  collection: (id) => remember(`collection:${id}`, () => rawCatalog.collection(id), 6 * 60 * MINUTE, true),
   images: (match) => remember(`images:${match.kind}:${match.tmdbId}`, () => rawCatalog.images(match), DAY_MS, true),
   personImages: (id) => remember(`personImages:${id}`, () => rawCatalog.personImages(id), DAY_MS, true),
   person: (id) => remember(`person:${id}`, () => rawCatalog.person(id), DAY_MS, true),

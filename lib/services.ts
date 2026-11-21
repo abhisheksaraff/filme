@@ -41,6 +41,44 @@ import type { ProgressRepository } from "@/lib/ports/progress";
 import type { RatingsRepository } from "@/lib/ports/ratings";
 import type { WantedRepository } from "@/lib/ports/wanted";
 
+/** After a viewing is saved, changed, deleted or restored, the stored completion cards are brought up to date in the background. */
+function syncLater(mediaId: string | null | undefined): void {
+  if (!mediaId) return;
+  void import("@/lib/completions").then((m) => m.syncAfterChange(mediaId));
+}
+
+const trackedLog: LogRepository = {
+  ...supabaseLogRepository,
+  async saveEntry(entry, stubs) {
+    const res = await supabaseLogRepository.saveEntry(entry, stubs);
+    if (res.ok) syncLater(res.value.mediaId);
+    return res;
+  },
+  async updateViewing(id, entry) {
+    const before = await supabaseLogRepository.getViewing(id);
+    const res = await supabaseLogRepository.updateViewing(id, entry);
+    if (res.ok) {
+      syncLater(res.value.mediaId);
+      if (before.ok && before.value.mediaId !== res.value.mediaId) syncLater(before.value.mediaId);
+    }
+    return res;
+  },
+  async deleteViewing(id) {
+    const before = await supabaseLogRepository.getViewing(id);
+    const res = await supabaseLogRepository.deleteViewing(id);
+    if (res.ok && before.ok) syncLater(before.value.mediaId);
+    return res;
+  },
+  async restoreViewing(id) {
+    const res = await supabaseLogRepository.restoreViewing(id);
+    if (res.ok) {
+      const after = await supabaseLogRepository.getViewing(id);
+      if (after.ok) syncLater(after.value.mediaId);
+    }
+    return res;
+  },
+};
+
 export const services: {
   ai: AiProvider;
   artists: ArtistSearch;
@@ -75,7 +113,7 @@ export const services: {
   media: openverseSearch,
   catalog: edgeCatalog,
   keys: supabaseKeyVault,
-  log: supabaseLogRepository,
+  log: trackedLog,
   hidden: supabaseHiddenRepository,
   follows: supabaseFollowRepository,
   ratings: supabaseRatingsRepository,

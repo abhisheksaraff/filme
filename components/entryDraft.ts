@@ -165,6 +165,8 @@ export function mediaFromCatalog(details: CatalogDetails): EntryMedia {
     voteCount: details.voteCount,
     posterPath: details.posterPath,
     backdropPath: details.backdropPath,
+    collectionId: details.category === "Movie" ? (details.collection?.id ?? null) : undefined,
+    collectionName: details.category === "Movie" ? (details.collection?.name ?? null) : undefined,
   };
 }
 

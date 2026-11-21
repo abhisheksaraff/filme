@@ -13,7 +13,27 @@ import { services } from "@/lib/services";
 
 type Kind = "photo" | "ticket";
 
-export default function SessionPicturesEditor({ sessionId, onTickets }: { sessionId: string; onTickets?: (urls: string[]) => void }) {
+interface CompletionPictures {
+  id: string;
+  /** False while the card still shows the viewing's pictures; they are copied to the card the first time one changes. */
+  own: boolean;
+}
+
+export default function SessionPicturesEditor({ sessionId, onTickets, completion }: { sessionId: string; onTickets?: (urls: string[]) => void; completion?: CompletionPictures }) {
+  const ownRef = useRef(completion?.own ?? true);
+  /** Whose pictures these are: the viewing's, or (once it has its own) the completion card's. */
+  const owner = () => (completion && ownRef.current ? ({ completionId: completion.id } as const) : ({ sessionId } as const));
+  /** A completion card gets its own copy of the viewing's pictures before the first change, so neither touches the other. */
+  async function ensureOwn(): Promise<boolean> {
+    if (!completion || ownRef.current) return true;
+    const res = await services.passes.adoptPictures(completion.id, sessionId);
+    if (!res.ok) {
+      setProblem(res.error);
+      return false;
+    }
+    ownRef.current = true;
+    return true;
+  }
   const [lists, setLists] = useState<Record<Kind, StoredImage[]>>({ photo: [], ticket: [] });
   const [viewing, setViewing] = useState<{ kind: Kind; start: number } | null>(null);
   const [crop, setCrop] = useState<{ file: File; kind: Kind } | null>(null);
@@ -22,7 +42,7 @@ export default function SessionPicturesEditor({ sessionId, onTickets }: { sessio
   const stubInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    const [p, t] = await Promise.all([services.images.list({ sessionId }, ["photo"]), services.images.list({ sessionId }, ["ticket"])]);
+    const [p, t] = await Promise.all([services.images.list(owner(), ["photo"]), services.images.list(owner(), ["ticket"])]);
     setLists({ photo: p.ok ? p.value : [], ticket: t.ok ? t.value : [] });
     onTickets?.(t.ok ? t.value.map((i) => i.url) : []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -37,7 +57,8 @@ export default function SessionPicturesEditor({ sessionId, onTickets }: { sessio
   async function add(blob: Blob, kind: Kind) {
     setCrop(null);
     const body = kind === "photo" ? await convertImage(blob, PHOTO_PRESET) : blob;
-    const res = await services.images.add({ sessionId }, kind, body, null);
+    if (!(await ensureOwn())) return;
+    const res = await services.images.add(owner(), kind, body, null);
     if (res.ok) {
       await load();
       toast(kind === "photo" ? "Photo added" : "Stub added");
@@ -82,8 +103,33 @@ export default function SessionPicturesEditor({ sessionId, onTickets }: { sessio
           start={viewing.start}
           onClose={() => setViewing(null)}
           onAdd={() => (viewing.kind === "ticket" ? stubInput : photoInput).current?.click()}
-          onSetDefault={async (image) => { if (image.id) { await services.images.setDefault({ sessionId }, image.id); await load(); } }}
-          onDelete={async (image) => { if (image.id) { await services.images.remove(image.id); await load(); } }}
+          onSetDefault={async (image) => {
+            if (!image.id) return;
+            const at = lists[viewing.kind].findIndex((i) => i.id === image.id);
+            const wasOwn = ownRef.current;
+            if (!(await ensureOwn())) return;
+            let id = image.id;
+            if (completion && !wasOwn) {
+              const fresh = await services.images.list(owner(), [viewing.kind]);
+              if (fresh.ok) id = fresh.value[at]?.id ?? id;
+            }
+            await services.images.setDefault(owner(), id);
+            await load();
+          }}
+          onDelete={async (image) => {
+            if (!image.id) return;
+            const at = lists[viewing.kind].findIndex((i) => i.id === image.id);
+            const wasOwn = ownRef.current;
+            if (!(await ensureOwn())) return;
+            let id = image.id;
+            // The copies keep the original order, so the picture at the same place is the card's copy of it.
+            if (completion && !wasOwn) {
+              const fresh = await services.images.list(owner(), [viewing.kind]);
+              if (fresh.ok) id = fresh.value[at]?.id ?? id;
+            }
+            await services.images.remove(id);
+            await load();
+          }}
         />
       )}
     </div>

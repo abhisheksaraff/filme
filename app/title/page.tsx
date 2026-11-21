@@ -17,6 +17,7 @@ import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
 import WatchedCard from "@/components/WatchedCard";
+import CollectionCard from "@/components/CollectionCard";
 import StackCard, { cardOf, type ShowRef } from "@/components/StackCard";
 import { useShowPasses } from "@/hooks/useShowPasses";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -203,6 +204,8 @@ function TitleView() {
               onLog={isShow ? () => setMenu(true) : () => logAnother()}
             />
 
+            {detail.category === "Movie" && detail.tmdbId !== null && <CollectionCard tmdbId={detail.tmdbId} />}
+
             {isShow && detail.tmdbId !== null && <ShowSection mediaId={detail.mediaId} data={showData} covers={covers} passes={sp.passes} inContinue={sp.inContinue} onReset={sp.reset} />}
 
             {groups.map(([role, people]) => (
@@ -239,7 +242,7 @@ function TitleView() {
             <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
               {rows.map((row, i) =>
                 "node" in row ? (
-                  <StackCard key={row.node.id} node={row.node} viewings={byId} edits={sp.edits} show={showRef(detail)} index={i} />
+                  <StackCard key={row.node.id} node={row.node} viewings={byId} edits={sp.edits} completions={sp.completions} show={showRef(detail)} index={i} />
                 ) : (
                   <WatchedCard key={row.v.id} index={i} showTitle={false} animate rating={row.v.rating} notes={row.v.notes} entry={cardOf(row.v, showRef(detail))} />
                 ),

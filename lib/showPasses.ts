@@ -28,6 +28,10 @@ export function buildPasses(viewings: readonly ViewingSummary[], data: ShowData,
 
 /** Finds a card by its pass key, also inside series cards. */
 export function findStack(stacks: readonly StackNode[], season: number | null, passKey: string): StackNode | null {
-  for (const s of stacks) if (s.season === season && s.passKey === passKey && s.editable) return s;
+  for (const s of stacks) {
+    if (s.season === season && s.passKey === passKey) return s;
+    const inner = findStack(s.items.flatMap((i) => (i.type === "stack" ? [i.node] : [])), season, passKey);
+    if (inner) return inner;
+  }
   return null;
 }

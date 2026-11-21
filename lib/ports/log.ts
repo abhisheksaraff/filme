@@ -64,6 +64,15 @@ export interface ViewingSummary {
   addedAt: string;
 }
 
+/** A viewing of one film in a collection, with which film it was. */
+export interface CollectionViewing extends ViewingSummary {
+  mediaId: string;
+  tmdbId: number | null;
+  title: string;
+  posterPath: string | null;
+  category: string;
+}
+
 /** A title and every time the user has seen it. */
 export interface TitleDetail {
   mediaId: string;
@@ -105,6 +114,10 @@ export interface LogRepository {
   recent(limit: number): Promise<Result<RecentEntry[]>>;
 
   titleDetail(mediaId: string): Promise<Result<TitleDetail>>;
+  /** Every viewing of the films in a TMDB collection, newest first. */
+  collectionViewings(collectionId: number): Promise<Result<CollectionViewing[]>>;
+  /** Viewings by id, with their titles; deleted ones are left out. */
+  viewingsByIds(ids: string[]): Promise<Result<CollectionViewing[]>>;
   /** One viewing as the edit form needs it. */
   getViewing(id: string): Promise<Result<{ mediaId: string; entry: LogEntry }>>;
   /** Changes a viewing's details, including its title or type; returns the title the viewing now belongs to. */

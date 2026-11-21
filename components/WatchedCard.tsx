@@ -149,9 +149,11 @@ interface Props {
   onStack?: () => void;
   /** The viewing whose pictures the card shows, when they are another's (a completion card mirrors its last episode). */
   pictureId?: string;
+  /** The completion card whose own pictures to show instead (once it has some). */
+  completionId?: string;
 }
 
-export default function WatchedCard({ entry, index = 0, showTitle = true, label, rating, notes, animate = false, editHref, onStack, pictureId }: Props) {
+export default function WatchedCard({ entry, index = 0, showTitle = true, label, rating, notes, animate = false, editHref, onStack, pictureId, completionId }: Props) {
   // Keyed by page too, so the same viewing opened on Watched is not also open on its title page.
   const path = usePathname();
   const wide = useWide();
@@ -187,7 +189,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
     watcher.observe(el);
     return () => watcher.disconnect();
   }, []);
-  const images = useViewingPictures(pictureId ?? entry.id, near);
+  const images = useViewingPictures(pictureId ?? entry.id, near, completionId);
   // The roll-out is smooth unless animations are switched off, when it just snaps.
   const [smooth] = useState(() => readCachedAppearance().animationsEnabled);
 

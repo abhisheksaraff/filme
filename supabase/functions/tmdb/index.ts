@@ -15,7 +15,7 @@ const TIMEOUT_MS = 15_000;
 // SECURITY: only these TMDB paths can be requested, so the function cannot be used as a general proxy.
 const ALLOWED_PATHS: RegExp[] = [
   /^\/configuration$/,
-  /^\/search\/(multi|movie|tv|person|keyword)$/,
+  /^\/search\/(multi|movie|tv|person|keyword|collection)$/,
   /^\/(movie|tv)\/\d+$/,
   /^\/(movie|tv)\/\d+\/(recommendations|similar|credits|keywords)$/,
   /^\/tv\/\d+\/season\/\d+$/,
