@@ -1,5 +1,5 @@
 // components/ui/DateField.tsx
-// The app's one date or month box: shows today's date in grey as an example while empty, and a small x to clear it.
+// The app's one date or month box: on a phone it shows today's date in grey as an example while empty, and a small x to clear it.
 "use client";
 
 import Icon from "@/components/Icon";
@@ -32,8 +32,8 @@ export default function DateField({ type = "date", value, onChange, label, max, 
   return (
     <div className="relative min-w-0 overflow-hidden rounded-full">
       <input type={type} value={value} max={max} onChange={(e) => onChange(e.target.value)} aria-label={label} className={`block w-full min-w-0 max-w-full appearance-none rounded-full pl-4 pr-9 text-base outline-none [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left ${className}`} />
-      {/* Safari draws nothing inside an empty date box, so the example sits on top of it and lets taps through. */}
-      {!value && <span aria-hidden className={`pointer-events-none absolute left-4 right-9 top-1/2 -translate-y-1/2 truncate text-sm ${hintClass}`}>{example(type, hint)}</span>}
+      {/* Safari on a phone draws nothing inside an empty date box, so the example sits on top of it and lets taps through. A computer's browser draws its own format there, so the example is left off or the two would show together. */}
+      {!value && <span aria-hidden className={`pointer-events-none absolute left-4 right-9 top-1/2 hidden -translate-y-1/2 truncate text-sm [@media(pointer:coarse)]:block ${hintClass}`}>{example(type, hint)}</span>}
       {value && (
         <button type="button" aria-label={`Clear ${label}`} onClick={() => onChange("")} className={`absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full ${hintClass}`}>
           <Icon name="close" size={16} />

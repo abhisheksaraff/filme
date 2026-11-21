@@ -15,6 +15,8 @@ import PeopleInput from "./PeopleInput";
 import TagInput from "./TagInput";
 import { parseSeatTag, rolesFor, ROLE_LABEL, seatLabel, type DraftSeat, type EntryDraft } from "./entryDraft";
 import DateField from "@/components/ui/DateField";
+import SuggestionList, { SUGGESTION_NOTE, SuggestionItem } from "@/components/ui/SuggestionList";
+import { yearChoices } from "@/lib/domain/years";
 
 const field = FIELD_SM_FULL;
 
@@ -77,7 +79,6 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
   // How much of the date is known: the whole day, the month, only the year, or nothing.
   const [when, setWhen] = useState<"day" | "month" | "year" | "none">(() => (draft.date.length === 7 ? "month" : draft.date.length === 4 ? "year" : "day"));
   const shownWhen = draft.date ? (draft.date.length === 7 ? "month" : draft.date.length === 4 ? "year" : "day") : when;
-  const thisYear = new Date().getFullYear();
   const set = <K extends keyof EntryDraft>(key: K, value: EntryDraft[K]) => onChange({ ...draft, [key]: value });
   // Rarely used fields stay tucked away unless they already hold something.
   const [more, setMore] = useState(
@@ -165,22 +166,22 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
 
   const suggestionList = (fieldName: "location" | "address") =>
     suggest?.field === fieldName && suggest.items.length > 0 ? (
-      <ul data-venue-suggest className="flex max-h-72 flex-col gap-0.5 overflow-y-auto overscroll-contain rounded-2xl bg-neutral-100 p-1 dark:bg-neutral-800">
+      <SuggestionList data-venue-suggest scroll>
         {suggest.items.map((item) => (
-          <li key={item.key}>
+          <SuggestionItem key={item.key}>
             <button type="button" onClick={() => chooseVenue(item)} className="press flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-950 text-white dark:bg-white dark:text-neutral-950">
                 <Icon name={item.own ? venueIcon(item.type) : "map"} size={15} />
               </span>
               <span className="flex min-w-0 flex-col">
                 <span className="truncate font-medium">{item.name}</span>
-                {item.address && <span className="line-clamp-2 text-xs text-neutral-500">{item.address}</span>}
-                {item.lastOn && <span className="text-xs text-neutral-400">last {item.lastOn}</span>}
+                {item.address && <span className={`line-clamp-2 ${SUGGESTION_NOTE}`}>{item.address}</span>}
+                {item.lastOn && <span className={SUGGESTION_NOTE}>last {item.lastOn}</span>}
               </span>
             </button>
-          </li>
+          </SuggestionItem>
         ))}
-      </ul>
+      </SuggestionList>
     ) : null;
 
   const edit = (field: "title" | "category", next: EntryDraft) => {
@@ -311,7 +312,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
         <Labeled label="Year">
           <select className={field} aria-label="Year" value={draft.date} onChange={(e) => set("date", e.target.value)}>
             <option value="">Choose a year</option>
-            {Array.from({ length: thisYear - 1899 }, (_, i) => String(thisYear - i)).map((y) => <option key={y} value={y}>{y}</option>)}
+            {yearChoices().map((y) => <option key={y} value={String(y)}>{y}</option>)}
           </select>
         </Labeled>
       )}

@@ -23,6 +23,7 @@ import { EMPTY_PLAN, hasPlan, LANGUAGE_NAMES, type AskPlan } from "@/lib/domain/
 import { GENRES } from "@/lib/domain/home";
 import { applyFilter, fuzzyMatches, normalize } from "@/lib/domain/search";
 import { hasMoreAfter, placeIn, type SeasonCount } from "@/lib/domain/tv";
+import { yearChoices } from "@/lib/domain/years";
 import { scoreKey } from "@/lib/ports/ratings";
 import type { StatRow } from "@/lib/domain/stats";
 import { warmTitle } from "@/lib/handoff";
@@ -586,6 +587,22 @@ function SearchView() {
     ...(plan.inTheatres ? [{ key: "theatres", label: plan.inTheatres === "now" ? "In cinemas now" : "Coming soon", remove: () => drop({ inTheatres: null }) }] : []),
     ...(plan.seen === "not-seen" ? [{ key: "seen", label: "Not seen yet", remove: () => drop({ seen: "either" }) }] : plan.seen === "seen" ? [{ key: "seen", label: "Seen", remove: () => drop({ seen: "either" }) }] : []),
   ];
+  // What sits under each tag field while the filters are open: the same picks as the black chips outside, each with its x.
+  const tagsOf = (prefix: string, idOf: (value: string) => string = (v) => v): TagItem[] =>
+    planChips.filter((c) => c.key.startsWith(prefix)).map((c) => ({ id: idOf(c.key.slice(prefix.length)), label: c.label, image: c.image }));
+  const removeTag = (prefix: string, id: string, idOf: (value: string) => string = (v) => v) => planChips.find((c) => c.key.startsWith(prefix) && idOf(c.key.slice(prefix.length)) === id)?.remove();
+  const peopleTags: TagItem[] = plan.people.flatMap((p) => {
+    const chip = planChips.find((c) => c.key === `p:${p.name}`);
+    return chip ? [{ id: String(p.tmdbId ?? p.name), label: chip.label, image: chip.image }] : [];
+  });
+  const lower = (v: string) => v.toLowerCase();
+  // With the filters open, every pick shows inside the card (under its field or in the field itself); only the ones with no field of
+  // their own stay out here. With the card closed, all of them sit out here as before.
+  const outsideOthers = !filtersOpen;
+  const outsideChips = planChips.filter((c) => !filtersOpen || c.key.startsWith("t:") || c.key.startsWith("l:"));
+  // Release years: a few ahead for films not out yet; a year set some other way (by Ask AI) is kept in the list so the box can show it.
+  const releaseYears = yearChoices(5);
+  const yearsWith = (v: number | null) => (v !== null && !releaseYears.includes(v) ? [v, ...releaseYears] : releaseYears);
   const set = (patch: Partial<LogFilter>) => setFilter({ ...filter, ...patch });
   const num = (v: string) => (v.trim() === "" ? null : Number(v) || null);
   const minutes = (v: string) => {
@@ -640,11 +657,12 @@ function SearchView() {
       {filtersOpen && (
         // The options sit in one rounded card with a soft shadow, like a Watched card; the chips for what is set stay below it.
         <div className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]">
-          {(hasFilter(filter) || planOn || scope !== null) && (
-            <div className="flex justify-end">
-              <button type="button" onClick={() => { setScope(null); setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">Clear filters</button>
-            </div>
-          )}
+          {/* The row is always there, so the pill appearing never pushes the options down. */}
+          <div className="flex h-7 justify-end">
+            {(hasFilter(filter) || planOn || scope !== null) && (
+              <button type="button" onClick={() => { setScope(null); setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="rounded-full bg-neutral-100 px-3 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">Clear filters</button>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="col-span-2 flex flex-wrap gap-2">
               <button type="button" aria-pressed={inWatched} onClick={() => toggleList("watched")} className={pill(inWatched)}>In Watched</button>
@@ -669,28 +687,34 @@ function SearchView() {
             <select value={order} onChange={(e) => setOrder(e.target.value as Order)} className={FIELD} aria-label="Sort by">
               {ORDERS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
             </select>
-            <div className="relative col-span-2 min-w-0"><input inputMode="numeric" value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: num(e.target.value) })} placeholder="Released from (year)" aria-label="Released from" className={`${FIELD} w-full pr-11`} />{filter.releaseFrom !== null && filter.releaseFrom !== undefined && <ClearX label="Released from" onClear={() => set({ releaseFrom: null })} />}</div>
-            <div className="relative col-span-2 min-w-0"><input inputMode="numeric" value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: num(e.target.value) })} placeholder="Released to (year)" aria-label="Released to" className={`${FIELD} w-full pr-11`} />{filter.releaseTo !== null && filter.releaseTo !== undefined && <ClearX label="Released to" onClear={() => set({ releaseTo: null })} />}</div>
+            <select value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: e.target.value ? Number(e.target.value) : null })} className={`${FIELD} col-span-2`} aria-label="Released from">
+              <option value="">Released from any year</option>
+              {yearsWith(filter.releaseFrom).map((y) => <option key={y} value={y}>Released from {y}</option>)}
+            </select>
+            <select value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: e.target.value ? Number(e.target.value) : null })} className={`${FIELD} col-span-2`} aria-label="Released to">
+              <option value="">Released to any year</option>
+              {yearsWith(filter.releaseTo).map((y) => <option key={y} value={y}>Released to {y}</option>)}
+            </select>
             <div className="relative min-w-0"><input inputMode="numeric" value={plan.minRuntime ?? ""} onChange={(e) => drop({ minRuntime: minutes(e.target.value) })} placeholder="Over (minutes)" aria-label="Longer than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.minRuntime !== null && <ClearX label="Over minutes" onClear={() => drop({ minRuntime: null })} />}</div>
             <div className="relative min-w-0"><input inputMode="numeric" value={plan.maxRuntime ?? ""} onChange={(e) => drop({ maxRuntime: minutes(e.target.value) })} placeholder="Under (minutes)" aria-label="Shorter than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.maxRuntime !== null && <ClearX label="Under minutes" onClear={() => drop({ maxRuntime: null })} />}</div>
             <div className="col-span-2 flex flex-col gap-3">
               <SuggestTags
                 label="People"
-                tags={[]}
+                tags={peopleTags}
                 placeholder="Type a name, then tap the right one"
                 search={async (text) => {
                   const res = await services.catalog.searchPeople(text);
                   return res.ok ? res.value.map((p) => ({ id: String(p.tmdbId), label: p.name, image: p.profilePath, note: p.knownFor ?? null })) : [];
                 }}
                 onAdd={(t) => drop({ people: [...plan.people.filter((x) => x.tmdbId !== Number(t.id)), { name: t.label, role: "any", tmdbId: Number(t.id), profilePath: t.image ?? null }] })}
-                onRemove={() => {}}
+                onRemove={(id) => drop({ people: plan.people.filter((p) => String(p.tmdbId ?? p.name) !== id) })}
               />
-              <SuggestTags label="Genres" tags={[]} options={GENRE_TAGS} placeholder="Type a genre" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={() => {}} />
-              <SuggestTags label="Countries" tags={[]} options={COUNTRY_TAGS} placeholder="Type a country, such as Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={() => {}} />
-              <SuggestTags label="Languages" tags={[]} options={LANGUAGE_TAGS} placeholder="Type a language, such as French" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={() => {}} />
+              <SuggestTags label="Genres" tags={tagsOf("g:")} options={GENRE_TAGS} placeholder="Type a genre" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={(id) => removeTag("g:", id)} />
+              <SuggestTags label="Countries" tags={tagsOf("c:")} options={COUNTRY_TAGS} placeholder="Type a country, such as Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={(id) => removeTag("c:", id)} />
+              <SuggestTags label="Languages" tags={tagsOf("lang:")} options={LANGUAGE_TAGS} placeholder="Type a language, such as French" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={(id) => removeTag("lang:", id)} />
               <SuggestTags
                 label="Keywords"
-                tags={[]}
+                tags={tagsOf("k:", lower)}
                 allowFree
                 placeholder="A theme, such as heist or german expressionism"
                 search={async (text) => {
@@ -698,9 +722,9 @@ function SearchView() {
                   return res.ok ? res.value.map((k) => ({ id: k.toLowerCase(), label: k })) : [];
                 }}
                 onAdd={(t) => drop({ keywords: [...new Set([...plan.keywords, t.label])] })}
-                onRemove={() => {}}
+                onRemove={(id) => removeTag("k:", id, lower)}
               />
-              <SuggestTags label="Streaming on" tags={[]} options={PROVIDER_TAGS} allowFree placeholder="Type a service, such as Netflix" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={() => {}} />
+              <SuggestTags label="Streaming on" tags={tagsOf("prov:").map((t) => ({ ...t, label: t.label.replace(/^On /, "") }))} options={PROVIDER_TAGS} allowFree placeholder="Type a service, such as Netflix" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={(id) => removeTag("prov:", id)} />
             </div>
             <div className="relative min-w-0"><input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={`${FIELD} w-full pr-11`} />{filter.venue && <ClearX label="Venue" onClear={() => set({ venue: null })} />}</div>
             <div className="relative min-w-0"><input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={`${FIELD} w-full pr-11`} />{filter.format && <ClearX label="Format" onClear={() => set({ format: null })} />}</div>
@@ -711,23 +735,23 @@ function SearchView() {
         </div>
       )}
 
-      {(scope !== null || filterChips.length > 0 || planChips.length > 0 || (current?.plan?.missing.length ?? 0) > 0) && (
+      {((outsideOthers && (scope !== null || filterChips.length > 0)) || outsideChips.length > 0 || (current?.plan?.missing.length ?? 0) > 0) && (
         <ul className="flex flex-wrap gap-2 text-xs">
           {/* Searching inside one list; the x goes back to searching everything. */}
-          {([["watched", inWatched, "In Watched"], ["watchlist", inWatchlist, "In Watchlist"]] as const).filter(([, on]) => on).map(([which, , label]) => (
+          {([["watched", inWatched, "In Watched"], ["watchlist", inWatchlist, "In Watchlist"]] as const).filter(([, on]) => on && outsideOthers).map(([which, , label]) => (
             <li key={which} className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-white dark:bg-white dark:text-neutral-950">
               <span>{label}</span>
               <button type="button" aria-label={`Remove ${label}`} onClick={() => toggleList(which)} className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20 dark:bg-black/15"><Icon name="close" size={11} /></button>
             </li>
           ))}
-          {filterChips.map((c) => (
+          {(outsideOthers ? filterChips : []).map((c) => (
             <li key={c.key} className="flex items-center gap-1 rounded-full bg-neutral-100 py-1 pl-3 pr-1 dark:bg-neutral-800">
               <span>{c.label}</span>
               <button type="button" aria-label={`Remove ${c.label}`} onClick={c.remove} className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 dark:bg-white/15"><Icon name="close" size={11} /></button>
             </li>
           ))}
           {/* Each part of the plan can be taken out; the list then updates without asking the AI again. */}
-          {planChips.map((c) => (
+          {outsideChips.map((c) => (
             <li key={c.key} className={`flex items-center gap-1 rounded-full bg-neutral-950 py-1 pr-1 text-white dark:bg-white dark:text-neutral-950 ${c.image !== undefined ? "pl-1" : "pl-3"}`}>
               {c.image !== undefined && (tmdbImageUrl(c.image, "w185")
                 // eslint-disable-next-line @next/next/no-img-element

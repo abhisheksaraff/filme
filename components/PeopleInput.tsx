@@ -5,6 +5,7 @@
 "use client";
 
 import { FIELD_FULL } from "@/components/ui/fields";
+import SuggestionList, { SUGGESTION_NOTE, SuggestionItem } from "@/components/ui/SuggestionList";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
@@ -119,25 +120,25 @@ export default function PeopleInput({ label, people, onChange, disabled }: Props
       />
 
       {text.length >= 2 && (
-        <ul className="flex flex-col overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+        <SuggestionList>
           {items.map((s) => (
-            <li key={`${s.personId ?? "t"}-${s.tmdbId ?? s.name}`}>
+            <SuggestionItem key={`${s.personId ?? "t"}-${s.tmdbId ?? s.name}`}>
               <button type="button" onClick={() => add(s)} className="press flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
                 <Face path={s.profilePath} size={32} />
                 <span className="font-medium">{s.name}</span>
-                <span className="ml-auto text-xs text-neutral-500">{s.own ? "In your log" : "TMDB"}</span>
+                <span className={`ml-auto ${SUGGESTION_NOTE}`}>{s.own ? "In your log" : "TMDB"}</span>
               </button>
-            </li>
+            </SuggestionItem>
           ))}
           {!exact && (
-            <li>
+            <SuggestionItem>
               <button type="button" onClick={() => add({ personId: null, tmdbId: null, name: text, profilePath: null })} className="press flex w-full items-center gap-3 px-3 py-2 text-left text-sm">
                 <Face path={null} size={32} />
                 <span>Add “{text}”</span>
               </button>
-            </li>
+            </SuggestionItem>
           )}
-        </ul>
+        </SuggestionList>
       )}
     </div>
   );

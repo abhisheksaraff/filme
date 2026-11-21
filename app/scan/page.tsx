@@ -32,6 +32,7 @@ import { withCoverage } from "@/lib/logShow";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
 import { savePeople, syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
+import SuggestionList, { SUGGESTION_NOTE, SuggestionItem } from "@/components/ui/SuggestionList";
 import { forgetEntry, recallEntry, rememberEntry } from "@/lib/entryMemory";
 
 const SEARCH_DELAY_MS = 500;
@@ -275,24 +276,24 @@ export default function ScanPage() {
 
   const suggestions =
     hits.length > 0 ? (
-      <ul className="flex flex-col overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+      <SuggestionList>
         {hits.map((hit) => (
-          <li key={`${hit.kind}-${hit.tmdbId}`}>
+          <SuggestionItem key={`${hit.kind}-${hit.tmdbId}`}>
             <button type="button" onClick={() => pick(hit)} className="flex w-full items-center gap-3 p-2 text-left">
               {hit.posterUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={hit.posterUrl} alt="" className="h-14 w-10 rounded-lg object-cover" />
               ) : (
-                <div className="h-14 w-10 rounded-lg bg-neutral-200 dark:bg-neutral-700" />
+                <div className="h-14 w-10 rounded-lg bg-neutral-300 dark:bg-neutral-600" />
               )}
               <span className="flex flex-col text-sm">
                 <span className="font-medium">{hit.title}</span>
-                <span className="text-neutral-500">{[hit.year, hit.kind].filter(Boolean).join(" · ")}</span>
+                <span className={SUGGESTION_NOTE}>{[hit.year, hit.kind].filter(Boolean).join(" · ")}</span>
               </span>
             </button>
-          </li>
+          </SuggestionItem>
         ))}
-      </ul>
+      </SuggestionList>
     ) : null;
 
   return (

@@ -1,6 +1,7 @@
 // components/WatchedCard.tsx
 // One viewing: a small map and theatre name, the poster, then title, seats and details. It starts folded, showing the first
-// seats, the format and little picture circles; tapping it rolls the rest out in place, with the edit button floating over it.
+// seats, the format and little picture circles; tapping it lifts the card above the page and rolls the rest out over the cards below
+// (nothing else moves), with the edit button floating over it.
 "use client";
 
 import Link from "next/link";
@@ -10,7 +11,7 @@ import FlatMap, { KIND_ICON } from "@/components/FlatMap";
 import Icon, { type IconName } from "@/components/Icon";
 import ImageViewer from "@/components/ImageViewer";
 import RoundButton from "@/components/RoundButton";
-import ViewingDetails, { hasMoreDetail } from "@/components/ViewingDetails";
+import ViewingDetails from "@/components/ViewingDetails";
 import { useViewingPictures } from "@/hooks/useViewingPictures";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { scopeLabel } from "@/lib/domain/tv";
@@ -153,6 +154,19 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
       reportFolded(path, entry.id, null);
     };
   }, [path, entry.id]);
+  // The rolled-out part's own height. The card gives that much room back to the list, so rolling out lays the extra details over the
+  // cards below instead of pushing them down.
+  const extra = useRef<HTMLDivElement>(null);
+  const [extraHeight, setExtraHeight] = useState(0);
+  useEffect(() => {
+    const el = extra.current;
+    if (!el) return;
+    const measure = () => setExtraHeight(el.offsetHeight);
+    measure();
+    const watcher = new ResizeObserver(measure);
+    watcher.observe(el);
+    return () => watcher.disconnect();
+  }, []);
   const images = useViewingPictures(entry.id, near);
   // The roll-out is smooth unless animations are switched off, when it just snaps.
   const [smooth] = useState(() => readCachedAppearance().animationsEnabled);
@@ -162,7 +176,6 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
   const at = entry.venueId && entry.venue;
   const episode = entry.category === "TV Show" ? scopeLabel(entry.season, entry.episode) : null;
   const titleHref = `/title/?id=${entry.mediaId}`;
-  const more = hasMoreDetail({ auditorium: entry.auditorium, seats: entry.seats, addons: entry.addons, notes });
   const ease = smooth ? "transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" : "";
 
   const posterEl = (
@@ -179,10 +192,12 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
   );
 
   return (
-    <li ref={root} id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8), "--folded": `${tallestFolded}px` } as React.CSSProperties}
-      className={`${animate ? "rise-item" : ""} relative scroll-mt-24 rounded-3xl bg-white p-1 ${smooth ? "transition-[box-shadow,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" : ""} dark:bg-neutral-900 ${
+    // An open card rises above the ones around it (the earlier in the list, the higher, so an open card never hides the details of the one above)
+    // and hands back the height it rolled out, so nothing else on the page moves.
+    <li ref={root} id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8), "--folded": `${tallestFolded}px`, zIndex: open ? 100 - Math.min(index, 80) : undefined, marginBottom: open ? -extraHeight : 0 } as React.CSSProperties}
+      className={`${animate ? "rise-item" : ""} relative scroll-mt-24 rounded-3xl bg-white p-1 ${smooth ? "transition-[box-shadow,transform,margin-bottom] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" : ""} dark:bg-neutral-900 ${
         open
-          ? `shadow-[0_2px_4px_rgba(0,0,0,0.08),0_24px_44px_-10px_rgba(0,0,0,0.45),0_8px_16px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_44px_-10px_rgba(0,0,0,0.95)] ${more ? "-translate-y-0.5" : "scale-[1.025]"}`
+          ? `origin-top scale-[1.02] shadow-[0_2px_4px_rgba(0,0,0,0.08),0_24px_44px_-10px_rgba(0,0,0,0.45),0_8px_16px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_44px_-10px_rgba(0,0,0,0.95)]`
           : "shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]"
       }`}>
       {/* Tapping the card anywhere else rolls it out or back up. The title, poster, map, venue name and pictures sit above this and keep their own taps. */}
@@ -238,7 +253,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
       {/* Rolls out below: the auditorium, any more seats (on as many rows as needed), extras and notes. */}
       <div inert={!open} className={`grid ${ease} ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
         <div className="min-h-0 overflow-hidden">
-          <div className="flex flex-col gap-2 px-3 pt-2">
+          <div ref={extra} className="flex flex-col gap-2 px-3 pt-2">
             <ViewingDetails view="more" auditorium={entry.auditorium} seats={entry.seats} totalTickets={entry.totalTickets} format={entry.primaryFormat} addons={entry.addons} watchedOn={null} watchedAt={null} />
             {notes && <p className="select-text text-sm">{notes}</p>}
           </div>

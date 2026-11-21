@@ -4,6 +4,7 @@
 
 import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD } from "@/components/ui/fields";
+import SuggestionList, { SUGGESTION_NOTE, SuggestionItem } from "@/components/ui/SuggestionList";
 import { useEffect, useState } from "react";
 import { addPerformer } from "@/lib/credits";
 import type { ArtistHit } from "@/lib/ports/artists";
@@ -57,21 +58,21 @@ export default function PerformerInput({ mediaId, onAdded }: Props) {
       </div>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       {name.trim().length >= 2 && (
-        <ul className="flex flex-col gap-1 text-sm">
+        <SuggestionList>
           {hits.map((hit) => (
-            <li key={hit.id}>
-              <button type="button" onClick={() => add(hit.name, hit.id)} className="press flex w-full flex-col px-2 py-1.5 text-left">
+            <SuggestionItem key={hit.id}>
+              <button type="button" onClick={() => add(hit.name, hit.id)} className="press flex w-full flex-col px-3 py-2 text-left">
                 <span className="font-medium">{hit.name}</span>
-                {hit.note && <span className="text-xs text-neutral-500">{hit.note}</span>}
+                {hit.note && <span className={SUGGESTION_NOTE}>{hit.note}</span>}
               </button>
-            </li>
+            </SuggestionItem>
           ))}
-          <li>
-            <button type="button" onClick={() => add(name.trim(), null)} className="rounded-xl px-2 py-1.5 text-left text-neutral-500">
+          <SuggestionItem>
+            <button type="button" onClick={() => add(name.trim(), null)} className="press w-full px-3 py-2 text-left text-neutral-600 dark:text-neutral-300">
               Add “{name.trim()}” as typed
             </button>
-          </li>
-        </ul>
+          </SuggestionItem>
+        </SuggestionList>
       )}
     </div>
   );
