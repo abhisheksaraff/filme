@@ -38,7 +38,7 @@ export default function DateField({ type = "date", value, onChange, label, max, 
       </div>
       {/* Once a date is set, a round x sits beside the box. Its tap area reaches past the circle, so it clears the date instead of opening the picker. */}
       {value && (
-        <button type="button" aria-label={`Clear ${label}`} onClick={() => onChange("")} className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-500/15 before:absolute before:-inset-1.5 before:content-[''] ${hintClass}`}>
+        <button type="button" aria-label={`Clear ${label}`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange(""); }} className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-500/15 before:absolute before:-inset-1.5 before:content-[''] ${hintClass}`}>
           <Icon name="close" size={16} />
         </button>
       )}

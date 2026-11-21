@@ -41,6 +41,10 @@ interface Props {
   recent?: () => Promise<TagItem[]>;
   /** Names to show as the grey example: three of them, picked at random, followed by "…". */
   examples?: string[];
+  /** The most that can be picked; once reached the box is locked and says so. */
+  max?: number;
+  /** What the locked box says. */
+  maxText?: string;
 }
 
 const SHOWN = 8;
@@ -56,7 +60,7 @@ function Face({ image, size }: { image: string | null | undefined; size: number 
   );
 }
 
-export default function SuggestTags({ label, tags, options, search, allowFree, onAdd, onRemove, placeholder, showOnTap, recent, examples }: Props) {
+export default function SuggestTags({ label, tags, options, search, allowFree, onAdd, onRemove, placeholder, showOnTap, recent, examples, max, maxText }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -84,6 +88,7 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
   // Compared in lower case, so a typed "netflix" and a saved "Netflix" are the same one.
   const taken = new Set(tags.map((t) => t.id.toLowerCase()));
   const needle = normalize(text);
+  const full = max !== undefined && tags.length >= max;
 
   let suggestions: TagItem[] = [];
   if (options && !needle && showOnTap) {
@@ -96,7 +101,7 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
     suggestions = remote.items.filter((o) => !taken.has(o.id.toLowerCase()));
   }
   const everything = showOnTap && !needle;
-  suggestions = everything ? suggestions : suggestions.slice(0, SHOWN);
+  suggestions = full ? [] : everything ? suggestions : suggestions.slice(0, SHOWN);
 
   function onType(value: string) {
     setText(value);
@@ -115,9 +120,8 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
   }
 
   function add(item: TagItem) {
+    // What was typed stays, so several suggestions for the same words can be picked one after another.
     onAdd(item);
-    setText("");
-    setRemote({ for: "", items: [] });
   }
 
   return (
@@ -130,6 +134,7 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
           // Enter must not submit the page's own form.
           if (e.key === "Enter") {
             e.preventDefault();
+            if (full) return;
             if (suggestions[0]) add(suggestions[0]);
             else if (allowFree && text.trim().length >= 2 && !taken.has(text.trim().toLowerCase())) add({ id: text.trim().toLowerCase(), label: text.trim() });
           }
@@ -138,13 +143,14 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
           setOpen(true);
           if (recent && !text) void recent().then((items) => setRemote({ for: "", items }));
         }}
-        placeholder={shown}
+        placeholder={full ? maxText : shown}
+        disabled={full}
         aria-label={label}
         autoComplete="off"
         autoCapitalize="none"
         autoCorrect="off"
         enterKeyHint="done"
-        className={`${FIELD} w-full`}
+        className={`${FIELD} w-full ${full ? "opacity-60" : ""}`}
       />
       {open && suggestions.length > 0 && (
         <SuggestionList label={`${label} suggestions`} scroll={everything}>

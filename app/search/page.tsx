@@ -427,8 +427,8 @@ function SearchView() {
     setAsking(false);
   }
 
-  const items = useMemo(() => {
-    if (!active) return [];
+  const built = useMemo((): { list: Item[]; fallback: boolean } => {
+    if (!active) return { list: [], fallback: false };
     const wantedKeys = new Set(wanted.flatMap((w) => (w.tmdbId === null ? [] : [seenKey(w.category === "TV Show" ? "TV Show" : "Movie", w.tmdbId)])));
     const wantedNames = new Set(wanted.map((w) => `${w.category}:${normalize(w.title)}`));
     const out = new Map<string, Item>();
@@ -477,7 +477,7 @@ function SearchView() {
     const byIdentity = new Set([...out.values()].map((i) => identity(i.kind, i.title, i.year)));
 
     // Your Watchlist: when typed words match, or all of it when searching inside it.
-    if (inL || (scope === null && q.length >= 2 && !logOnly)) {
+    if (inL || (scope === null && q.length >= 2 && !logOnly && !planOn)) {
       const inTmdb = inL && !tmdbSide && planOn ? new Set((fromTmdb?.hits ?? []).map((h) => `${h.kind}:${h.tmdbId}`)) : null;
       for (const w of wanted) {
         if (q.length >= 2 && !normalize(w.title).includes(normalize(q))) continue;
@@ -542,7 +542,12 @@ function SearchView() {
       : order === "za" ? b.title.localeCompare(a.title)
       : 0;
     // Otherwise they stay in order of how well they matched; whether you have seen one does not move it.
-    // With two or more pills on, titles matching the most of them come first, then those matching fewer; ones matching none are left out.
+    // Where TMDB listed a title is where it ranks, whether or not you have watched or bookmarked it; titles it did not return go after.
+    const tmdbRank = new Map((fromTmdb?.hits ?? []).map((h, i) => [identity(h.kind, h.title, h.year), i] as const));
+    const rankOf = (i: Item) => tmdbRank.get(identity(i.kind, i.title, i.year)) ?? Number.MAX_SAFE_INTEGER;
+    // Not watched yet really means that, whichever list a title came from.
+    const pool = plan.seen === "not-seen" ? list.filter((i) => !i.watched) : plan.seen === "seen" ? list.filter((i) => i.watched) : list;
+    // Each pill that is on is a test. Titles passing every one are the results; only when there are none are the ones passing fewer shown, best first.
     const cinemaNames = new Set((fromTmdb?.hits ?? []).map((h) => identity(h.kind, h.title, h.year)));
     const pills: ((i: Item) => boolean)[] = [
       ...(inW ? [(i: Item) => i.watched] : []),
@@ -551,10 +556,14 @@ function SearchView() {
       ...(filter.rewatchesOnly ? [(i: Item) => i.rewatched === true] : []),
       ...(plan.inTheatres !== null ? [(i: Item) => cinemaNames.has(identity(i.kind, i.title, i.year))] : []),
     ];
-    const hits = (i: Item) => pills.filter((fits) => fits(i)).length;
-    const ranked = pills.length >= 2 ? list.map((item) => ({ item, n: hits(item) })).filter((x) => x.n > 0) : list.map((item) => ({ item, n: 0 }));
-    return ranked.map((x, index) => ({ ...x, index })).sort((a, b) => b.n - a.n || a.item.group - b.item.group || within(a.item, b.item) || a.index - b.index).map((x) => x.item);
+    const scored = pool.map((item) => ({ item, n: pills.filter((fits) => fits(item)).length }));
+    const exact = scored.filter((x) => x.n === pills.length);
+    const fallback = pills.length > 0 && exact.length === 0 && scored.some((x) => x.n > 0);
+    const shown = pills.length === 0 ? scored : exact.length > 0 ? exact : scored.filter((x) => x.n > 0);
+    const list2 = shown.map((x, index) => ({ ...x, index })).sort((a, b) => b.n - a.n || a.item.group - b.item.group || within(a.item, b.item) || rankOf(a.item) - rankOf(b.item) || a.index - b.index).map((x) => x.item);
+    return { list: list2, fallback };
   }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn, askOn, progressOf, scope, scopeEff, inW, inL, tmdbSide, planLookup, plan, scores]);
+  const items = built.list;
 
   // IMDb scores for what is listed: saved ones come back at once, and a few missing ones are looked up in the background.
   useEffect(() => {
@@ -724,6 +733,7 @@ function SearchView() {
             />
             <PickSelect
               className="col-span-2"
+              clearable
               label="Released from"
               value={filter.releaseFrom === null ? "" : String(filter.releaseFrom)}
               onChange={(v) => set({ releaseFrom: v ? Number(v) : null })}
@@ -731,6 +741,7 @@ function SearchView() {
             />
             <PickSelect
               className="col-span-2"
+              clearable
               label="Released to"
               value={filter.releaseTo === null ? "" : String(filter.releaseTo)}
               onChange={(v) => set({ releaseTo: v ? Number(v) : null })}
@@ -765,7 +776,7 @@ function SearchView() {
                 onAdd={(t) => drop({ keywords: [...new Set([...plan.keywords, t.label])] })}
                 onRemove={(id) => removeTag("k:", id, lower)}
               />
-              <SuggestTags label="Streaming on" tags={tagsOf("prov:").map((t) => ({ ...t, label: t.label.replace(/^On /, "") }))} options={PROVIDER_TAGS} allowFree showOnTap examples={PROVIDER_TAGS.map((g) => g.label)} placeholder="Netflix, Crave…" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={(id) => removeTag("prov:", id)} />
+              <SuggestTags label="Streaming on" tags={tagsOf("prov:").map((t) => ({ ...t, label: t.label.replace(/^On /, "") }))} options={PROVIDER_TAGS} allowFree showOnTap max={3} maxText="Max. 3 services" examples={PROVIDER_TAGS.map((g) => g.label)} placeholder="Netflix, Crave…" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={(id) => removeTag("prov:", id)} />
             </div>
             <div className="col-span-2 flex flex-col gap-3">
               <SuggestTags
@@ -787,8 +798,8 @@ function SearchView() {
               <SuggestTags label="Format" tags={asList(filter.format).map((v) => ({ id: v, label: v }))} options={FORMAT_TAGS} showOnTap allowFree examples={[...PRIMARY_FORMATS]} placeholder="IMAX…" onAdd={(t) => set({ format: [...new Set([...asList(filter.format), t.label])] })} onRemove={(id) => set({ format: asList(filter.format).filter((v) => v !== id) })} />
               <SuggestTags label="Extras" tags={asList(filter.extra).map((v) => ({ id: v, label: v }))} options={EXTRA_TAGS} showOnTap allowFree examples={[...FORMAT_ADDONS]} placeholder="3D, D-BOX…" onAdd={(t) => set({ extra: [...new Set([...asList(filter.extra), t.label])] })} onRemove={(id) => set({ extra: asList(filter.extra).filter((v) => v !== id) })} />
             </div>
-            <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" hint="yearAgo" /></label>
-            <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><DateField value={filter.dateTo ?? ""} onChange={(v) => set({ dateTo: v || null })} label="Watched to" /></label>
+            <div className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" hint="yearAgo" /></div>
+            <div className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><DateField value={filter.dateTo ?? ""} onChange={(v) => set({ dateTo: v || null })} label="Watched to" /></div>
           </div>
         </div>
       )}
@@ -833,6 +844,7 @@ function SearchView() {
 
       <ProblemPopup message={current?.problem} onClose={() => setFound((f) => (f ? { ...f, problem: null } : f))} />
 
+      {built.fallback && items.length > 0 && <p className="text-sm text-neutral-500">Nothing found with these filters, here&apos;s other relevant results.</p>}
       {items.length > 0 && (
         <ul className="flex flex-col gap-3">
           {items.slice(0, personTmdb ? 400 : 80).map((item) => <ResultRow key={item.key} item={item} />)}

@@ -41,12 +41,14 @@ const byName = (a: string, b: string) => a.localeCompare(b);
 const FORMATS_SORTED = [...PRIMARY_FORMATS].sort(byName);
 const ADDONS_SORTED = [...FORMAT_ADDONS].sort(byName);
 
-function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
+function Labeled({ label, children, plain = false }: { label: string; children: React.ReactNode; plain?: boolean }) {
+  // A date box with an x inside a <label> sends the x's taps to the date picker, so those use a plain wrapper.
+  const Wrap = plain ? "div" : "label";
   return (
-    <label className="flex flex-col gap-1">
+    <Wrap className="flex flex-col gap-1">
       <span className="px-1 text-xs text-neutral-500">{label}</span>
       {children}
-    </label>
+    </Wrap>
   );
 }
 
@@ -306,8 +308,8 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
         </select>
       </Labeled>
       {/* A phone shows no hint text inside a date field, so each one has its name written above it. */}
-      {shownWhen === "day" && <Labeled label="Date"><DateField label="Date" value={draft.date} onChange={(v) => set("date", v)} /></Labeled>}
-      {shownWhen === "month" && <Labeled label="Month and year"><DateField type="month" label="Month and year" value={draft.date} onChange={(v) => set("date", v)} /></Labeled>}
+      {shownWhen === "day" && <Labeled label="Date" plain><DateField label="Date" value={draft.date} onChange={(v) => set("date", v)} /></Labeled>}
+      {shownWhen === "month" && <Labeled label="Month and year" plain><DateField type="month" label="Month and year" value={draft.date} onChange={(v) => set("date", v)} /></Labeled>}
       {shownWhen === "year" && (
         <Labeled label="Year">
           <select className={field} aria-label="Year" value={draft.date} onChange={(e) => set("date", e.target.value)}>
