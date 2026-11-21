@@ -520,7 +520,16 @@ async function wantPickRow(): Promise<Result<RowResult>> {
   const saved = await savedTitles();
   const movies = shuffle(saved.filter((s) => s.kind === "Movie"));
   const shows = shuffle(saved.filter((s) => s.kind === "TV Show"));
-  const items = interleave(movies, shows).slice(0, 12).map(savedItem);
+  const savedCollections = await services.wanted.collections();
+  const collections = shuffle(savedCollections.ok ? savedCollections.value : []).map((c): RowItem => ({
+    key: `wantcol:${c.collectionId}`,
+    claim: `collection:${c.collectionId}`,
+    title: c.name,
+    subtitle: "Collection",
+    posterUrl: tmdbImageUrl(c.posterPath, "w185"),
+    href: `/collection/?id=${c.collectionId}`,
+  }));
+  const items = interleave(interleave(movies, shows).map(savedItem), collections).slice(0, 12);
   return ok({ title: "From your watchlist", items, seeAll: "/want/", empty: "Save a few titles to see picks from your list here." });
 }
 

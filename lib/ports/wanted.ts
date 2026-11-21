@@ -16,6 +16,13 @@ export interface WantedItem {
   episode: number | null;
 }
 
+/** A movie collection saved to the Watchlist as one entry. */
+export interface WantedCollection {
+  collectionId: number;
+  name: string;
+  posterPath: string | null;
+}
+
 /** Which part of a show a Watchlist row is about; leaving it out means the whole title. */
 export interface WantScope {
   season: number | null;
@@ -46,4 +53,8 @@ export interface WantedRepository {
   status(kind: CatalogKind, tmdbId: number, scope?: WantScope): Promise<Result<TitleStatus>>;
   /** Items taken off the list by watching them, with when they were added and cleared. */
   cleared(): Promise<Result<ClearedItem[]>>;
+  /** Collections saved to the list, newest first. */
+  collections(): Promise<Result<WantedCollection[]>>;
+  /** Saves a collection to the list, or takes it off. */
+  setCollectionWanted(collection: WantedCollection, wanted: boolean): Promise<Result<void>>;
 }

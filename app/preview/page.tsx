@@ -14,6 +14,7 @@ import MoreLikeThis from "@/components/MoreLikeThis";
 import RatingsLine from "@/components/RatingsLine";
 import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
+import InfoCards from "@/components/InfoCards";
 import TmdbPicturesViewer from "@/components/TmdbPicturesViewer";
 import { handoffFor } from "@/lib/handoff";
 import { startEntryFrom } from "@/lib/logPrefill";
@@ -139,7 +140,10 @@ function PreviewView() {
 
         {details && (
           <div className="rise flex flex-col gap-5">
-            {details.genres.length > 0 && <span className="text-sm text-neutral-500">{details.genres.join(", ")}</span>}
+            <InfoCards cards={[
+              { label: "Details", value: [details.releaseYear, details.runtime ? `${details.runtime} min` : null, details.category].filter(Boolean).join(" · ") },
+              { label: "Genres", value: details.genres.join(", ") },
+            ]} />
 
             {status && (
               <>

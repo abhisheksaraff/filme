@@ -13,6 +13,7 @@ import type { TitleLinks } from "@/lib/ports/ratings";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import TitleHero from "@/components/TitleHero";
+import InfoCards, { timesText } from "@/components/InfoCards";
 import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
@@ -38,7 +39,6 @@ const NO_VIEWINGS: ViewingSummary[] = [];
 import { services } from "@/lib/services";
 import DoNotRecommend from "@/components/DoNotRecommend";
 
-const card = "flex flex-col gap-2 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900";
 const ROLE_LABEL: Record<string, string> = { actor: "Cast", director: "Director", producer: "Producer", writer: "Writer", creator: "Creator", performer: "Performers", opener: "Openers" };
 
 function TitleView() {
@@ -174,22 +174,12 @@ function TitleView() {
 
         {detail && (
           <>
-            <ul className="-mx-5 flex gap-3 overflow-x-auto px-5">
-              <li className={`${card} w-40 shrink-0`}>
-                <span className="text-neutral-500">Details</span>
-                <span>{[detail.releaseDate?.slice(0, 4), detail.runtime ? `${detail.runtime} min` : null, detail.category].filter(Boolean).join(" · ")}</span>
-              </li>
-              {credits && credits.genres.length > 0 && (
-                <li className={`${card} w-40 shrink-0`}>
-                  <span className="text-neutral-500">Genres</span>
-                  <span>{credits.genres.join(", ")}</span>
-                </li>
-              )}
-              <li className={`${card} w-40 shrink-0`}>
-                <span className="text-neutral-500">Watched</span>
-                <span>{detail.viewings.length} {detail.viewings.length === 1 ? "time" : "times"}</span>
-              </li>
-            </ul>
+            <InfoCards cards={[
+              { label: "Details", value: [detail.releaseDate?.slice(0, 4), detail.runtime ? `${detail.runtime} min` : null, detail.category].filter(Boolean).join(" · ") },
+              { label: "Genres", value: credits?.genres.join(", ") },
+              // A show counts the times you finished the whole series, not every episode you logged.
+              { label: "Watched", value: timesText(isShow ? (sp.passes?.show.passes.length ?? 0) : detail.viewings.length) },
+            ]} />
 
             {detail.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{detail.overview}</p>}
             {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}

@@ -12,7 +12,7 @@ interface Props {
   posterUrl: string | null;
   title: string;
   /** Year, runtime and kind, shown under the title. */
-  subtitle: string;
+  subtitle: ReactNode;
   loading?: boolean;
   /** Shown under the subtitle, such as the IMDb link and ratings. */
   extra?: ReactNode;

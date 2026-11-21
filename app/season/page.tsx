@@ -12,6 +12,8 @@ import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
 import { toast } from "@/components/Toast";
 import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
+import InfoCards, { timesText } from "@/components/InfoCards";
+import { useGenres } from "@/hooks/useGenres";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { isCovered, progressOf, type Cover } from "@/lib/domain/tv";
@@ -65,6 +67,7 @@ function SeasonView() {
   const [pickDate, setPickDate] = useState(today());
   const showData = useShowData(detail?.tmdbId ?? null, ready);
   const sp = useShowPasses(detail?.mediaId ?? null, detail?.viewings ?? NO_VIEWINGS, showData);
+  const genres = useGenres("TV Show", detail?.tmdbId ?? null);
 
   useEffect(() => {
     if (!ready || (!id && !tmdbParam) || !Number.isInteger(n)) return;
@@ -189,11 +192,16 @@ function SeasonView() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
-        titleHref={id ? `/title/?id=${id}` : `/preview/?kind=tv&id=${tmdbParam}`}
         backdropUrl={tmdbImageUrl(detail?.backdropPath, "w780")}
         posterUrl={tmdbImageUrl(season?.posterPath ?? detail?.posterPath, "w342")}
         title={season?.name ?? `Season ${n}`}
-        subtitle={detail ? [detail.title, season?.airDate?.slice(0, 4), season ? `${season.episodes.length} episodes` : null].filter(Boolean).join(" · ") : ""}
+        subtitle={detail ? (
+          <>
+            {/* The show's name opens the show; the season's own title does not. */}
+            <Link href={id ? `/title/?id=${id}` : `/preview/?kind=tv&id=${tmdbParam}`} className="font-medium text-[var(--foreground)]">{detail.title}</Link>
+            {[season?.airDate?.slice(0, 4), season ? `${season.episodes.length} episodes` : null].filter(Boolean).map((part) => ` · ${part}`).join("")}
+          </>
+        ) : ""}
         loading={!detail && !problem}
         posterBadge={badge}
       />
@@ -203,6 +211,11 @@ function SeasonView() {
 
         {detail && season && (
           <>
+            <InfoCards cards={[
+              { label: "Details", value: [season.airDate?.slice(0, 4), `${season.episodes.length} episodes`].filter(Boolean).join(" · ") },
+              { label: "Genres", value: genres.join(", ") },
+              { label: "Watched", value: timesText(mine?.passes.length ?? 0) },
+            ]} />
             <TitleActions
               wanted={wanted}
               canBookmark
@@ -215,7 +228,6 @@ function SeasonView() {
             {season.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{season.overview}</p>}
             {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}
             {mine ? <RewatchLine passes={mine} onReset={() => sp.reset(n)} /> : progress.aired > 0 && <p className="text-sm">{progress.watched} of {progress.aired} episodes watched</p>}
-            {mine && <p className="-mt-3 text-xs text-neutral-500">Watched {mine.passes.length} {mine.passes.length === 1 ? "time" : "times"}</p>}
 
             <div className="flex items-center justify-between text-sm">
               {picking ? (

@@ -98,6 +98,23 @@ export const supabaseWantedRepository: WantedRepository = {
     return ok(data.map((row) => ({ addedAt: row.added_at as string, clearedAt: row.cleared_at as string })));
   },
 
+  async collections() {
+    const { data, error } = await getSupabase().from("collection_follows").select("collection_id, name, poster_path").not("wanted_at", "is", null).order("wanted_at", { ascending: false });
+    if (error) return fail("Could not load your saved collections.");
+    return ok((data ?? []).map((r) => ({ collectionId: r.collection_id as number, name: (r.name as string | null) ?? "Collection", posterPath: (r.poster_path as string | null) ?? null })));
+  },
+
+  async setCollectionWanted(collection, wanted) {
+    const db = getSupabase();
+    const found = await db.from("collection_follows").select("collection_id").eq("collection_id", collection.collectionId).maybeSingle();
+    if (found.error) return fail("Could not save that.");
+    const patch = wanted ? { name: collection.name, poster_path: collection.posterPath, wanted_at: new Date().toISOString() } : { wanted_at: null };
+    const res = found.data
+      ? await db.from("collection_follows").update(patch).eq("collection_id", collection.collectionId)
+      : await db.from("collection_follows").insert({ collection_id: collection.collectionId, ...patch });
+    return res.error ? fail("Could not save that.") : ok(undefined);
+  },
+
   async status(kind, tmdbId, scope = WHOLE) {
     const db = getSupabase();
     const media = await db.from("media_items").select("id").eq("category", kind).eq("tmdb_id", tmdbId).maybeSingle();

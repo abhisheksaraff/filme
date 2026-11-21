@@ -21,12 +21,22 @@ import { previewHref } from "@/lib/home/rows";
 import CollectionDoNotRecommend from "@/components/CollectionDoNotRecommend";
 import DateField from "@/components/ui/DateField";
 import Popup, { PopupAction } from "@/components/Popup";
-import RoundButton from "@/components/RoundButton";
+import InfoCards, { timesText } from "@/components/InfoCards";
+import PersonCircle from "@/components/PersonCircle";
+import TitleActions from "@/components/TitleActions";
 import WhenPopup from "@/components/WhenPopup";
 import { toast } from "@/components/Toast";
 import { logCollectionNow } from "@/lib/logCollection";
+import { formatMoney, formatRuntime, loadCollectionInfo, type CollectionInfo, type CollectionPerson } from "@/lib/collectionInfo";
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+/** "1962–2021": the first and latest release years of the films that have a date. */
+function years(detail: { parts: { releaseDate: string | null }[] }): string {
+  const ys = detail.parts.flatMap((p) => (p.releaseDate ? [p.releaseDate.slice(0, 4)] : []));
+  if (ys.length === 0) return "";
+  return ys[0] === ys[ys.length - 1] ? ys[0] : `${ys[0]}–${ys[ys.length - 1]}`;
+}
 
 function CollectionView() {
   const ready = useRequireSession();
@@ -38,12 +48,15 @@ function CollectionView() {
   const [when, setWhen] = useState<"ask" | "date" | null>(null);
   const [day, setDay] = useState(today());
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<CollectionInfo | null>(null);
+  const [wanted, setWanted] = useState(false);
 
   useEffect(() => {
     if (!ready || id === null) return;
     let cancelled = false;
-    Promise.all([loadCollection(id), services.passes.completions()]).then(([res, comps]) => {
+    Promise.all([loadCollection(id), services.passes.completions(), services.wanted.collections()]).then(([res, comps, saved]) => {
       if (cancelled) return;
+      if (saved.ok) setWanted(saved.value.some((c) => c.collectionId === id));
       if (res.ok) setData(res.value);
       else setProblem(res.error);
       if (comps.ok) setCompletions(comps.value.filter((c) => c.collectionId === id));
@@ -52,6 +65,27 @@ function CollectionView() {
       cancelled = true;
     };
   }, [ready, id, reload]);
+
+  // Genres, runtime, box office, cast and crew come from the films themselves, a few at a time, so the page does not wait for them.
+  const detail = data?.detail ?? null;
+  useEffect(() => {
+    if (!detail) return;
+    let cancelled = false;
+    loadCollectionInfo(detail).then((res) => !cancelled && setInfo(res));
+    return () => {
+      cancelled = true;
+    };
+  }, [detail]);
+
+  async function toggleWanted() {
+    if (!data) return;
+    setBusy(true);
+    const res = await services.wanted.setCollectionWanted({ collectionId: data.detail.id, name: data.detail.name, posterPath: data.detail.posterPath }, !wanted);
+    setBusy(false);
+    if (!res.ok) return setProblem(res.error);
+    setWanted(!wanted);
+    toast(wanted ? "Removed from watchlist" : "Added to watchlist");
+  }
 
   const byTmdb = useMemo(() => new Map((data?.viewings ?? []).map((v) => [v.tmdbId, v] as const)), [data]);
   const byId = useMemo(() => new Map((data?.viewings ?? []).map((v) => [v.id, v] as const)), [data]);
@@ -98,12 +132,16 @@ function CollectionView() {
         <ProblemPopup message={problem} onClose={() => setProblem(null)} />
         {data && (
           <>
+            <InfoCards cards={[
+              { label: "Details", value: [years(data.detail), `${data.detail.parts.length} films`].filter(Boolean).join(" · ") },
+              { label: "Genres", value: info?.genres.slice(0, 6).join(", ") },
+              { label: "Runtime", value: info && info.runtime > 0 && formatRuntime(info.runtime) },
+              { label: "Box office", value: info && info.revenue > 0 && formatMoney(info.revenue) },
+              { label: "Watched", value: timesText(data.passes.passes.length) },
+            ]} />
             {data.detail.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{data.detail.overview}</p>}
-            <div className="flex items-center gap-3">
-              <RoundButton icon="plus" label="Log the whole collection" tone="dark" size="lg" onClick={() => setWhen("ask")} />
-            </div>
-            <RewatchLine passes={data.passes} onReset={reset} />
-            <p className="-mt-3 text-xs text-neutral-500">Watched {data.passes.passes.length} {data.passes.passes.length === 1 ? "time" : "times"}</p>
+            <TitleActions wanted={wanted} watched={data.viewings.length > 0} canBookmark watch={null} busy={busy} onToggleWanted={() => void toggleWanted()} onLog={() => setWhen("ask")} />
+            <RewatchLine passes={data.passes} onReset={reset} noun="film" />
 
             <section className="flex flex-col gap-2">
               <h2 className="font-serif text-lg">Films</h2>
@@ -131,6 +169,17 @@ function CollectionView() {
                 })}
               </ul>
             </section>
+
+            {info && ([["Cast", info.cast], ["Director", info.directors], ["Writer", info.writers]] as [string, CollectionPerson[]][]).map(([group, people]) =>
+              people.length === 0 ? null : (
+                <section key={group} className="flex flex-col gap-2">
+                  <h2 className="font-serif text-lg">{group}</h2>
+                  <ul className="-mx-5 flex gap-3 overflow-x-auto px-5">
+                    {people.map((p) => <PersonCircle key={`${group}-${p.tmdbId}`} href={`/person/?tmdb=${p.tmdbId}`} name={p.name} profilePath={p.profilePath} note={`${p.films} ${p.films === 1 ? "film" : "films"}`} />)}
+                  </ul>
+                </section>
+              ),
+            )}
 
             {rows.length > 0 && show && (
               <section className="flex flex-col gap-3">

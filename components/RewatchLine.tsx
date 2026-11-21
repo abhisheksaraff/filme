@@ -11,9 +11,11 @@ import type { Passes } from "@/lib/domain/passes";
 interface Props {
   passes: Passes;
   onReset?: () => Promise<string | null>;
+  /** What is being watched through; episodes unless said otherwise. */
+  noun?: string;
 }
 
-export default function RewatchLine({ passes, onReset }: Props) {
+export default function RewatchLine({ passes, onReset, noun = "episode" }: Props) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export default function RewatchLine({ passes, onReset }: Props) {
 
   const rewatch = passes.passes.length;
   const done = rewatch > 0 && seen === 0;
-  const text = done ? `All ${total} ${total === 1 ? "episode" : "episodes"} watched` : `${rewatch > 0 ? `Rewatch ${rewatch} · ` : ""}${seen} of ${total} episodes watched`;
+  const text = done ? `All ${total} ${total === 1 ? noun : `${noun}s`} watched` : `${rewatch > 0 ? `Rewatch ${rewatch} · ` : ""}${seen} of ${total} ${noun}s watched`;
   // Only a rewatch under way can be reset; the first time through has nothing to start over from.
   const canReset = !!onReset && rewatch > 0 && seen > 0;
 

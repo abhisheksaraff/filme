@@ -62,7 +62,7 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
 
 /** Shown until the user customises Home. */
 export const DEFAULT_HOME_ROWS: readonly string[] = [
-  "continue", "collections-mine", "like-movie", "want-pick", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
+  "continue", "collections-mine", "collections-new", "like-movie", "want-pick", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
 ];
 
 /** Rows the very first saved layouts predate; they are added once to layouts saved before rows were tracked. */

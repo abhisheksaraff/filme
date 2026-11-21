@@ -35,10 +35,12 @@ export default function WantPage() {
     if (!ready) return;
     let cancelled = false;
     (async () => {
-      const [list, location] = await Promise.all([services.wanted.list(), services.settings.location()]);
+      const [list, location, saved] = await Promise.all([services.wanted.list(), services.settings.location(), services.wanted.collections()]);
       if (cancelled) return;
       if (list.ok) {
-        setWanted(list.value);
+        // A saved collection is one entry with its own poster; it follows the titles in the list.
+        const collections = (saved.ok ? saved.value : []).map((c): WantedItem => ({ mediaId: `collection:${c.collectionId}`, tmdbId: null, category: "Collection", title: c.name, posterPath: c.posterPath, releaseDate: null, season: null, episode: null }));
+        setWanted([...list.value, ...collections]);
         const items = list.value.filter((w) => w.category === "Movie" || w.category === "TV Show").map((w) => ({ mediaId: w.mediaId, kind: w.category as "Movie" | "TV Show", tmdbId: w.tmdbId, releaseDate: w.releaseDate }));
         void services.ratings.scores(items, { fill: 20, onScore: (key, score) => !cancelled && setScores((m) => new Map(m).set(key, score)) }).then((m) => !cancelled && setScores((now) => new Map([...m, ...now])));
       } else setProblem(list.error);
@@ -123,7 +125,9 @@ export default function WantPage() {
             <li key={`${item.mediaId}:${item.season ?? ""}:${item.episode ?? ""}`} className="flex flex-col gap-1">
               <Link
                 href={
-                  item.episode !== null
+                  item.category === "Collection"
+                    ? `/collection/?id=${item.mediaId.slice("collection:".length)}`
+                    : item.episode !== null
                     ? `/episode/?id=${item.mediaId}&s=${item.season ?? 1}&e=${item.episode}`
                     : item.season !== null
                       ? `/season/?id=${item.mediaId}&n=${item.season}`

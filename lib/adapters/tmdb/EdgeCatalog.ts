@@ -422,6 +422,7 @@ const rawCatalog: Catalog = {
       backdropPath: d.backdrop_path ?? null,
       posterUrl: tmdbImageUrl(d.poster_path),
       backdropUrl: tmdbImageUrl(d.backdrop_path, "w780"),
+      revenue: isMovie ? d.revenue || null : null,
       collection: isMovie ? (d.belongs_to_collection ? { id: d.belongs_to_collection.id as number, name: d.belongs_to_collection.name as string } : null) : undefined,
     };
     return ok(details);
@@ -476,8 +477,8 @@ function remember<T>(key: string, run: () => Promise<Result<T>>, ttl = SHORT_MS,
 
 export const edgeCatalog: Catalog = {
   ...rawCatalog,
-  // "details2": answers kept before the collection was added are left behind.
-  details: (match) => remember(`details2:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match), DAY_MS, true),
+  // "details3": answers kept before the collection and the box office were added are left behind.
+  details: (match) => remember(`details3:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match), DAY_MS, true),
   collection: (id) => remember(`collection:${id}`, () => rawCatalog.collection(id), 6 * 60 * MINUTE, true),
   images: (match) => remember(`images:${match.kind}:${match.tmdbId}`, () => rawCatalog.images(match), DAY_MS, true),
   personImages: (id) => remember(`personImages:${id}`, () => rawCatalog.personImages(id), DAY_MS, true),

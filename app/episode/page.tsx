@@ -14,9 +14,11 @@ import Icon from "@/components/Icon";
 import PersonCircle from "@/components/PersonCircle";
 import TitleActions from "@/components/TitleActions";
 import TitleHero from "@/components/TitleHero";
+import InfoCards, { timesText } from "@/components/InfoCards";
+import { useGenres } from "@/hooks/useGenres";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import { isCovered, scopeLabel } from "@/lib/domain/tv";
+import { isCovered } from "@/lib/domain/tv";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { logShowNow } from "@/lib/logShow";
 import type { EpisodePerson, SeasonDetail } from "@/lib/ports/catalog";
@@ -54,6 +56,7 @@ function EpisodeView() {
   const [busy, setBusy] = useState(false);
   const [when, setWhen] = useState(false);
   const [reload, setReload] = useState(0);
+  const genres = useGenres("TV Show", detail?.tmdbId ?? null);
 
   useEffect(() => {
     if (!ready || (!id && !tmdbParam) || !Number.isInteger(s) || !Number.isInteger(e)) return;
@@ -144,11 +147,18 @@ function EpisodeView() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
-        titleHref={`/season/?${showQuery}&n=${s}`}
         backdropUrl={tmdbImageUrl(episode?.stillPath, "w780") ?? tmdbImageUrl(detail?.backdropPath, "w780")}
         posterUrl={tmdbImageUrl(detail?.posterPath, "w342")}
         title={episode?.name ?? `Episode ${e}`}
-        subtitle={detail ? [detail.title, scopeLabel(s, e), episode?.runtime ? `${episode.runtime} min` : null, episode?.airDate].filter(Boolean).join(" · ") : ""}
+        subtitle={detail ? (
+          <>
+            <Link href={id ? `/title/?id=${id}` : `/preview/?kind=tv&id=${tmdbParam}`} className="font-medium text-[var(--foreground)]">{detail.title}</Link>
+            {" · "}
+            <Link href={`/season/?${showQuery}&n=${s}`} className="font-medium text-[var(--foreground)]">Season {s}</Link>
+            {` Episode ${e}`}
+            {[episode?.runtime ? `${episode.runtime} min` : null, episode?.airDate].filter(Boolean).map((part) => ` · ${part}`).join("")}
+          </>
+        ) : ""}
         loading={!detail && !problem}
       />
 
@@ -157,6 +167,11 @@ function EpisodeView() {
 
         {detail && (
           <>
+            <InfoCards cards={[
+              { label: "Details", value: [`Season ${s} Episode ${e}`, episode?.runtime ? `${episode.runtime} min` : null, episode?.airDate].filter(Boolean).join(" · ") },
+              { label: "Genres", value: genres.join(", ") },
+              { label: "Watched", value: timesText(covering.length) },
+            ]} />
             <TitleActions
               wanted={wanted}
               watched={covering.length > 0}
@@ -168,7 +183,6 @@ function EpisodeView() {
             />
 
             {episode?.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{episode.overview}</p>}
-            {covering.length > 0 && <p className="-mt-3 text-xs text-neutral-500">Watched {covering.length} {covering.length === 1 ? "time" : "times"}</p>}
             {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}
 
             {/* The cast and crew, one row per heading; headings with nobody are left out. */}

@@ -37,6 +37,8 @@ export interface CatalogDetails {
   backdropPath: string | null;
   posterUrl: string | null;
   backdropUrl: string | null;
+  /** For movies: what it earned worldwide in US dollars, when TMDB knows. */
+  revenue?: number | null;
   /** For movies: the collection (trilogy, franchise) it belongs to, or null. */
   collection?: { id: number; name: string } | null;
 }
