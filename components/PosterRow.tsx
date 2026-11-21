@@ -24,9 +24,11 @@ interface Props {
   items: RowItem[];
   /** Takes a poster off the row; resolves to a message when it could not be done. Only posters with `removable` use it. */
   onRemove?: (item: RowItem) => Promise<string | null>;
+  /** Lays the posters out in a grid that wraps instead of one sideways strip. */
+  grid?: boolean;
 }
 
-export default function PosterRow({ items, onRemove }: Props) {
+export default function PosterRow({ items, onRemove, grid }: Props) {
   const wanted = useWantedKeys();
   // The one poster that is lifted, and the one waiting for the answer to "Remove from Home".
   const [lifted, setLifted] = useState<string | null>(null);
@@ -62,13 +64,13 @@ export default function PosterRow({ items, onRemove }: Props) {
   return (
     <>
       {/* Room above and below the posters for a lifted card and its shadow to grow into; the negative margins give it back so nothing moves. */}
-      <ul className="-mx-5 -mb-8 -mt-3 flex gap-3 overflow-x-auto px-5 pb-10 pt-3">
+      <ul className={grid ? "grid grid-cols-3 gap-x-3 gap-y-4 md:grid-cols-5 lg:grid-cols-6" : "-mx-5 -mb-8 -mt-3 flex gap-3 overflow-x-auto px-5 pb-10 pt-3"}>
         {items.map((item) => {
           const removable = !!item.removable && !!onRemove;
           const up = removable && lifted === item.key;
           const partly = item.progress !== undefined;
           return (
-            <li key={item.key} className="w-28 shrink-0 md:w-36 lg:w-40">
+            <li key={item.key} className={grid ? "min-w-0" : "w-28 shrink-0 md:w-36 lg:w-40"}>
               <Link
                 href={item.href}
                 onClick={(e) => {

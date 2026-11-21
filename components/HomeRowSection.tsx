@@ -3,12 +3,13 @@
 // It comes back exactly as it was left (no placeholder), fetches only once it is near the screen, and redraws only when its content changed.
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { forgetRow, loadRow, peekRow, type RowItem, type RowResult } from "@/lib/home/rows";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { claimOf, forgetRow, loadRow, peekRow, removeFromContinue, type RowItem, type RowResult } from "@/lib/home/rows";
 import { keepIfSame } from "@/lib/same";
 import { ok, type Result } from "@/lib/ports/result";
-import { services } from "@/lib/services";
 import { HOME_ROWS } from "@/lib/domain/home";
+import Icon from "./Icon";
 import PosterRow from "./PosterRow";
 import ThemeIcon from "./ThemeIcon";
 
@@ -16,12 +17,15 @@ interface Props {
   rowId: string;
   /** Changes when the user asks for a fresh shuffle. */
   nonce: number;
-  /** Rows at the top load straight away; the rest wait until they are close to the screen. */
-  eager: boolean;
-  /** True once every row above has finished, so an empty row can fold away without moving what you are reading. */
-  mayFold: boolean;
-  /** Tells Home this row has finished, empty or not. */
-  onSettled: (rowId: string) => void;
+  /** True for this row and every row above the deepest one that has come near the screen: those load. */
+  load: boolean;
+  /** This row's place in Home, and what to tell Home when it comes near the screen so it and the rows above it load. */
+  index: number;
+  onNear: (index: number) => void;
+  /** The titles the rows above show, or null until every one of them has finished; a title shown above is left out here. */
+  blocked: ReadonlySet<string> | null;
+  /** Tells Home this row has finished, with the titles it shows (empty or not). */
+  onSettled: (rowId: string, claims: string[]) => void;
 }
 
 /** The same shapes as a real row, so nothing moves when the pictures arrive. */
@@ -39,29 +43,29 @@ function Placeholder() {
   );
 }
 
-export default function HomeRowSection({ rowId, nonce, eager, mayFold, onSettled }: Props) {
+export default function HomeRowSection({ rowId, nonce, load, index, onNear, blocked, onSettled }: Props) {
   const key = `${rowId}:${nonce}`;
   // A row finished earlier this visit is shown at once.
   const [loaded, setLoaded] = useState<{ key: string; res: Result<RowResult> } | null>(() => {
     const earlier = peekRow(rowId);
     return earlier ? { key, res: earlier } : null;
   });
-  const [near, setNear] = useState(eager || loaded !== null);
+  const near = load || loaded !== null;
   const box = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (near) return;
+    if (load) return;
     const el = box.current;
     if (!el) return;
     const watcher = new IntersectionObserver((hits) => {
       if (hits.some((h) => h.isIntersecting)) {
-        setNear(true);
+        onNear(index);
         watcher.disconnect();
       }
     }, { rootMargin: "700px 0px" });
     watcher.observe(el);
     return () => watcher.disconnect();
-  }, [near]);
+  }, [load, index, onNear]);
 
   useEffect(() => {
     if (!near) return;
@@ -77,35 +81,47 @@ export default function HomeRowSection({ rowId, nonce, eager, mayFold, onSettled
 
   // Takes a Continue watching poster off Home: saved first, then dropped from what is on screen without reloading the row.
   const remove = useCallback(async (item: RowItem): Promise<string | null> => {
-    if (!item.removable) return null;
-    const res = item.removable.collectionId !== undefined ? await services.passes.hideCollection(item.removable.collectionId, item.removable.addedAt) : await services.follows.removeFromContinue(item.removable.mediaId, item.removable.addedAt);
-    if (!res.ok) return res.error;
+    const problem = await removeFromContinue(item);
+    if (problem) return problem;
     forgetRow(rowId);
-    setLoaded((now) => (now && now.res.ok ? { key: now.key, res: ok({ ...now.res.value, items: now.res.value.items.filter((i) => i.key !== item.key) }) } : now));
+    setLoaded((now) => (now && now.res.ok ? { key: now.key, res: ok({ ...now.res.value, items: now.res.value.items.filter((i) => i.key !== item.key), rest: now.res.value.rest?.filter((i) => i.key !== item.key) }) } : now));
     return null;
   }, [rowId]);
 
   const done = loaded?.key === key ? loaded.res : null;
-  const empty = !!done && (!done.ok || done.value.items.length === 0);
+  // Continue watching shows everything; every other row leaves out what a row above already shows.
+  const items = useMemo(() => {
+    if (!done?.ok || !blocked) return [];
+    return rowId === "continue" ? done.value.items : done.value.items.filter((i) => !blocked.has(claimOf(i)));
+  }, [done, blocked, rowId]);
+  const ready = !!done && blocked !== null;
+  const empty = ready && (!done.ok || items.length === 0);
+  const claims = rowId === "continue" ? "" : items.map(claimOf).join("|");
 
   useEffect(() => {
-    if (done) onSettled(rowId);
-  }, [done, rowId, onSettled]);
+    if (ready) onSettled(rowId, claims === "" ? [] : claims.split("|"));
+  }, [ready, claims, rowId, onSettled]);
 
   // A row with nothing to show (or that failed) is left out, but only once the rows above it have settled.
-  if (empty && mayFold) return null;
+  if (empty) return null;
 
   const label = HOME_ROWS.find((row) => row.id === rowId.split(":")[0])?.label ?? (rowId.startsWith("holiday:") ? "Holiday picks" : "");
-  const shown = done?.ok && !empty ? done.value : null;
+  const shown = ready && done.ok ? done.value : null;
 
   return (
     <section ref={box} className="flex flex-col gap-2">
       <h2 className="flex h-7 items-center gap-2 font-serif text-xl">
         {shown?.icon && <ThemeIcon slug={shown.icon} size={22} />}
-        {shown ? shown.title : label}
+        {shown ? (
+          // The name opens the row's page of everything; a grey wash shows the tap, and a lighter one the pointer.
+          <Link href={shown.seeAll ?? `/rows/?id=${encodeURIComponent(rowId)}`} className="-mx-2 flex items-center gap-1 rounded-lg px-2 py-0.5 transition-colors hover:bg-neutral-100 active:bg-neutral-200 dark:hover:bg-neutral-800 dark:active:bg-neutral-700">
+            <span>{shown.title}</span>
+            <Icon name="right" size={20} />
+          </Link>
+        ) : label}
       </h2>
       {shown?.subtitle && <p className="-mt-1.5 text-sm text-neutral-500">{shown.subtitle}</p>}
-      {shown ? <PosterRow items={shown.items} onRemove={remove} /> : <Placeholder />}
+      {shown ? <PosterRow items={items} onRemove={remove} /> : <Placeholder />}
     </section>
   );
 }

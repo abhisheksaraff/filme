@@ -13,4 +13,5 @@ export interface ShortcutStory {
   recap?: "month" | "year";
 }
 
-export const homeSnapshot: { rows: string[] | null; notes: AppNotification[]; stories: ShortcutStory[] } = { rows: null, notes: [], stories: [] };
+/** `claims`: for each row that finished, the titles it shows, so a row below can leave them out. */
+export const homeSnapshot: { rows: string[] | null; notes: AppNotification[]; stories: ShortcutStory[]; claims: Record<string, string[]> } = { rows: null, notes: [], stories: [], claims: {} };

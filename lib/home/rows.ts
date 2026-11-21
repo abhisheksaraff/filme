@@ -1,6 +1,7 @@
 // lib/home/rows.ts
 // Builds each Home row from the log, the watchlist and TMDB. Rows are kept until the app
 // is reopened or the user refreshes, so coming back to Home never reshuffles or spends TMDB calls.
+import type { BrowseSpec } from "@/lib/ports/catalog";
 import { ART_HOUSE, GENRES, TV_GENRES, WORLD_CINEMA } from "@/lib/domain/home";
 import { THEMES } from "@/lib/domain/holidays";
 import type { StatRow } from "@/lib/domain/stats";
@@ -11,7 +12,7 @@ import { fail, ok, type Result } from "@/lib/ports/result";
 import { clearStored, readStored, writeStored } from "@/lib/persistentCache";
 import { services } from "@/lib/services";
 import { checkNewEpisodes, continueCandidates } from "@/lib/shows";
-import { hasMoreAfter, isNewSince, placeIn, withShow } from "@/lib/domain/tv";
+import { hasMoreAfter, isNewSince, placeIn } from "@/lib/domain/tv";
 import type { TrackedShow } from "@/lib/ports/follows";
 import { showKey } from "@/lib/ports/progress";
 import { loadCollection } from "@/lib/collections";
@@ -28,7 +29,12 @@ export interface RowItem {
   progress?: number;
   /** Set on a Continue watching poster: what taking it off Home needs. */
   removable?: { mediaId: string; addedAt: string; collectionId?: number };
+  /** What makes this the same film as one in another row, when its key is not enough (a film inside a collection row). */
+  claim?: string;
 }
+
+/** What Home uses to tell that two rows hold the same title. */
+export const claimOf = (item: RowItem): string => item.claim ?? item.key;
 
 export interface RowResult {
   title: string;
@@ -39,6 +45,17 @@ export interface RowResult {
   subtitle?: string;
   /** Shown when the row has nothing in it. */
   empty: string;
+  /** More titles the row found but Home does not show; the See all page lists them after the row's own. */
+  rest?: RowItem[];
+  /** How the See all page keeps loading more as you scroll: the same catalogue request, from the page after this one. */
+  more?: { spec: BrowseSpec; page: number };
+  /** Where the arrow beside the title goes when it is not the See all page. */
+  seeAll?: string;
+}
+
+/** The first `n` of a list for the row, and the remainder for the See all page. */
+function split(list: RowItem[], n: number): { items: RowItem[]; rest: RowItem[] } {
+  return { items: list.slice(0, n), rest: list.slice(n) };
 }
 
 const CACHE_MS = 3 * 60 * 60_000;
@@ -204,7 +221,7 @@ async function likeRow(kind: CatalogKind): Promise<Result<RowResult>> {
     const popular = await services.catalog.browse({ kind, sortBy: "vote_average.desc", minVotes: 500, minRating: 7.5, page: randomPage(3) });
     if (!popular.ok) return popular;
     const skipAll = new Set([...seenRes.value, ...(await hiddenKeys())]);
-    return ok({ title, items: shuffle(popular.value).filter((h) => !skipAll.has(seenKey(h.kind, h.tmdbId))).slice(0, 18).map(hitItem), empty: "No picks right now." });
+    return ok({ title, ...split(shuffle(popular.value).filter((h) => !skipAll.has(seenKey(h.kind, h.tmdbId))).map(hitItem), 18), empty: "No picks right now." });
   }
 
   const lists = await Promise.all(seeds.map((match) => services.catalog.recommendations(match)));
@@ -218,30 +235,7 @@ async function likeRow(kind: CatalogKind): Promise<Result<RowResult>> {
   for (const w of wanted.ok ? wanted.value : []) if (w.tmdbId !== null) skip.add(seenKey(w.category === "TV Show" ? "TV Show" : "Movie", w.tmdbId));
   const unique = new Map<string, CatalogHit>();
   for (const hit of shuffle(good.flat())) if (!skip.has(seenKey(hit.kind, hit.tmdbId))) unique.set(seenKey(hit.kind, hit.tmdbId), hit);
-  return ok({ title, items: [...unique.values()].slice(0, 18).map(hitItem), empty: "No picks right now." });
-}
-
-async function wantRow(): Promise<Result<RowResult>> {
-  const res = await services.wanted.list();
-  if (!res.ok) return res;
-  const items = res.value.map((item): RowItem => {
-    const kind: CatalogKind = item.category === "TV Show" ? "TV Show" : "Movie";
-    return {
-      key: `want:${item.mediaId}`,
-      title: withShow(item.title, item.season, item.episode),
-      subtitle: null,
-      posterUrl: tmdbImageUrl(item.posterPath, "w185"),
-      href:
-        item.episode !== null
-          ? `/episode/?id=${item.mediaId}&s=${item.season ?? 1}&e=${item.episode}`
-          : item.season !== null
-            ? `/season/?id=${item.mediaId}&n=${item.season}`
-            : item.tmdbId === null
-              ? `/title/?id=${item.mediaId}`
-              : previewHref(kind, item.tmdbId),
-    };
-  });
-  return ok({ title: "Watchlist", items, empty: "Nothing saved yet. Search for a title and tap the bookmark." });
+  return ok({ title, ...split([...unique.values()].map(hitItem), 18), empty: "No picks right now." });
 }
 
 /** Shows the user has watched or follows, with the latest aired episode from the daily check. */
@@ -280,7 +274,10 @@ async function continueRow(): Promise<Result<RowResult>> {
     });
   }
   items.push(...(await collectionItems()));
-  return ok({ title: "Continue watching", items, empty: "You are caught up on everything you started." });
+  // The four you watched last come first, newest first; the rest are shuffled so each visit shows others you could pick up.
+  const byRecent = [...items].sort((a, b) => Date.parse(b.removable?.addedAt ?? "") - Date.parse(a.removable?.addedAt ?? ""));
+  const ordered = [...byRecent.slice(0, 4), ...shuffle(byRecent.slice(4))];
+  return ok({ title: "Continue watching", ...split(ordered, 20), empty: "You are caught up on everything you started." });
 }
 
 /**
@@ -396,7 +393,8 @@ async function collectionRow(kind: "mine" | "new", n: number): Promise<Result<Ro
     title: pick.detail.name,
     subtitle: pick.subtitle,
     empty: "",
-    items: pick.films.map((f) => ({ key: `film:${pick.detail.id}:${f.tmdbId}`, title: f.title, subtitle: f.releaseDate?.slice(0, 4) ?? null, posterUrl: tmdbImageUrl(f.posterPath, "w342"), href: previewHref("Movie", f.tmdbId) })),
+    seeAll: `/collection/?id=${pick.detail.id}`,
+    items: pick.films.map((f) => ({ key: `film:${pick.detail.id}:${f.tmdbId}`, claim: seenKey("Movie", f.tmdbId), title: f.title, subtitle: f.releaseDate?.slice(0, 4) ?? null, posterUrl: tmdbImageUrl(f.posterPath, "w342"), href: previewHref("Movie", f.tmdbId) })),
   });
 }
 
@@ -423,14 +421,14 @@ async function favouritesRow(): Promise<Result<RowResult>> {
   const hits = [...unique.values()]
     .filter((hit) => !seen.has(seenKey(hit.kind, hit.tmdbId)))
     .sort((a, b) => (b.year ?? "").localeCompare(a.year ?? ""));
-  return ok({ title, items: hits.slice(0, 18).map(hitItem), empty: "No new picks right now." });
+  return ok({ title, ...split(hits.map(hitItem), 18), empty: "No new picks right now." });
 }
 
 async function discoverRow(title: string, empty: string, spec: Parameters<typeof services.catalog.browse>[0]): Promise<Result<RowResult>> {
   const [hits, seen] = await Promise.all([services.catalog.browse(spec), seenSet()]);
   if (!hits.ok) return hits;
-  const items = hits.value.map(hitItem).filter((item) => !seen.has(item.key)).slice(0, ROW_SIZE);
-  return ok({ title, items, empty });
+  const fresh = hits.value.map(hitItem).filter((item) => !seen.has(item.key));
+  return ok({ title, ...split(fresh, ROW_SIZE), empty, more: { spec: { ...spec, page: undefined }, page: spec.page ?? 1 } });
 }
 
 async function genreRow(genreId: number): Promise<Result<RowResult>> {
@@ -523,7 +521,7 @@ async function wantPickRow(): Promise<Result<RowResult>> {
   const movies = shuffle(saved.filter((s) => s.kind === "Movie"));
   const shows = shuffle(saved.filter((s) => s.kind === "TV Show"));
   const items = interleave(movies, shows).slice(0, 12).map(savedItem);
-  return ok({ title: "From your watchlist", items, empty: "Save a few titles to see picks from your list here." });
+  return ok({ title: "From your watchlist", items, seeAll: "/want/", empty: "Save a few titles to see picks from your list here." });
 }
 
 /** Titles related to the given seeds, leaving out anything already seen, hidden or saved. */
@@ -542,22 +540,15 @@ async function relatedTo(seeds: CatalogMatch[], title: string, empty: string): P
   const skip = new Set([...seen, ...saved.map((s) => seenKey(s.kind, s.tmdbId))]);
   const unique = new Map<string, CatalogHit>();
   for (const hit of shuffle(good.flat())) if (!skip.has(seenKey(hit.kind, hit.tmdbId))) unique.set(seenKey(hit.kind, hit.tmdbId), hit);
-  return ok({ title, items: [...unique.values()].slice(0, 18).map(hitItem), empty });
+  return ok({ title, ...split([...unique.values()].map(hitItem), 18), empty });
 }
 
 /** One title picked at random from the watchlist, and what TMDB says goes with it. */
 async function becauseSavedRow(): Promise<Result<RowResult>> {
   const saved = await savedTitles();
   const one = saved.length > 0 ? pick(saved) : null;
-  if (!one) return ok({ title: "Because you saved a title", items: [], empty: "Save a few titles to get related picks here." });
-  return relatedTo([{ kind: one.kind, tmdbId: one.tmdbId }], `Because you saved ${one.item.title}`, "Nothing related right now.");
-}
-
-/** Several watchlist titles at random, and the titles related to any of them, movies and shows mixed. */
-async function likeWatchlistRow(): Promise<Result<RowResult>> {
-  const saved = await savedTitles();
-  const seeds = shuffle(saved).slice(0, SEEDS + 1).map((s) => ({ kind: s.kind, tmdbId: s.tmdbId }));
-  return relatedTo(seeds, "More like your watchlist", "Save a few titles to get related picks here.");
+  if (!one) return ok({ title: "Similar to a saved title", items: [], empty: "Save a few titles to get related picks here." });
+  return relatedTo([{ kind: one.kind, tmdbId: one.tmdbId }], `Similar to ${one.item.title}`, "Nothing related right now.");
 }
 
 async function tvAcclaimedRow(): Promise<Result<RowResult>> {
@@ -613,10 +604,10 @@ async function theatreRow(when: "now" | "soon"): Promise<Result<RowResult>> {
   const [hits, seen, taste] = await Promise.all([services.catalog.theatres(when, region), seenSet(), tasteWeights()]);
   if (!hits.ok) return hits;
   const unique = [...new Map(hits.value.map((h) => [h.tmdbId, h])).values()];
-  const items = matchTaste(unique.filter((h) => !seen.has(seenKey(h.kind, h.tmdbId))), taste).slice(0, 18);
+  const all = matchTaste(unique.filter((h) => !seen.has(seenKey(h.kind, h.tmdbId))), taste);
   return ok({
     title: when === "now" ? "In theatres near you" : "Opening soon",
-    items,
+    ...split(all, 18),
     empty: "Nothing new in theatres right now.",
   });
 }
@@ -641,10 +632,8 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id === "continue") return continueRow();
     if (id.startsWith("collections-mine:")) return collectionRow("mine", Number(id.split(":")[1]));
     if (id.startsWith("collections-new:")) return collectionRow("new", Number(id.split(":")[1]));
-    if (id === "want") return wantRow();
     if (id === "want-pick") return wantPickRow();
     if (id === "because-saved") return becauseSavedRow();
-    if (id === "like-watchlist") return likeWatchlistRow();
     if (id === "tv-acclaimed") return tvAcclaimedRow();
     if (id.startsWith("tv-")) return tvGenreRow(Number(id.slice("tv-".length)));
     if (id === "favourites") return favouritesRow();
@@ -656,9 +645,24 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id.startsWith("holiday:")) return holidayRow(id.slice("holiday:".length));
     if (id.startsWith("genre-")) return genreRow(Number(id.slice("genre-".length)));
     return Promise.resolve(fail("Unknown row."));
-  }, id === "want" || id === "continue" ? 0 : Infinity, id !== "want" && id !== "continue" && id !== "want-pick" && id !== "because-saved" && id !== "like-watchlist");
+  }, id === "continue" ? 0 : Infinity, id !== "continue" && id !== "want-pick" && id !== "because-saved");
   result.then((res) => {
     if (res.ok) resolved.set(id, res);
   });
   return result;
+}
+
+
+/** The next page of a row's catalogue request for the See all page, leaving out what you have seen or hidden. */
+export async function loadMoreRow(more: { spec: BrowseSpec; page: number }): Promise<Result<RowItem[]>> {
+  const [hits, seen] = await Promise.all([services.catalog.browse({ ...more.spec, page: more.page }), seenSet()]);
+  if (!hits.ok) return hits;
+  return ok(hits.value.map(hitItem).filter((item) => !seen.has(item.key)));
+}
+
+/** Takes a Continue watching poster off Home; resolves to a message when it could not be done. */
+export async function removeFromContinue(item: RowItem): Promise<string | null> {
+  if (!item.removable) return null;
+  const res = item.removable.collectionId !== undefined ? await services.passes.hideCollection(item.removable.collectionId, item.removable.addedAt) : await services.follows.removeFromContinue(item.removable.mediaId, item.removable.addedAt);
+  return res.ok ? null : res.error;
 }

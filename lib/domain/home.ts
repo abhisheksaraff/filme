@@ -47,10 +47,8 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "collections-mine", label: "From your collections" },
   { id: "collections-new", label: "Discover collections" },
   { id: "like-tv", label: "TV shows you might like" },
-  { id: "want", label: "Watchlist" },
   { id: "want-pick", label: "From your watchlist" },
-  { id: "because-saved", label: "Because you saved a title" },
-  { id: "like-watchlist", label: "More like your watchlist" },
+  { id: "because-saved", label: "Similar to a saved title" },
   { id: "tv-acclaimed", label: "Acclaimed TV" },
   ...TV_GENRES.map((g) => ({ id: `tv-${g.id}`, label: g.label })),
   { id: "favourites", label: "New from your favourites" },
@@ -64,7 +62,7 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
 
 /** Shown until the user customises Home. */
 export const DEFAULT_HOME_ROWS: readonly string[] = [
-  "continue", "collections-mine", "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
+  "continue", "collections-mine", "like-movie", "want-pick", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
 ];
 
 /** Rows the very first saved layouts predate; they are added once to layouts saved before rows were tracked. */
@@ -119,7 +117,7 @@ export const WORLD_CINEMA: readonly { language: string; country: string }[] = [
 const KNOWN = new Set(HOME_ROWS.map((row) => row.id));
 
 /** Rows that were renamed or merged into another: layouts saved earlier still name them. */
-const RENAMED: Record<string, string> = { recent: "like-movie", "new-episodes": "continue" };
+const RENAMED: Record<string, string> = { recent: "like-movie", "new-episodes": "continue", want: "want-pick", "like-watchlist": "because-saved" };
 
 /** The saved ids with unknown and repeated ones dropped; nothing saved means the defaults. */
 export function resolveHomeRows(stored: readonly string[]): string[] {

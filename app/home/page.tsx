@@ -4,7 +4,7 @@
 
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Avatar from "@/components/Avatar";
 import LogoLights from "@/components/decor/LogoLights";
 import Wordmark from "@/components/Wordmark";
@@ -26,7 +26,10 @@ export default function HomePage() {
   const ready = useRequireSession();
   // Home comes back from Back exactly as it was left: the same rows, in the same order, with no placeholders.
   const [rows, setRows] = useState<string[] | null>(() => homeSnapshot.rows);
-  const [settled, setSettled] = useState<ReadonlySet<string>>(new Set());
+  // The titles each finished row shows, so a row below leaves them out; kept for the visit so Back finds Home as it was.
+  const [claims, setClaims] = useState<Record<string, string[]>>(() => homeSnapshot.claims);
+  // The deepest row that has come near the screen; it and every row above it load, so what a row leaves out never depends on load order.
+  const [reach, setReach] = useState(2);
   const [problem, setProblem] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -61,7 +64,30 @@ export default function HomePage() {
     };
   }, [ready]);
 
-  const onSettled = useCallback((id: string) => setSettled((now) => (now.has(id) ? now : new Set(now).add(id))), []);
+  const onSettled = useCallback((id: string, keys: string[]) => {
+    setClaims((now) => {
+      if (now[id] && now[id].join("|") === keys.join("|")) return now;
+      const next = { ...now, [id]: keys };
+      homeSnapshot.claims = next;
+      return next;
+    });
+  }, []);
+  const onNear = useCallback((index: number) => setReach((now) => Math.max(now, index)), []);
+
+  // Each row leaves out what the rows above it show; null until all of them have finished.
+  const blockedFor = useMemo(() => {
+    const out: (Set<string> | null)[] = [];
+    const above = new Set<string>();
+    for (const id of rows ?? []) {
+      // Once a row above has not finished, nothing below can be placed yet.
+      const waiting = out.length > 0 && out[out.length - 1] === null;
+      const previous = (rows ?? [])[out.length - 1];
+      const blocked = waiting || (out.length > 0 && !(previous in claims)) ? null : new Set(above);
+      out.push(blocked);
+      for (const k of claims[id] ?? []) above.add(k);
+    }
+    return out;
+  }, [rows, claims]);
 
   if (!ready) return null;
 
@@ -80,14 +106,14 @@ export default function HomePage() {
           <span className="shrink-0"><Icon name="search" size={24} /></span>
           <span className="truncate text-sm">Search movies, shows, concerts…</span>
         </Link>
-        <RoundButton icon="refresh" label="Refresh" onClick={() => { clearHomeCache(); setSettled(new Set()); setNonce((n) => n + 1); }} />
+        <RoundButton icon="refresh" label="Refresh" onClick={() => { clearHomeCache(); homeSnapshot.claims = {}; setClaims({}); setNonce((n) => n + 1); }} />
         <RoundButton icon="sliders" label="Customize Home" href="/home/customize/" />
       </div>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
       <HomeShortcuts nonce={nonce} />
       {rows?.map((id, i) => (
-        <HomeRowSection key={id} rowId={id} nonce={nonce} eager={i < 3} mayFold={rows.slice(0, i).every((above) => settled.has(above))} onSettled={onSettled} />
+        <HomeRowSection key={id} rowId={id} nonce={nonce} load={i <= reach} index={i} onNear={onNear} blocked={blockedFor[i] ?? null} onSettled={onSettled} />
       ))}
       {!rows && <div className="skeleton h-40 rounded-2xl" />}
 
