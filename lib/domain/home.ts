@@ -43,7 +43,6 @@ export const TV_GENRES: readonly { id: number; label: string }[] = [
 /** Every row Home can show, in the order they are offered. */
 export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "like-movie", label: "You might also like" },
-  { id: "new-episodes", label: "New episodes" },
   { id: "continue", label: "Continue watching" },
   { id: "like-tv", label: "TV shows you might like" },
   { id: "want", label: "Watchlist" },
@@ -63,11 +62,11 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
 
 /** Shown until the user customises Home. */
 export const DEFAULT_HOME_ROWS: readonly string[] = [
-  "new-episodes", "continue", "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
+  "continue", "like-movie", "want", "theatres", "favourites", "soon", "arthouse", "wildcard", "like-tv", "genre-28", "genre-35", "genre-27", "genre-878",
 ];
 
 /** Rows the very first saved layouts predate; they are added once to layouts saved before rows were tracked. */
-const ADDED_LATER = ["like-tv", "new-episodes", "continue"];
+const ADDED_LATER = ["like-tv", "continue"];
 
 /**
  * Adds rows a saved layout has not been offered yet. `seen` is the list it was last saved against;
@@ -77,8 +76,8 @@ export function addNewRows(layout: readonly string[], seen: readonly string[] | 
   const all = HOME_ROWS.map((row) => row.id);
   const known = new Set(seen ?? all.filter((id) => !ADDED_LATER.includes(id)));
   const fresh = all.filter((id) => !known.has(id) && !layout.includes(id));
-  // New-episode rows go first: they are what you open the app to see.
-  const PRIORITY = ["new-episodes", "continue"];
+  // Continue watching goes first: it is what you open the app to see.
+  const PRIORITY = ["continue"];
   const first = fresh.filter((id) => PRIORITY.includes(id));
   return [...first, ...layout, ...fresh.filter((id) => !first.includes(id))];
 }
@@ -106,8 +105,8 @@ export const WORLD_CINEMA: readonly { language: string; country: string }[] = [
 
 const KNOWN = new Set(HOME_ROWS.map((row) => row.id));
 
-/** Rows that were renamed or removed: layouts saved earlier still name them. */
-const RENAMED: Record<string, string> = { recent: "like-movie" };
+/** Rows that were renamed or merged into another: layouts saved earlier still name them. */
+const RENAMED: Record<string, string> = { recent: "like-movie", "new-episodes": "continue" };
 
 /** The saved ids with unknown and repeated ones dropped; nothing saved means the defaults. */
 export function resolveHomeRows(stored: readonly string[]): string[] {

@@ -12,6 +12,12 @@ export interface AiredEpisode {
   name: string | null;
 }
 
+/** The viewing added most recently; where you are in a show is taken from this one alone. */
+export interface LatestViewing extends Pick<Cover, "scope" | "season" | "episode"> {
+  /** When it was added (the server's time), not the day it was watched. */
+  addedAt: string;
+}
+
 /** A show the user has watched or followed, with what they have watched of it. */
 export interface TrackedShow {
   mediaId: string;
@@ -27,6 +33,10 @@ export interface TrackedShow {
   /** Watched in the last twelve months. */
   recent: boolean;
   covers: Cover[];
+  /** Null only when the show is followed by hand and has no viewing. */
+  latest: LatestViewing | null;
+  /** When the newest viewing was added at the moment the show was taken off Continue watching; null if it never was. */
+  removedAfter: string | null;
 }
 
 /** Which shows get new-episode news: the user's choice, else shows watched in the last year that are still running. */
@@ -36,5 +46,7 @@ export interface FollowRepository {
   set(mediaId: string, mode: FollowMode | null): Promise<Result<void>>;
   /** Every show watched in the last year or followed by hand. */
   tracked(): Promise<Result<TrackedShow[]>>;
+  /** Takes the show off Continue watching; it returns when a viewing is added after `latestAddedAt`. */
+  removeFromContinue(mediaId: string, latestAddedAt: string): Promise<Result<void>>;
   saveCheck(mediaId: string, check: { running: boolean; aired: AiredEpisode | null; checkedOn: string }): Promise<Result<void>>;
 }

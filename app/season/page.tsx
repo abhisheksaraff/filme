@@ -15,6 +15,7 @@ import TitleHero from "@/components/TitleHero";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { isCovered, progressOf, type Cover } from "@/lib/domain/tv";
+import StatusBadge from "@/components/StatusBadge";
 import { startEntryFrom } from "@/lib/logPrefill";
 import { logShowNow } from "@/lib/logShow";
 import type { SeasonDetail } from "@/lib/ports/catalog";
@@ -250,7 +251,7 @@ function SeasonView() {
                     ) : id ? (
                       <Link href={`/episode/?id=${id}&s=${n}&e=${e.episode}`} className={row}>
                         {body}
-                        {watched && <span role="img" aria-label="Watched" className="shrink-0 text-neutral-950 dark:text-white">✓</span>}
+                        {watched && <StatusBadge kind="watched" size={22} className="ml-1" />}
                       </Link>
                     ) : (
                       <Link href={`/episode/?tmdb=${tmdbParam}&s=${n}&e=${e.episode}`} className={row}>{body}</Link>

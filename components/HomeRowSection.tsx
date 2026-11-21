@@ -3,10 +3,11 @@
 // It comes back exactly as it was left (no placeholder), fetches only once it is near the screen, and redraws only when its content changed.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { loadRow, peekRow, type RowResult } from "@/lib/home/rows";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { forgetRow, loadRow, peekRow, type RowItem, type RowResult } from "@/lib/home/rows";
 import { keepIfSame } from "@/lib/same";
-import type { Result } from "@/lib/ports/result";
+import { ok, type Result } from "@/lib/ports/result";
+import { services } from "@/lib/services";
 import { HOME_ROWS } from "@/lib/domain/home";
 import PosterRow from "./PosterRow";
 import ThemeIcon from "./ThemeIcon";
@@ -74,6 +75,16 @@ export default function HomeRowSection({ rowId, nonce, eager, mayFold, onSettled
     };
   }, [rowId, key, near]);
 
+  // Takes a Continue watching poster off Home: saved first, then dropped from what is on screen without reloading the row.
+  const remove = useCallback(async (item: RowItem): Promise<string | null> => {
+    if (!item.removable) return null;
+    const res = await services.follows.removeFromContinue(item.removable.mediaId, item.removable.addedAt);
+    if (!res.ok) return res.error;
+    forgetRow(rowId);
+    setLoaded((now) => (now && now.res.ok ? { key: now.key, res: ok({ ...now.res.value, items: now.res.value.items.filter((i) => i.key !== item.key) }) } : now));
+    return null;
+  }, [rowId]);
+
   const done = loaded?.key === key ? loaded.res : null;
   const empty = !!done && (!done.ok || done.value.items.length === 0);
 
@@ -94,7 +105,7 @@ export default function HomeRowSection({ rowId, nonce, eager, mayFold, onSettled
         {shown ? shown.title : label}
       </h2>
       {shown?.subtitle && <p className="-mt-1.5 text-sm text-neutral-500">{shown.subtitle}</p>}
-      {shown ? <PosterRow items={shown.items} /> : <Placeholder />}
+      {shown ? <PosterRow items={shown.items} onRemove={remove} /> : <Placeholder />}
     </section>
   );
 }

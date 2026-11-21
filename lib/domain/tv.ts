@@ -67,6 +67,41 @@ export function progressOf(covers: readonly Cover[], episodes: readonly EpisodeK
   return { watched, aired: aired.length, next };
 }
 
+/** How many aired episodes a season has; season 0 holds the specials. */
+export interface SeasonCount {
+  season: number;
+  episodes: number;
+}
+
+/** How far into a show you are: episodes done out of episodes aired. */
+export interface Place {
+  done: number;
+  total: number;
+}
+
+/** Episodes aired in all, specials included. */
+export const airedTotal = (aired: readonly SeasonCount[]): number => aired.reduce((n, s) => n + s.episodes, 0);
+
+/**
+ * Where the most recently added viewing leaves you, counting episodes from the start (specials first, then season by season).
+ * An episode viewing puts you at that episode, a season viewing at the end of that season, a whole-series viewing at the end.
+ * Only that one viewing counts, so rewatching an early episode moves you back there. Null when there is no viewing or no count.
+ */
+export function placeIn(latest: { scope: string; season: number | null; episode: number | null } | null, aired: readonly SeasonCount[]): Place | null {
+  const total = airedTotal(aired);
+  if (!latest || total === 0) return null;
+  if (latest.scope === "show") return { done: total, total };
+  if (latest.season === null) return null;
+  const season = latest.season;
+  const before = aired.filter((s) => s.season < season).reduce((n, s) => n + s.episodes, 0);
+  const here = aired.find((s) => s.season === season)?.episodes ?? 0;
+  const inSeason = latest.scope === "season" ? here : Math.min(latest.episode ?? here, here);
+  return { done: Math.min(total, before + inSeason), total };
+}
+
+/** True while aired episodes remain after the place you are at. */
+export const hasMoreAfter = (place: Place | null): place is Place => place !== null && place.done < place.total;
+
 /** The latest viewing date among viewings, or null. Full dates only, so they compare with air dates. */
 export function lastWatched(covers: readonly Cover[]): string | null {
   const dates = covers.map((c) => c.date).filter((d): d is string => !!d);

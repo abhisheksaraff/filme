@@ -124,6 +124,6 @@ export interface LogRepository {
   seen(): Promise<Result<string[]>>;
   /** The most recent dated viewing of a title, for the "Last watched" line; null when there is none. */
   lastViewing(mediaId: string): Promise<Result<LastViewing | null>>;
-  /** One compact row per viewing, for statistics and stories. */
+  /** One compact row per viewing, for statistics and stories, oldest added first (the last row of a show is the one added most recently). */
   statRows(): Promise<Result<StatRow[]>>;
 }

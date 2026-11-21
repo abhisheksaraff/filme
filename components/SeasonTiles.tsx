@@ -3,6 +3,7 @@
 "use client";
 
 import Link from "next/link";
+import StatusBadge from "@/components/StatusBadge";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { progressOf, type Cover } from "@/lib/domain/tv";
 import type { ShowData } from "@/lib/logShow";
@@ -33,17 +34,22 @@ export default function SeasonTiles({ data, covers, hrefFor }: Props) {
           const info = data.status.seasons.find((s) => s.season === season.season);
           const poster = tmdbImageUrl(info?.posterPath ?? season.posterPath, "w185");
           const p = progressOf(covers, season.episodes.map((e) => ({ season: e.season, episode: e.episode, airDate: e.airDate })), today());
+          const full = p.aired > 0 && p.watched >= p.aired;
           return (
             <li key={season.season} className="w-28 shrink-0 md:w-36 lg:w-40">
               <Link href={hrefFor(season.season)} className="flex flex-col gap-1">
-                {poster ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover" />
-                ) : (
-                  <span className="aspect-[2/3] w-full rounded-xl bg-neutral-200 dark:bg-neutral-800" />
-                )}
+                <span className="relative block">
+                  {poster ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={poster} alt="" loading="lazy" className="aspect-[2/3] w-full rounded-xl object-cover" />
+                  ) : (
+                    <span className="block aspect-[2/3] w-full rounded-xl bg-neutral-200 dark:bg-neutral-800" />
+                  )}
+                  {/* A season you have watched all of gets the eye in place of a bar. */}
+                  {full && <StatusBadge kind="watched" maxSize={28} className="absolute right-[4%] top-[3%]" />}
+                </span>
                 <span className="font-serif text-base font-medium leading-tight">Season {season.season}</span>
-                <span className="h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
+                <span className={`h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800 ${full ? "invisible" : ""}`}>
                   <span className="block h-full rounded-full bg-neutral-950 dark:bg-white" style={{ width: p.aired > 0 ? `${(p.watched / p.aired) * 100}%` : "0%" }} />
                 </span>
                 <span className="font-serif text-sm leading-tight text-neutral-500">{progressText(p.watched, p.aired)}</span>

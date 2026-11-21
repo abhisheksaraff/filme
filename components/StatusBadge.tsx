@@ -15,16 +15,18 @@ interface Props {
   /** For "watched": how much of a show is logged, from 0 to 1. Leave out (or 1) for a movie or a finished show. */
   progress?: number;
   className?: string;
+  /** Extra inline style, such as a `left` that moves the badge across the poster. */
+  style?: React.CSSProperties;
 }
 
 /** Never shown as empty or as full until it truly is: at least a twelfth, at most just short of the whole ring. */
 const arc = (progress: number) => Math.min(0.97, Math.max(1 / 12, progress));
 /** The ring is drawn on a 100-unit square so it scales with the circle. */
-const R = 42;
-const STROKE = 13;
+const R = 40;
+const STROKE = 18;
 const LENGTH = 2 * Math.PI * R;
 
-export default function StatusBadge({ kind, size, progress, maxSize = 40, className = "" }: Props) {
+export default function StatusBadge({ kind, size, progress, maxSize = 40, className = "", style }: Props) {
   const partly = kind === "watched" && progress !== undefined && progress < 1;
   // No `relative` here: the caller places the badge (absolute, top right), and a position set here would override that.
   const box = size !== undefined ? { width: size, height: size } : { width: "24%", minWidth: 18, maxWidth: maxSize, aspectRatio: "1 / 1" };
@@ -32,7 +34,7 @@ export default function StatusBadge({ kind, size, progress, maxSize = 40, classN
     <span
       role="img"
       aria-label={kind === "watchlist" ? "On your watchlist" : partly ? "Partly watched" : "Watched"}
-      style={box}
+      style={{ ...box, ...style }}
       className={`pointer-events-none flex shrink-0 items-center justify-center rounded-full text-white ${partly ? "" : "bg-black shadow-md ring-2 ring-white dark:ring-neutral-950"} ${className}`}
     >
       <span className="relative flex h-full w-full items-center justify-center">

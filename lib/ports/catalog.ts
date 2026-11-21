@@ -112,6 +112,8 @@ export interface ShowStatus {
   /** False once the show has ended or been cancelled. */
   running: boolean;
   seasons: { season: number; episodes: number; name: string | null; posterPath: string | null }[];
+  /** Episodes in season 0 (specials), which are not in `seasons`; 0 when there are none. */
+  specials: number;
   last: (EpisodeRef & { name: string | null; airDate: string | null }) | null;
   next: (EpisodeRef & { name: string | null; airDate: string | null }) | null;
 }

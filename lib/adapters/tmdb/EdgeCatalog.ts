@@ -257,6 +257,7 @@ const rawCatalog: Catalog = {
       seasons: (res.value.seasons ?? [])
         .filter((s) => s.season_number > 0)
         .map((s) => ({ season: s.season_number, episodes: s.episode_count, name: s.name ?? null, posterPath: s.poster_path ?? null })),
+      specials: (res.value.seasons ?? []).find((s) => s.season_number === 0)?.episode_count ?? 0,
       last: ref(res.value.last_episode_to_air),
       next: ref(res.value.next_episode_to_air),
     };
@@ -466,6 +467,7 @@ export const edgeCatalog: Catalog = {
   recommendations: (match) => remember(`recs:${match.kind}:${match.tmdbId}`, () => rawCatalog.recommendations(match), 6 * 60 * MINUTE, true),
   similar: (match) => remember(`similar:${match.kind}:${match.tmdbId}`, () => rawCatalog.similar(match), 6 * 60 * MINUTE, true),
   // What aired or airs next, so it is checked a few times a day rather than on every open of Watchlist.
-  showStatus: (id) => remember(`status:${id}`, () => rawCatalog.showStatus(id), 3 * 60 * MINUTE, true),
+  // "status2": answers kept before the specials count was added are left behind.
+  showStatus: (id) => remember(`status2:${id}`, () => rawCatalog.showStatus(id), 3 * 60 * MINUTE, true),
   theatres: (when, region) => remember(`theatres:${when}:${region}`, () => rawCatalog.theatres(when, region), 6 * 60 * MINUTE, true),
 };

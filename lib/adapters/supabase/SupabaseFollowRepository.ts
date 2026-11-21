@@ -31,11 +31,11 @@ export const supabaseFollowRepository: FollowRepository = {
     const [sessions, follows] = await Promise.all([
       db
         .from("watch_sessions")
-        .select("media_id, scope, season_number, episode_number, watched_on, media_items!inner(title, category, tmdb_id, poster_path)")
+        .select("media_id, scope, season_number, episode_number, watched_on, created_at, media_items!inner(title, category, tmdb_id, poster_path)")
         .eq("media_items.category", "TV Show")
         .is("deleted_at", null)
         .limit(3000),
-      db.from("show_follows").select("media_id, mode, running, aired_season, aired_episode, aired_on, aired_name, checked_on, media:media_items(title, tmdb_id, poster_path)"),
+      db.from("show_follows").select("media_id, mode, running, aired_season, aired_episode, aired_on, aired_name, checked_on, continue_removed_after, media:media_items(title, tmdb_id, poster_path)"),
     ]);
     if (sessions.error || follows.error) return fail("Could not load your shows.");
 
@@ -45,7 +45,7 @@ export const supabaseFollowRepository: FollowRepository = {
       const found = byId.get(mediaId);
       if (found) return found;
       if (!media || media.tmdb_id === null) return null;
-      const show: TrackedShow = { mediaId, tmdbId: media.tmdb_id, title: media.title, posterPath: media.poster_path, mode: null, running: null, aired: null, checkedOn: null, recent: false, covers: [] };
+      const show: TrackedShow = { mediaId, tmdbId: media.tmdb_id, title: media.title, posterPath: media.poster_path, mode: null, running: null, aired: null, checkedOn: null, recent: false, covers: [], latest: null, removedAfter: null };
       byId.set(mediaId, show);
       return show;
     };
@@ -55,6 +55,9 @@ export const supabaseFollowRepository: FollowRepository = {
       if (!show) continue;
       const cover: Cover = { scope: row.scope as Cover["scope"], season: row.season_number ?? null, episode: row.episode_number ?? null, date: row.watched_on ?? null };
       show.covers.push(cover);
+      // Where you are comes from the viewing added last, whatever day it was for.
+      const addedAt = row.created_at as string;
+      if (!show.latest || Date.parse(addedAt) >= Date.parse(show.latest.addedAt)) show.latest = { scope: cover.scope, season: cover.season, episode: cover.episode, addedAt };
       if (cover.date && cover.date >= cutoff.slice(0, cover.date.length)) show.recent = true;
     }
     for (const row of follows.data) {
@@ -63,11 +66,17 @@ export const supabaseFollowRepository: FollowRepository = {
       show.mode = (row.mode as "on" | "off" | null) ?? null;
       show.running = (row.running as boolean | null) ?? null;
       show.checkedOn = (row.checked_on as string | null) ?? null;
+      show.removedAfter = (row.continue_removed_after as string | null) ?? null;
       if (row.aired_season !== null && row.aired_episode !== null) {
         show.aired = { season: row.aired_season as number, episode: row.aired_episode as number, airDate: (row.aired_on as string | null) ?? null, name: (row.aired_name as string | null) ?? null };
       }
     }
     return ok([...byId.values()]);
+  },
+
+  async removeFromContinue(mediaId, latestAddedAt) {
+    const { error } = await getSupabase().from("show_follows").upsert({ media_id: mediaId, continue_removed_after: latestAddedAt }, { onConflict: "user_id,media_id" });
+    return error ? fail("Could not remove it from Home.") : ok(undefined);
   },
 
   async saveCheck(mediaId, check) {

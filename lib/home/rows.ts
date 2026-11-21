@@ -10,8 +10,8 @@ import type { WantedItem } from "@/lib/ports/wanted";
 import { fail, ok, type Result } from "@/lib/ports/result";
 import { clearStored, readStored, writeStored } from "@/lib/persistentCache";
 import { services } from "@/lib/services";
-import { checkNewEpisodes, inProgress, withNewEpisodes } from "@/lib/shows";
-import { withShow } from "@/lib/domain/tv";
+import { checkNewEpisodes, continueCandidates } from "@/lib/shows";
+import { hasMoreAfter, isNewSince, placeIn, withShow } from "@/lib/domain/tv";
 import type { TrackedShow } from "@/lib/ports/follows";
 import { showKey } from "@/lib/ports/progress";
 import { normalize } from "@/lib/domain/search";
@@ -22,8 +22,10 @@ export interface RowItem {
   subtitle: string | null;
   posterUrl: string | null;
   href: string;
-  /** For a show partly watched: how much of it is logged, from 0 to 1, drawn as a ring on its poster. */
+  /** For a show partly watched: how far into it you are, from 0 to 1, drawn as a ring on its poster. */
   progress?: number;
+  /** Set on a Continue watching poster: what taking it off Home needs. */
+  removable?: { mediaId: string; addedAt: string };
 }
 
 export interface RowResult {
@@ -76,6 +78,12 @@ function cached<T>(key: string, make: () => Promise<Result<T>>, ttl = CACHE_MS, 
     else if (res.ok && persist) writeStored(key, res.value);
   });
   return value;
+}
+
+/** Forgets one row so it is rebuilt the next time it is shown, leaving the others as they are. */
+export function forgetRow(id: string): void {
+  cache.delete(`row:${id}`);
+  resolved.delete(id);
 }
 
 /** Forgets every row so the next load picks fresh titles. */
@@ -240,45 +248,34 @@ async function trackedShows(): Promise<Result<TrackedShow[]>> {
   return services.follows.tracked();
 }
 
-function showItem(show: TrackedShow, note: string, progress?: Map<string, number>): RowItem {
-  return { key: `show:${show.mediaId}`, title: show.title, subtitle: note, posterUrl: tmdbImageUrl(show.posterPath, "w342"), href: `/title/?id=${show.mediaId}`, progress: progress?.get(show.mediaId) };
-}
-
 /**
- * How much of each show is logged: episodes watched over episodes aired. Both come from what is already saved (your viewings and
- * each show's stored aired count, which is only refreshed when a new episode is due), so Home makes no extra TMDB calls.
+ * Continue watching: shows with aired episodes after where you are, which is the end of the viewing you added last (an episode, a
+ * season or the whole series). The ring says how far in that is, so a show you finished comes back when you watch one more
+ * episode or when a new one airs, and rewatching an early episode moves the ring back there. Shows marked "Do not recommend",
+ * switched off, or taken off Home since the last viewing stay out.
  */
-async function showProgress(shows: readonly TrackedShow[]): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
-  if (shows.length === 0) return out;
-  const [rows, totals] = await Promise.all([loadStatRows(), services.progress.airedTotals(shows.map((s) => ({ title: s.title, year: null, tmdbId: s.tmdbId })))]);
-  if (!rows.ok) return out;
-  for (const show of shows) {
-    const mine = rows.value.filter((r) => r.mediaId === show.mediaId && r.category === "TV Show");
-    // A whole series logged at once counts as finished, whatever its episode count.
-    if (mine.length === 0 || mine.some((r) => r.scope === "show")) continue;
-    const total = totals.get(showKey(show.title, null, normalize));
-    const logged = mine.reduce((n, r) => n + Math.max(1, r.episodes), 0);
-    if (total && logged > 0 && logged < total) out.set(show.mediaId, logged / total);
-  }
-  return out;
-}
-
-async function newEpisodesRow(): Promise<Result<RowResult>> {
-  const res = await trackedShows();
-  if (!res.ok) return res;
-  const shows = withNewEpisodes(res.value);
-  const progress = await showProgress(shows);
-  const items = shows.map((s) => showItem(s, `S${s.aired?.season} E${s.aired?.episode} · New`, progress));
-  return ok({ title: "New episodes", items, empty: "Nothing new from the shows you follow." });
-}
-
 async function continueRow(): Promise<Result<RowResult>> {
   const res = await trackedShows();
   if (!res.ok) return res;
-  const shows = inProgress(res.value);
-  const progress = await showProgress(shows);
-  const items = shows.map((s) => showItem(s, `Up to S${s.aired?.season} E${s.aired?.episode}`, progress));
+  const hidden = new Set(await hiddenKeys());
+  const candidates = continueCandidates(res.value).filter((s) => !hidden.has(seenKey("TV Show", s.tmdbId)));
+  const counts = await services.progress.airedSeasons(candidates.map((s) => ({ title: s.title, year: null, tmdbId: s.tmdbId })));
+  const items: RowItem[] = [];
+  for (const show of candidates) {
+    const latest = show.latest;
+    const place = placeIn(latest, counts.get(showKey(show.title, null, normalize)) ?? []);
+    if (!latest || !hasMoreAfter(place)) continue;
+    const last = show.aired ? `S${show.aired.season} E${show.aired.episode}` : null;
+    items.push({
+      key: `show:${show.mediaId}`,
+      title: show.title,
+      subtitle: !last ? null : isNewSince(show.aired?.airDate ?? null, show.covers) ? `${last} · New` : `Up to ${last}`,
+      posterUrl: tmdbImageUrl(show.posterPath, "w342"),
+      href: `/title/?id=${show.mediaId}`,
+      progress: place.done / place.total,
+      removable: { mediaId: show.mediaId, addedAt: latest.addedAt },
+    });
+  }
   return ok({ title: "Continue watching", items, empty: "You are caught up on everything you started." });
 }
 
@@ -515,12 +512,11 @@ async function arrivingRow(): Promise<Result<RowResult>> {
 
 /** Loads one Home row by id. */
 export function loadRow(id: string): Promise<Result<RowResult>> {
-  // Rows are kept until the app reopens or Home is refreshed; the watchlist is always read fresh
-  // so a title saved a moment ago shows up.
+  // Rows are kept until the app reopens or Home is refreshed; the watchlist and Continue watching are always read fresh
+  // so a title saved or an episode logged a moment ago shows up.
   const result = cached(`row:${id}`, () => {
     if (id === "like-movie") return likeRow("Movie");
     if (id === "like-tv") return likeRow("TV Show");
-    if (id === "new-episodes") return newEpisodesRow();
     if (id === "continue") return continueRow();
     if (id === "want") return wantRow();
     if (id === "want-pick") return wantPickRow();
@@ -537,7 +533,7 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id.startsWith("holiday:")) return holidayRow(id.slice("holiday:".length));
     if (id.startsWith("genre-")) return genreRow(Number(id.slice("genre-".length)));
     return Promise.resolve(fail("Unknown row."));
-  }, id === "want" ? 0 : id === "new-episodes" || id === "continue" ? CACHE_MS : Infinity, id !== "want" && id !== "new-episodes" && id !== "continue" && id !== "want-pick" && id !== "because-saved" && id !== "like-watchlist");
+  }, id === "want" || id === "continue" ? 0 : Infinity, id !== "want" && id !== "continue" && id !== "want-pick" && id !== "because-saved" && id !== "like-watchlist");
   result.then((res) => {
     if (res.ok) resolved.set(id, res);
   });

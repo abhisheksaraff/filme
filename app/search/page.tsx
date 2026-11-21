@@ -21,6 +21,7 @@ import { discover } from "@/lib/ask/discover";
 import { EMPTY_PLAN, hasPlan, LANGUAGE_NAMES, type AskPlan } from "@/lib/domain/askPlan";
 import { GENRES } from "@/lib/domain/home";
 import { applyFilter, fuzzyMatches, normalize } from "@/lib/domain/search";
+import { hasMoreAfter, placeIn, type SeasonCount } from "@/lib/domain/tv";
 import { scoreKey } from "@/lib/ports/ratings";
 import type { StatRow } from "@/lib/domain/stats";
 import { warmTitle } from "@/lib/handoff";
@@ -123,7 +124,8 @@ function ResultRow({ item }: { item: Item }) {
           {/* Spans the poster so each circle can take its size from the poster's width. */}
           {(item.watched || item.wanted) && (
             <span className="absolute inset-x-0 top-0 z-10 flex justify-end gap-[3%] p-[4%]">
-              {item.wanted && <StatusBadge kind="watchlist" />}
+              {/* The ring wins when a show is both partly watched and on the Watchlist. */}
+              {item.wanted && typeof item.progress !== "number" && <StatusBadge kind="watchlist" />}
               {item.watched && item.progress !== "pending" && <StatusBadge kind="watched" progress={item.progress} />}
             </span>
           )}
@@ -167,20 +169,20 @@ function SearchView() {
   // IMDb scores (the catalogue's when there is none) for the titles listed, looked up in the background.
   const [scores, setScores] = useState<Map<string, number>>(new Map());
   const requested = useRef(new Set<string>());
-  // How many episodes each show has aired, for the progress ring on a partly watched one.
-  const [totals, setTotals] = useState<Record<string, number>>({});
+  // How many episodes each season of a show has aired, for the progress ring on a show you are partway through.
+  const [totals, setTotals] = useState<Record<string, SeasonCount[]>>({});
   // Shows whose episode count has been looked for, found or not.
   const [doneTotals, setDoneTotals] = useState<Set<string>>(new Set());
   const progressOf = useCallback((_id: string, kind: string, title: string, year: string | null): number | "pending" | undefined => {
     if (kind !== "TV Show") return undefined;
-    // A whole series logged at once is finished, whatever its episode count.
-    if (rows.some((r) => r.category === "TV Show" && r.scope === "show" && normalize(r.title) === normalize(title) && (!year || !r.releaseYear || String(r.releaseYear) === year))) return undefined;
     const key = totalKey(title, year);
-    const total = totals[key];
+    const aired = totals[key];
     // Until the count is known the eye is held back, so a half-watched show never flashes as finished.
-    if (!total) return doneTotals.has(key) ? undefined : "pending";
-    const logged = rows.filter((r) => r.category === "TV Show" && normalize(r.title) === normalize(title) && (!year || !r.releaseYear || String(r.releaseYear) === year)).reduce((n, r) => n + Math.max(1, r.episodes), 0);
-    return logged > 0 && logged < total ? logged / total : undefined;
+    if (!aired) return doneTotals.has(key) ? undefined : "pending";
+    // Where you are comes from the viewing added last (rows are oldest first); a whole series logged at once is the end.
+    const mine = rows.filter((r) => r.category === "TV Show" && normalize(r.title) === normalize(title) && (!year || !r.releaseYear || String(r.releaseYear) === year));
+    const place = placeIn(mine.at(-1) ?? null, aired);
+    return hasMoreAfter(place) ? place.done / place.total : undefined;
   }, [rows, totals, doneTotals]);
 
   // "See all" on a person's page arrives with their TMDB id and name; the list is then their full credits.
@@ -534,12 +536,12 @@ function SearchView() {
       .then((m) => setScores((now) => new Map([...m, ...now])));
   }, [items]);
 
-  // The aired-episode total of any show in the results you have logged: saved per show, so only a show with a new episode is asked about again.
+  // The aired episodes per season of any show in the results you have logged: saved per show, so only a show with a new episode is asked about again.
   useEffect(() => {
     const shows = items.filter((i) => i.kind === "TV Show" && i.watched).slice(0, 60).filter((i) => !askedTotals.has(totalKey(i.title, i.year)));
     if (shows.length === 0) return;
     for (const show of shows) askedTotals.add(totalKey(show.title, show.year));
-    void services.progress.airedTotals(shows.map((i) => ({ title: i.title, year: i.year, tmdbId: i.key.startsWith("TV Show:") ? Number(i.key.split(":")[1]) || null : null }))).then((map) => {
+    void services.progress.airedSeasons(shows.map((i) => ({ title: i.title, year: i.year, tmdbId: i.key.startsWith("TV Show:") ? Number(i.key.split(":")[1]) || null : null }))).then((map) => {
       if (map.size > 0) setTotals((t) => ({ ...t, ...Object.fromEntries(map) }));
     }).finally(() => setDoneTotals((d) => new Set([...d, ...shows.map((i) => totalKey(i.title, i.year))])));
   }, [items]);

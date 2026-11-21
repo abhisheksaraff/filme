@@ -1,7 +1,8 @@
 // lib/adapters/supabase/SupabaseProgressRepository.ts
-// Aired-episode totals saved per show, refreshed only when a new episode is due.
+// Aired episodes per season saved for each show, refreshed only when a new episode is due.
 import { edgeCatalog } from "@/lib/adapters/tmdb/EdgeCatalog";
 import { normalize } from "@/lib/domain/search";
+import { airedTotal, type SeasonCount } from "@/lib/domain/tv";
 import type { ProgressRepository, ShowRef } from "@/lib/ports/progress";
 import { showKey } from "@/lib/ports/progress";
 import { getSupabase } from "./client";
@@ -14,6 +15,8 @@ interface Saved {
   tmdb_id: number;
   title_key: string;
   aired_episodes: number;
+  /** Aired episodes of each season, specials included; null on rows saved before seasons were kept. */
+  aired_by_season: SeasonCount[] | null;
   next_air_date: string | null;
   running: boolean;
   checked_at: string;
@@ -21,6 +24,8 @@ interface Saved {
 
 /** True when a new episode has come due since the last look, or an undated running show has gone a week unchecked. */
 function stale(row: Saved): boolean {
+  // A show saved before seasons were kept is asked about once more, running or not.
+  if (!row.aired_by_season) return true;
   if (!row.running) return false;
   const age = Date.now() - Date.parse(row.checked_at);
   const today = new Date().toISOString().slice(0, 10);
@@ -29,16 +34,16 @@ function stale(row: Saved): boolean {
 }
 
 export const supabaseProgressRepository: ProgressRepository = {
-  async airedTotals(shows) {
+  async airedSeasons(shows) {
     const db = getSupabase();
-    const out = new Map<string, number>();
+    const out = new Map<string, SeasonCount[]>();
     if (shows.length === 0) return out;
     const keys = [...new Set(shows.map((s) => showKey(s.title, s.year, normalize)))];
     const ids = [...new Set(shows.flatMap((s) => (s.tmdbId ? [s.tmdbId] : [])))];
 
     const [byKey, byId] = await Promise.all([
-      db.from("show_progress").select("tmdb_id, title_key, aired_episodes, next_air_date, running, checked_at").in("title_key", keys),
-      ids.length ? db.from("show_progress").select("tmdb_id, title_key, aired_episodes, next_air_date, running, checked_at").in("tmdb_id", ids) : Promise.resolve({ data: [] as Saved[] }),
+      db.from("show_progress").select("tmdb_id, title_key, aired_episodes, aired_by_season, next_air_date, running, checked_at").in("title_key", keys),
+      ids.length ? db.from("show_progress").select("tmdb_id, title_key, aired_episodes, aired_by_season, next_air_date, running, checked_at").in("tmdb_id", ids) : Promise.resolve({ data: [] as Saved[] }),
     ]);
     const saved = new Map<number, Saved>();
     for (const row of [...((byKey.data as Saved[] | null) ?? []), ...((byId.data as Saved[] | null) ?? [])]) saved.set(row.tmdb_id, row);
@@ -48,7 +53,7 @@ export const supabaseProgressRepository: ProgressRepository = {
     for (const show of shows) {
       const key = showKey(show.title, show.year, normalize);
       const row = (show.tmdbId ? saved.get(show.tmdbId) : undefined) ?? byTitle.get(key);
-      if (row) out.set(key, row.aired_episodes);
+      if (row?.aired_by_season) out.set(key, row.aired_by_season);
       if (!row || stale(row)) todo.push({ show, key });
     }
 
@@ -64,15 +69,21 @@ export const supabaseProgressRepository: ProgressRepository = {
       if (!tmdbId) return;
       const status = await edgeCatalog.showStatus(tmdbId);
       if (!status.ok) return;
-      // Only what has aired counts, so a show that is up to date reads as finished.
-      const seasons = status.value.seasons.filter((s) => s.season > 0);
+      // Only what has aired counts, so a show that is up to date reads as finished: the season on air stops at its latest
+      // episode and later seasons are left out. The specials (season 0) come first and count as aired.
       const last = status.value.last;
-      const total = last
-        ? seasons.filter((s) => s.season < last.season).reduce((n, s) => n + s.episodes, 0) + last.episode
-        : seasons.reduce((n, s) => n + s.episodes, 0);
+      const seasons: SeasonCount[] = [
+        ...(status.value.specials ? [{ season: 0, episodes: status.value.specials }] : []),
+        ...status.value.seasons.flatMap((s) => {
+          if (!last) return [{ season: s.season, episodes: s.episodes }];
+          if (s.season > last.season) return [];
+          return [{ season: s.season, episodes: s.season === last.season ? Math.min(s.episodes, last.episode) : s.episodes }];
+        }),
+      ];
+      const total = airedTotal(seasons);
       const next = status.value.next?.airDate?.slice(0, 10) ?? null;
-      await db.from("show_progress").upsert({ tmdb_id: tmdbId, title_key: key, aired_episodes: total, next_air_date: next, running: status.value.running, checked_at: new Date().toISOString() }, { onConflict: "user_id,tmdb_id" });
-      if (total > 0) out.set(key, total);
+      await db.from("show_progress").upsert({ tmdb_id: tmdbId, title_key: key, aired_episodes: total, aired_by_season: seasons, next_air_date: next, running: status.value.running, checked_at: new Date().toISOString() }, { onConflict: "user_id,tmdb_id" });
+      if (total > 0) out.set(key, seasons);
     }));
     return out;
   },
