@@ -6,11 +6,11 @@ import Icon from "@/components/Icon";
 
 const SHAPE = { full: "rounded-full py-4", box: "rounded-2xl py-3" } as const;
 
-/** Light grey, with the recycle arrows above the words in a darker grey. */
+/** Light grey, with the recycle arrows to the left of the words, at the same size as Save and Cancel. */
 export function RescanButton({ onClick, disabled, shape }: { onClick: () => void; disabled?: boolean; shape: keyof typeof SHAPE }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
-      className={`flex flex-col items-center gap-1 bg-neutral-100 px-5 text-sm font-medium text-neutral-600 disabled:opacity-50 dark:bg-neutral-800 dark:text-neutral-300 ${SHAPE[shape].replace("py-4", "py-3")}`}>
+      className={`flex items-center justify-center gap-2 bg-neutral-100 px-5 text-base font-medium text-neutral-700 disabled:opacity-50 dark:bg-neutral-800 dark:text-neutral-200 ${SHAPE[shape]}`}>
       <span className="text-neutral-600 dark:text-neutral-300"><Icon name="refresh" size={20} /></span>
       Rescan tickets
     </button>

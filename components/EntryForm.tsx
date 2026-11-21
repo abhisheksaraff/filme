@@ -29,6 +29,8 @@ interface Props {
   titleExtra?: React.ReactNode;
   /** Hides the type and title, for editing a viewing of a title that is already saved. */
   lockTitle?: boolean;
+  /** Hides Season, Episode and the episode's name, for a completion card whose scope is fixed. */
+  hideScope?: boolean;
   /** A round button kept at the right of the type choices, such as ticket upload. */
   typeAction?: React.ReactNode;
   disabled?: boolean;
@@ -76,7 +78,7 @@ async function findVenues(query: string): Promise<VenueSuggestion[]> {
   return [...mine, ...found];
 }
 
-export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, typeAction, disabled, showTmdbId = null, link = null }: Props) {
+export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, hideScope, typeAction, disabled, showTmdbId = null, link = null }: Props) {
   const show = useShowData(showTmdbId, showTmdbId !== null);
   const seasonList = show?.seasons ?? [];
   const episodeList = seasonList.find((x) => String(x.season) === draft.season)?.episodes ?? [];
@@ -231,7 +233,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
         </>
       )}
 
-      {draft.category === "TV Show" && (
+      {draft.category === "TV Show" && !hideScope && (
         <div className="grid grid-cols-2 gap-3">
           {seasonList.length > 0 ? (
             <>
@@ -348,7 +350,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
 
       <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more}
         className={`self-start rounded-full px-4 py-2 text-sm transition-colors ${more ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
-        {more ? "Fewer details" : "More details"}
+        {more ? "Fewer details" : "Add more details"}
       </button>
 
       {more && (
@@ -357,7 +359,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
             <input className={field} placeholder="Screen or hall, such as Screen 4" value={draft.auditorium} onChange={(e) => void typeScreen(e.target.value)} />
           </Labeled>
           <Labeled label="Tickets">
-            <input className={field} inputMode="numeric" placeholder="How many tickets" value={draft.totalTickets} onChange={(e) => set("totalTickets", e.target.value)} />
+            <input className={field} inputMode="numeric" pattern="[0-9]*" placeholder="How many tickets" value={draft.totalTickets} onChange={(e) => set("totalTickets", e.target.value.replace(/\D/g, "").slice(0, 3))} />
           </Labeled>
           <TagInput
             label="Add-ons"

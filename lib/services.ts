@@ -14,6 +14,7 @@ import { supabaseImageRepository } from "@/lib/adapters/supabase/SupabaseImageRe
 import { supabaseNotificationRepository } from "@/lib/adapters/supabase/SupabaseNotificationRepository";
 import { supabaseFollowRepository } from "@/lib/adapters/supabase/SupabaseFollowRepository";
 import { supabaseHiddenRepository } from "@/lib/adapters/supabase/SupabaseHiddenRepository";
+import { supabasePassRepository } from "@/lib/adapters/supabase/SupabasePassRepository";
 import { supabaseProgressRepository } from "@/lib/adapters/supabase/SupabaseProgressRepository";
 import { supabaseRatingsRepository } from "@/lib/adapters/supabase/SupabaseRatingsRepository";
 import { supabaseWantedRepository } from "@/lib/adapters/supabase/SupabaseWantedRepository";
@@ -35,6 +36,7 @@ import type { LogRepository } from "@/lib/ports/log";
 import type { SettingsRepository } from "@/lib/ports/settings";
 import type { FollowRepository } from "@/lib/ports/follows";
 import type { HiddenRepository } from "@/lib/ports/hidden";
+import type { PassRepository } from "@/lib/ports/passes";
 import type { ProgressRepository } from "@/lib/ports/progress";
 import type { RatingsRepository } from "@/lib/ports/ratings";
 import type { WantedRepository } from "@/lib/ports/wanted";
@@ -57,6 +59,7 @@ export const services: {
   follows: FollowRepository;
   ratings: RatingsRepository;
   progress: ProgressRepository;
+  passes: PassRepository;
   settings: SettingsRepository;
   wanted: WantedRepository;
 } = {
@@ -77,6 +80,7 @@ export const services: {
   follows: supabaseFollowRepository,
   ratings: supabaseRatingsRepository,
   progress: supabaseProgressRepository,
+  passes: supabasePassRepository,
   settings: supabaseSettingsRepository,
   wanted: supabaseWantedRepository,
 };

@@ -17,6 +17,9 @@ import { useRequireSession } from "@/hooks/useRequireSession";
 import type { DeletedEntry, RecentEntry } from "@/lib/ports/log";
 import { services } from "@/lib/services";
 import { ConfirmPopup } from "@/components/Popup";
+import StackCard from "@/components/StackCard";
+import { loadStacks, type LoadedStacks } from "@/lib/showStacks";
+import type { StackNode } from "@/lib/domain/passes";
 
 export default function WatchlistPage() {
   const ready = useRequireSession();
@@ -30,6 +33,22 @@ export default function WatchlistPage() {
   const [sort, setSort] = usePageState<ListSort>("watched.sort", "new");
   // IMDb scores by title (the catalogue's when there is none), looked up in the background for titles without one.
   const [scores, setScores] = useState<Map<string, number>>(new Map());
+  // Seasons and series finished episode by episode, as completion cards among the viewings.
+  const [stacked, setStacked] = useState<LoadedStacks[]>([]);
+
+  useEffect(() => {
+    if (!recent) return;
+    let cancelled = false;
+    const counts = new Map<string, number>();
+    for (const r of recent) if (r.category === "TV Show" && r.scope === "episode") counts.set(r.mediaId, (counts.get(r.mediaId) ?? 0) + 1);
+    const ids = [...counts].filter(([, n]) => n >= 2).map(([id]) => id).slice(0, 8);
+    Promise.all(ids.map((id) => loadStacks(id))).then((all) => {
+      if (!cancelled) setStacked(all.filter((x): x is LoadedStacks => x !== null));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [recent]);
 
   useEffect(() => {
     if (!ready) return;
@@ -72,6 +91,17 @@ export default function WatchlistPage() {
     release: (r) => r.releaseDate,
   });
 
+  // Completion cards sit among the viewings by the day they were completed; under a sort that is not by date they go last.
+  type Item = { entry: RecentEntry } | { node: StackNode; loaded: LoadedStacks };
+  const merged: Item[] = ordered.map((entry) => ({ entry }));
+  for (const loaded of stacked) {
+    for (const node of loaded.stacks) {
+      const day = node.last.date ?? "";
+      const at = sort === "new" ? merged.findIndex((m) => "entry" in m && (m.entry.watchedOn ?? "") <= day) : sort === "old" ? merged.findIndex((m) => "entry" in m && (m.entry.watchedOn ?? "") >= day) : -1;
+      merged.splice(at < 0 ? merged.length : at, 0, { node, loaded });
+    }
+  }
+
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
       <div className="flex items-center justify-between gap-3">
@@ -85,7 +115,10 @@ export default function WatchlistPage() {
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
-        {ordered.map((entry, i) => <WatchedCard key={entry.id} entry={entry} index={i} rating={scores.get(scoreKey({ mediaId: entry.mediaId, kind: entry.category as "Movie", tmdbId: entry.tmdbId })) ?? entry.score} notes={entry.notes} />)}
+        {merged.map((item, i) => "node" in item ? (
+          <StackCard key={item.node.id} node={item.node} viewings={item.loaded.viewings} edits={item.loaded.edits} showTitle index={i}
+            show={{ mediaId: item.loaded.mediaId, title: item.loaded.title, category: "TV Show", posterPath: item.loaded.posterPath }} />
+        ) : <WatchedCard key={item.entry.id} entry={item.entry} index={i} rating={scores.get(scoreKey({ mediaId: item.entry.mediaId, kind: item.entry.category as "Movie", tmdbId: item.entry.tmdbId })) ?? item.entry.score} notes={item.entry.notes} />)}
         {recent === null && !failed && Array.from({ length: 3 }, (_, i) => <li key={i} className="skeleton h-64 rounded-2xl" />)}
         {failed && <li className="text-sm text-neutral-500">We&apos;re having some trouble loading your viewings. Please check back later.</li>}
         {recent !== null && recent.length === 0 && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}

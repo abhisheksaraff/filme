@@ -22,9 +22,15 @@ import type { SeasonDetail } from "@/lib/ports/catalog";
 import type { ViewingSummary } from "@/lib/ports/log";
 import { services } from "@/lib/services";
 import DateField from "@/components/ui/DateField";
+import RewatchLine from "@/components/RewatchLine";
+import StackCard, { cardOf, type ShowRef } from "@/components/StackCard";
+import WatchedCard from "@/components/WatchedCard";
+import { useShowData } from "@/hooks/useShowData";
+import { useShowPasses } from "@/hooks/useShowPasses";
+import { seenState, type StackNode } from "@/lib/domain/passes";
 
 const today = () => new Date().toISOString().slice(0, 10);
-const ORDINAL = (n: number) => (n === 1 ? "First viewing" : `Rewatch #${n - 1}`);
+const NO_VIEWINGS: ViewingSummary[] = [];
 
 function SeasonView() {
   const ready = useRequireSession();
@@ -57,6 +63,8 @@ function SeasonView() {
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [pickWhen, setPickWhen] = useState<"ask" | "date" | null>(null);
   const [pickDate, setPickDate] = useState(today());
+  const showData = useShowData(detail?.tmdbId ?? null, ready);
+  const sp = useShowPasses(detail?.mediaId ?? null, detail?.viewings ?? NO_VIEWINGS, showData);
 
   useEffect(() => {
     if (!ready || (!id && !tmdbParam) || !Number.isInteger(n)) return;
@@ -165,8 +173,18 @@ function SeasonView() {
   const progress = progressOf(covers, keys, today());
   // The latest viewing that included any of this season: the series, the season itself, or one of its episodes.
   const lastLine = lastWatchedText(latestViewing((detail?.viewings ?? []).filter((v) => v.scope === "show" || v.season === n)), true);
-  const own = (detail?.viewings ?? []).filter((v) => v.scope === "season" && v.season === n);
-  const oldestFirst = [...own].reverse();
+  const mine = sp.passes?.seasons.get(n) ?? null;
+  const state = mine ? seenState(mine) : null;
+  const badge =
+    state?.kind === "eye" ? <StatusBadge kind="watched" maxSize={36} className="absolute right-1.5 top-1.5" /> :
+    state?.kind === "ring" && sp.inContinue ? <StatusBadge kind="watched" progress={state.progress} maxSize={36} className="absolute right-1.5 top-1.5" /> : null;
+  const showRef: ShowRef | null = detail?.mediaId ? { mediaId: detail.mediaId, title: detail.title, category: "TV Show", posterPath: detail.posterPath } : null;
+  const byId = new Map((detail?.viewings ?? []).map((v) => [v.id, v] as const));
+  // Season logs, series logs and the completion cards of this season or the series; single episodes live on their own pages.
+  const rows: ({ v: ViewingSummary; date: string | null } | { node: StackNode; date: string | null })[] = [
+    ...(detail?.viewings ?? []).filter((v) => v.scope === "show" || (v.scope === "season" && v.season === n)).map((v) => ({ v, date: v.watchedOn })),
+    ...(sp.passes?.stacks ?? []).filter((s) => s.season === n || s.season === null).map((node) => ({ node, date: node.last.date })),
+  ].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
@@ -177,6 +195,7 @@ function SeasonView() {
         title={season?.name ?? `Season ${n}`}
         subtitle={detail ? [detail.title, season?.airDate?.slice(0, 4), season ? `${season.episodes.length} episodes` : null].filter(Boolean).join(" · ") : ""}
         loading={!detail && !problem}
+        posterBadge={badge}
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">
@@ -195,7 +214,8 @@ function SeasonView() {
 
             {season.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{season.overview}</p>}
             {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}
-            {progress.aired > 0 && <p className="text-sm">{progress.watched} of {progress.aired} episodes watched</p>}
+            {mine ? <RewatchLine passes={mine} onReset={() => sp.reset(n)} /> : progress.aired > 0 && <p className="text-sm">{progress.watched} of {progress.aired} episodes watched</p>}
+            {mine && <p className="-mt-3 text-xs text-neutral-500">Watched {mine.passes.length} {mine.passes.length === 1 ? "time" : "times"}</p>}
 
             <div className="flex items-center justify-between text-sm">
               {picking ? (
@@ -219,12 +239,15 @@ function SeasonView() {
                 const on = picked.has(e.episode);
                 const body = (
                   <>
-                    {still ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={still} alt="" loading="lazy" className="aspect-video w-24 shrink-0 rounded-lg object-cover" />
-                    ) : (
-                      <span className="aspect-video w-24 shrink-0 rounded-lg bg-neutral-300 dark:bg-neutral-700" />
-                    )}
+                    <span className="relative block w-24 shrink-0">
+                      {still ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={still} alt="" loading="lazy" className="aspect-video w-full rounded-lg object-cover" />
+                      ) : (
+                        <span className="block aspect-video w-full rounded-lg bg-neutral-300 dark:bg-neutral-700" />
+                      )}
+                      {watched && <StatusBadge kind="watched" size={20} className="absolute right-1 top-1" />}
+                    </span>
                     <span className="flex min-w-0 flex-1 flex-col text-sm">
                       <span className="truncate font-medium">{e.episode}. {e.name ?? `Episode ${e.episode}`}</span>
                       <span className="text-neutral-500">{unaired ? `Airs ${e.airDate}` : [e.runtime ? `${e.runtime} min` : null, e.airDate].filter(Boolean).join(" · ")}</span>
@@ -251,7 +274,6 @@ function SeasonView() {
                     ) : id ? (
                       <Link href={`/episode/?id=${id}&s=${n}&e=${e.episode}`} className={row}>
                         {body}
-                        {watched && <StatusBadge kind="watched" size={22} className="ml-1" />}
                       </Link>
                     ) : (
                       <Link href={`/episode/?tmdb=${tmdbParam}&s=${n}&e=${e.episode}`} className={row}>{body}</Link>
@@ -261,18 +283,17 @@ function SeasonView() {
               })}
             </ul>
 
-            {own.length > 0 && (
-              <section className="flex flex-col gap-2">
-                <h2 className="font-serif text-lg">Watched as a season</h2>
-                <ul className="flex flex-col gap-2">
-                  {own.map((v) => (
-                    <li key={v.id}>
-                      <Link href={`/title/?id=${id}`} className="flex justify-between gap-2 rounded-2xl border border-neutral-300 p-3 text-sm dark:border-neutral-700">
-                        <span>{v.watchedOn ?? ""}</span>
-                        <span className="text-neutral-500">{ORDINAL(oldestFirst.findIndex((x) => x.id === v.id) + 1)}</span>
-                      </Link>
-                    </li>
-                  ))}
+            {rows.length > 0 && showRef && (
+              <section className="flex flex-col gap-3">
+                <h2 className="font-serif text-xl">Your viewings</h2>
+                <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
+                  {rows.map((row, i) =>
+                    "node" in row ? (
+                      <StackCard key={row.node.id} node={row.node} viewings={byId} edits={sp.edits} show={showRef} index={i} />
+                    ) : (
+                      <WatchedCard key={row.v.id} index={i} showTitle={false} animate rating={row.v.rating} notes={row.v.notes} entry={cardOf(row.v, showRef)} />
+                    ),
+                  )}
                 </ul>
               </section>
             )}

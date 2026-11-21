@@ -19,9 +19,11 @@ interface Props {
   /** Make the cover and poster open a viewer of every picture for the title. */
   onCoverClick?: () => void;
   onPosterClick?: () => void;
+  /** Sits on the poster's top-right corner, such as the eye or progress ring. */
+  posterBadge?: ReactNode;
 }
 
-export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loading, titleHref, extra, onCoverClick, onPosterClick }: Props) {
+export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loading, titleHref, extra, onCoverClick, onPosterClick, posterBadge }: Props) {
   return (
     <header>
       <div
@@ -48,7 +50,8 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
           ) : (
             <div className="aspect-[2/3] w-28 shrink-0 rounded-xl border-2 border-white bg-neutral-200 md:w-36 lg:w-44 dark:border-neutral-950 dark:bg-neutral-800" />
           );
-          return onPosterClick ? <button type="button" aria-label="See all posters" onClick={onPosterClick} className="shrink-0">{poster}</button> : poster;
+          const shown = onPosterClick ? <button type="button" aria-label="See all posters" onClick={onPosterClick} className="block shrink-0">{poster}</button> : poster;
+          return posterBadge ? <div className="relative shrink-0">{shown}{posterBadge}</div> : shown;
         })()}
         <div className="flex min-w-0 flex-col gap-1 pb-1">
           <h1 className="font-serif text-2xl leading-tight tracking-tight md:text-3xl lg:text-4xl">{titleHref ? <Link href={titleHref}>{title}</Link> : title}</h1>

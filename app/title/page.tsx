@@ -17,6 +17,8 @@ import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
 import WatchedCard from "@/components/WatchedCard";
+import StackCard, { cardOf, type ShowRef } from "@/components/StackCard";
+import { useShowPasses } from "@/hooks/useShowPasses";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { mediaCategorySchema } from "@/lib/domain/media";
@@ -29,7 +31,9 @@ import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
 import { useShowData } from "@/hooks/useShowData";
 import { scopeRank, type Cover } from "@/lib/domain/tv";
 import type { TitleCredits } from "@/lib/ports/browse";
-import type { TitleDetail } from "@/lib/ports/log";
+import type { TitleDetail, ViewingSummary } from "@/lib/ports/log";
+
+const NO_VIEWINGS: ViewingSummary[] = [];
 import { services } from "@/lib/services";
 import DoNotRecommend from "@/components/DoNotRecommend";
 
@@ -52,6 +56,7 @@ function TitleView() {
   const [viewer, setViewer] = useState<"poster" | "backdrop" | null>(null);
   const [menu, setMenu] = useState(false);
   const showData = useShowData(detail?.category === "TV Show" ? detail.tmdbId : null, ready);
+  const sp = useShowPasses(detail?.category === "TV Show" ? detail.mediaId : null, detail?.viewings ?? NO_VIEWINGS, showData);
 
   useEffect(() => {
     if (!ready || !id) return;
@@ -140,6 +145,14 @@ function TitleView() {
   );
   const lastLine = lastWatchedText(latestViewing(detail?.viewings ?? []), isShow);
   const viewings = isShow ? [...(detail?.viewings ?? [])].sort((a, b) => scopeRank(a.season, a.episode) - scopeRank(b.season, b.episode)) : detail?.viewings ?? [];
+  const byId = new Map((detail?.viewings ?? []).map((v) => [v.id, v] as const));
+  // A show lists everything: its viewings and the completion cards, newest first once there are cards.
+  const rows: ({ v: ViewingSummary; date: string | null } | { node: import("@/lib/domain/passes").StackNode; date: string | null })[] = [
+    ...viewings.map((v) => ({ v, date: v.watchedOn })),
+    ...(isShow ? sp.passes?.stacks ?? [] : []).map((node) => ({ node, date: node.last.date })),
+  ];
+  if (isShow && rows.some((r) => "node" in r)) rows.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  const showRef = (d: NonNullable<typeof detail>): ShowRef => ({ mediaId: d.mediaId, title: d.title, category: d.category, posterPath: d.posterPath });
   const covers: Cover[] = (detail?.viewings ?? []).map((v) => ({ scope: v.scope, season: v.season, episode: v.episode, date: v.watchedOn }));
 
   return (
@@ -190,7 +203,7 @@ function TitleView() {
               onLog={isShow ? () => setMenu(true) : () => logAnother()}
             />
 
-            {isShow && detail.tmdbId !== null && <ShowSection mediaId={detail.mediaId} data={showData} covers={covers} />}
+            {isShow && detail.tmdbId !== null && <ShowSection mediaId={detail.mediaId} data={showData} covers={covers} passes={sp.passes} inContinue={sp.inContinue} onReset={sp.reset} />}
 
             {groups.map(([role, people]) => (
               <section key={role} className="flex flex-col gap-2">
@@ -224,22 +237,13 @@ function TitleView() {
 
             <h2 className="font-serif text-xl">Your viewings</h2>
             <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
-              {viewings.map((v, i) => (
-                <WatchedCard
-                  key={v.id}
-                  index={i}
-                  showTitle={false}
-                  animate
-                  rating={v.rating}
-                  notes={v.notes}
-                  entry={{
-                    id: v.id, mediaId: detail.mediaId, title: detail.title, category: detail.category, posterPath: detail.posterPath,
-                    watchedOn: v.watchedOn, watchedAt: v.watchedAt, primaryFormat: v.primaryFormat, addons: v.addons,
-                    venueId: v.venueId, venue: v.venue, venueLatitude: v.venueLatitude, venueLongitude: v.venueLongitude, venueType: v.venueType,
-                    auditorium: v.auditorium, seats: v.seats, totalTickets: v.totalTickets, season: v.season, episode: v.episode,
-                  }}
-                />
-              ))}
+              {rows.map((row, i) =>
+                "node" in row ? (
+                  <StackCard key={row.node.id} node={row.node} viewings={byId} edits={sp.edits} show={showRef(detail)} index={i} />
+                ) : (
+                  <WatchedCard key={row.v.id} index={i} showTitle={false} animate rating={row.v.rating} notes={row.v.notes} entry={cardOf(row.v, showRef(detail))} />
+                ),
+              )}
               {detail.viewings.length === 0 && <li className="text-sm text-neutral-500">No viewings left.</li>}
             </ul>
           </>

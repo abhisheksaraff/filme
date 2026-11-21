@@ -62,7 +62,7 @@ export default function ScanPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ kind: "ticket" | "photo"; start: number } | null>(null);
-  const [confirm, setConfirm] = useState<"cancel" | "rescan" | null>(null);
+  const [confirm, setConfirm] = useState<"cancel" | "rescan" | "clear" | null>(null);
 
   // Written on every change so coming back finds the form as it was left.
   useEffect(() => {
@@ -284,7 +284,7 @@ export default function ScanPage() {
 
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
-      <button type="button" onClick={clearAll}
+      <button type="button" onClick={() => setConfirm("clear")}
         className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-colors duration-150 ${clearFlash ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
         Clear all
       </button>
@@ -373,6 +373,10 @@ export default function ScanPage() {
       {confirm === "cancel" && (
         <ConfirmPopup title="Discard this entry?" message="Everything you've entered here will be cleared." confirmLabel="Discard" confirmIcon="trash"
           onConfirm={() => { setConfirm(null); clearAll(); router.push("/home/"); }} onCancel={() => setConfirm(null)} />
+      )}
+      {confirm === "clear" && (
+        <ConfirmPopup title="Clear this entry?" message="Everything you've entered here will be removed." confirmLabel="Clear" confirmIcon="trash"
+          onConfirm={() => { setConfirm(null); clearAll(); }} onCancel={() => setConfirm(null)} />
       )}
       {confirm === "rescan" && (
         <ConfirmPopup title="Rescan your tickets?" message="What your tickets say will replace the details filled in above." confirmLabel="Rescan" confirmIcon="refresh"

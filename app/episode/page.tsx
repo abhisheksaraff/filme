@@ -22,6 +22,8 @@ import { logShowNow } from "@/lib/logShow";
 import type { EpisodePerson, SeasonDetail } from "@/lib/ports/catalog";
 import type { ViewingSummary } from "@/lib/ports/log";
 import { services } from "@/lib/services";
+import WatchedCard from "@/components/WatchedCard";
+import { cardOf } from "@/components/StackCard";
 
 /** The show as this page needs it: from your log, or from the catalogue when it has no viewings yet. */
 interface ShowInfo {
@@ -134,7 +136,6 @@ function EpisodeView() {
   const key = { season: s, episode: e, airDate: episode?.airDate ?? null };
   // Every viewing that included this episode, whether it was logged alone or as part of a season or the series.
   const covering = (detail?.viewings ?? []).filter((v) => isCovered([{ scope: v.scope, season: v.season, episode: v.episode, date: v.watchedOn }], key));
-  const oldestFirst = [...covering].reverse();
   const lastLine = lastWatchedText(latestViewing(covering), true);
   const showQuery = id ? `id=${id}` : `tmdb=${tmdbParam}`;
   const previous = season?.episodes.find((x) => x.episode === e - 1);
@@ -158,6 +159,7 @@ function EpisodeView() {
           <>
             <TitleActions
               wanted={wanted}
+              watched={covering.length > 0}
               canBookmark
               watch={{ tmdbId: detail.tmdbId, kind: "TV Show", title: detail.title, year: detail.releaseDate?.slice(0, 4) ?? null, season: s, episode: e }}
               busy={busy}
@@ -166,6 +168,7 @@ function EpisodeView() {
             />
 
             {episode?.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{episode.overview}</p>}
+            {covering.length > 0 && <p className="-mt-3 text-xs text-neutral-500">Watched {covering.length} {covering.length === 1 ? "time" : "times"}</p>}
             {lastLine && <p className="-mt-3 text-xs text-neutral-500">{lastLine}</p>}
 
             {/* The cast and crew, one row per heading; headings with nobody are left out. */}
@@ -181,17 +184,13 @@ function EpisodeView() {
               );
             })}
 
-            {covering.length > 0 && (
-              <section className="flex flex-col gap-2">
-                <h2 className="font-serif text-lg">Your viewings</h2>
-                <ul className="flex flex-col gap-2">
-                  {covering.map((v) => (
-                    <li key={v.id}>
-                      <Link href={`/title/?id=${detail.mediaId}&v=${v.id}`} className="flex justify-between gap-2 rounded-2xl border border-neutral-300 p-3 text-sm dark:border-neutral-700">
-                        <span>{v.watchedOn ?? ""}{v.scope !== "episode" ? ` · with ${scopeLabel(v.season, null).toLowerCase()}` : ""}</span>
-                        <span className="text-neutral-500">{oldestFirst.findIndex((x) => x.id === v.id) === 0 ? "First viewing" : `Rewatch #${oldestFirst.findIndex((x) => x.id === v.id)}`}</span>
-                      </Link>
-                    </li>
+            {covering.length > 0 && detail.mediaId && (
+              <section className="flex flex-col gap-3">
+                <h2 className="font-serif text-xl">Your viewings</h2>
+                <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
+                  {covering.map((v, i) => (
+                    <WatchedCard key={v.id} index={i} showTitle={false} animate rating={v.rating} notes={v.notes}
+                      entry={cardOf(v, { mediaId: detail.mediaId as string, title: detail.title, category: "TV Show", posterPath: detail.posterPath })} />
                   ))}
                 </ul>
               </section>

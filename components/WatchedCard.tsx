@@ -143,9 +143,15 @@ interface Props {
   notes?: string | null;
   /** Rises into place as the page opens; only the title page does this. */
   animate?: boolean;
+  /** Where the edit button goes; a viewing's own edit page when left out. */
+  editHref?: string | null;
+  /** A completion card: the stacked-cards button is always on show (top right), and opens the cards it was made from. */
+  onStack?: () => void;
+  /** The viewing whose pictures the card shows, when they are another's (a completion card mirrors its last episode). */
+  pictureId?: string;
 }
 
-export default function WatchedCard({ entry, index = 0, showTitle = true, label, rating, notes, animate = false }: Props) {
+export default function WatchedCard({ entry, index = 0, showTitle = true, label, rating, notes, animate = false, editHref, onStack, pictureId }: Props) {
   // Keyed by page too, so the same viewing opened on Watched is not also open on its title page.
   const path = usePathname();
   const wide = useWide();
@@ -181,7 +187,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
     watcher.observe(el);
     return () => watcher.disconnect();
   }, []);
-  const images = useViewingPictures(entry.id, near);
+  const images = useViewingPictures(pictureId ?? entry.id, near);
   // The roll-out is smooth unless animations are switched off, when it just snaps.
   const [smooth] = useState(() => readCachedAppearance().animationsEnabled);
 
@@ -218,8 +224,11 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
       <button type="button" aria-expanded={open} aria-label={`${open ? "Fold" : "Unfold"} ${entry.title}`} onClick={toggle} className="absolute inset-0 z-0 rounded-3xl" />
 
       {/* The only way to the edit screen: it floats over the top-right corner once the card is open, above everything else on the card. */}
-      <div className={`absolute right-3 top-3 z-40 ${smooth ? "transition-[opacity,transform] duration-300" : ""} ${open ? "scale-100 opacity-100" : "pointer-events-none scale-75 opacity-0"}`}>
-        <RoundButton icon="edit" label="Edit viewing" href={`/entry/?id=${entry.id}`} className="relative !bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)] before:absolute before:-inset-3 before:content-['']" />
+      <div className="absolute right-3 top-3 z-40 flex items-center gap-2">
+        <div className={`${smooth ? "transition-[opacity,transform] duration-300" : ""} ${open && editHref !== null ? "scale-100 opacity-100" : "pointer-events-none scale-75 opacity-0"}`}>
+          <RoundButton icon="edit" label="Edit viewing" href={editHref ?? `/entry/?id=${entry.id}`} className="relative !bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)] before:absolute before:-inset-3 before:content-['']" />
+        </div>
+        {onStack && <RoundButton icon="layers" label="Show the episodes" onClick={onStack} className="relative !bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)] before:absolute before:-inset-3 before:content-['']" />}
       </div>
 
       <div ref={fold} className="flex flex-col md:min-h-[var(--folded)]">

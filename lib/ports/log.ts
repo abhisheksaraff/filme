@@ -60,6 +60,8 @@ export interface ViewingSummary {
   season: number | null;
   episode: number | null;
   stubUrls: string[];
+  /** When it was added (the server's time), not the day it was watched. */
+  addedAt: string;
 }
 
 /** A title and every time the user has seen it. */

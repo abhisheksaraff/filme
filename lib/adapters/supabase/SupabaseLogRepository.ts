@@ -325,7 +325,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const sessions = await db
       .from("watch_sessions")
-      .select("id, watched_on, watched_at, auditorium, primary_format, addons, seats, total_tickets, rating, notes, scope, season_number, episode_number, venue_type, venue:venues(id, name, type, latitude, longitude)")
+      .select("id, watched_on, watched_at, auditorium, primary_format, addons, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, venue_type, venue:venues(id, name, type, latitude, longitude)")
       .eq("media_id", mediaId)
       .is("deleted_at", null)
       .order("watched_on", { ascending: false, nullsFirst: false })
@@ -373,6 +373,7 @@ export const supabaseLogRepository: LogRepository = {
       season: row.season_number ?? null,
       episode: row.episode_number ?? null,
       stubUrls: stubsBySession.get(row.id) ?? [],
+      addedAt: (row.created_at as string) ?? "",
     }));
 
     const detail: TitleDetail = {

@@ -7,6 +7,8 @@ import SeasonTiles from "@/components/SeasonTiles";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { isNewSince, progressOf, type Cover, type EpisodeKey } from "@/lib/domain/tv";
 import type { ShowData } from "@/lib/logShow";
+import type { ShowPasses } from "@/lib/showPasses";
+import RewatchLine from "@/components/RewatchLine";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -14,9 +16,13 @@ interface Props {
   mediaId: string;
   data: ShowData | null;
   covers: Cover[];
+  passes?: ShowPasses | null;
+  inContinue?: boolean;
+  /** Empties the rewatch in progress; returns a problem to show, or null. */
+  onReset?: (season: number | null) => Promise<string | null>;
 }
 
-export default function ShowSection({ mediaId, data, covers }: Props) {
+export default function ShowSection({ mediaId, data, covers, passes = null, inContinue = false, onReset }: Props) {
   if (!data) return <div className="skeleton h-32 rounded-2xl" />;
 
   const keys: EpisodeKey[] = data.seasons.flatMap((s) => s.episodes.map((e) => ({ season: e.season, episode: e.episode, airDate: e.airDate })));
@@ -26,15 +32,10 @@ export default function ShowSection({ mediaId, data, covers }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {progress.aired > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between text-sm">
-            <span>{progress.watched} of {progress.aired} episodes watched</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-            <div className="h-full rounded-full bg-neutral-950 dark:bg-white" style={{ width: `${(progress.watched / progress.aired) * 100}%` }} />
-          </div>
-        </div>
+      {passes ? (
+        <RewatchLine passes={passes.show} onReset={onReset ? () => onReset(null) : undefined} />
+      ) : (
+        progress.aired > 0 && <p className="text-sm">{progress.watched} of {progress.aired} episodes watched</p>
       )}
 
       {progress.next && (
@@ -62,7 +63,7 @@ export default function ShowSection({ mediaId, data, covers }: Props) {
         </p>
       )}
 
-      <SeasonTiles data={data} covers={covers} hrefFor={(n) => `/season/?id=${mediaId}&n=${n}`} />
+      <SeasonTiles data={data} covers={covers} passes={passes} inContinue={inContinue} hrefFor={(n) => `/season/?id=${mediaId}&n=${n}`} />
     </div>
   );
 }
