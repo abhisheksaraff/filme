@@ -11,7 +11,7 @@ Raw OCR text often contains noisy, missing, or misread characters (e.g., typos, 
 - Isolate and fix mangled theater names (e.g., "Central Prk LITERS" should be resolved to its real venue name: "Central Parkway Cinemas").
 
 CRITICAL TITLE & CATEGORY INSTRUCTION:
-If you cannot identify or infer the movie/show title from the text, return null for the "title" field. NEVER use placeholders like "Unknown", "N/A", "None", or empty strings.
+"title" keeps what the ticket prints, including words such as IMAX, 4K or a release name (noise removed). "tmdbTitle" is only the film or show's own name as it would be listed on TMDB, without those words. If you cannot identify or infer the movie/show title from the text, return null for both. NEVER use placeholders like "Unknown", "N/A", "None", or empty strings.
 If you cannot identify the category, return null for the "category" field as well.
 
 CRITICAL DATE INSTRUCTION:
@@ -33,7 +33,7 @@ export function jsonShapeInstruction(primaryFormats: string[], addons: string[])
   return `
 Reply with ONLY a JSON object, no other text, with exactly these keys:
 category (one of "Movie", "TV Show", "Concert", "Live Event", or null),
-title (string or null), season (integer or null), episode (integer or null), episodeTitle (string or null),
+title (string or null), tmdbTitle (string or null), season (integer or null), episode (integer or null), episodeTitle (string or null),
 location (string or null), address (string or null), auditorium (string or null),
 date (YYYY-MM-DD or null), time (string or null),
 seats (array of objects with section, row and seat, each a string or null),

@@ -245,3 +245,9 @@ export function draftFromEntry(entry: LogEntry): EntryDraft {
     people: emptyPeople(),
   };
 }
+
+/** What the title box says after a TMDB title is picked: what was typed stays when it already contains that title ("Fight Club 4K"), else it becomes the TMDB title. */
+export function titleAfterPick(typed: string, tmdbTitle: string): string {
+  const fold = (v: string) => v.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return fold(typed).includes(fold(tmdbTitle)) ? typed : tmdbTitle;
+}

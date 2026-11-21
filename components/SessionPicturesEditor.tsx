@@ -1,5 +1,5 @@
 // components/SessionPicturesEditor.tsx
-// The edit page's photos and ticket stubs for one saved viewing: see them, add more, set the main one, add notes, delete.
+// The edit page's photos and ticket stubs for one saved viewing: see them, add more, set the main one, delete.
 "use client";
 
 import ProblemPopup from "@/components/ProblemPopup";
@@ -13,7 +13,7 @@ import { services } from "@/lib/services";
 
 type Kind = "photo" | "ticket";
 
-export default function SessionPicturesEditor({ sessionId }: { sessionId: string }) {
+export default function SessionPicturesEditor({ sessionId, onTickets }: { sessionId: string; onTickets?: (urls: string[]) => void }) {
   const [lists, setLists] = useState<Record<Kind, StoredImage[]>>({ photo: [], ticket: [] });
   const [viewing, setViewing] = useState<{ kind: Kind; start: number } | null>(null);
   const [crop, setCrop] = useState<{ file: File; kind: Kind } | null>(null);
@@ -24,6 +24,8 @@ export default function SessionPicturesEditor({ sessionId }: { sessionId: string
   const load = useCallback(async () => {
     const [p, t] = await Promise.all([services.images.list({ sessionId }, ["photo"]), services.images.list({ sessionId }, ["ticket"])]);
     setLists({ photo: p.ok ? p.value : [], ticket: t.ok ? t.value : [] });
+    onTickets?.(t.ok ? t.value.map((i) => i.url) : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   useEffect(() => {
@@ -81,7 +83,6 @@ export default function SessionPicturesEditor({ sessionId }: { sessionId: string
           onClose={() => setViewing(null)}
           onAdd={() => (viewing.kind === "ticket" ? stubInput : photoInput).current?.click()}
           onSetDefault={async (image) => { if (image.id) { await services.images.setDefault({ sessionId }, image.id); await load(); } }}
-          onNote={async (image, note) => { if (image.id) { await services.images.setNote(image.id, note); await load(); } }}
           onDelete={async (image) => { if (image.id) { await services.images.remove(image.id); await load(); } }}
         />
       )}

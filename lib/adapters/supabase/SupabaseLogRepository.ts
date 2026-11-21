@@ -163,6 +163,8 @@ function datePrecision(date: string | null): "day" | "month" | "year" | "unknown
 function sessionColumns(entry: LogEntry) {
   return {
     scope: scopeOf(entry),
+    // What was typed as the title, when it differs from the TMDB title the film is filed under.
+    display_title: entry.media && entry.title.trim() && entry.title.trim() !== entry.media.title ? entry.title.trim() : null,
     season_number: entry.category === "TV Show" ? entry.season : null,
     episode_number: entry.category === "TV Show" ? entry.episode : null,
     watched_on: entry.date,
@@ -274,7 +276,7 @@ export const supabaseLogRepository: LogRepository = {
   async recent(limit) {
     const { data, error } = await getSupabase()
       .from("watch_sessions")
-      .select("id, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, venue_type, media:media_items(title, category, poster_path, tmdb_id, release_date, imdb_rating, vote_average), venue:venues(id, name, type, latitude, longitude)")
+      .select("id, display_title, media_id, watched_on, watched_at, primary_format, addons, auditorium, seats, total_tickets, rating, notes, scope, season_number, episode_number, created_at, venue_type, media:media_items(title, category, poster_path, tmdb_id, release_date, imdb_rating, vote_average), venue:venues(id, name, type, latitude, longitude)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -291,7 +293,7 @@ export const supabaseLogRepository: LogRepository = {
         tmdbId: media?.tmdb_id ?? null,
         releaseDate: media?.release_date ?? null,
         score: media?.imdb_rating != null ? Number(media.imdb_rating) : media?.vote_average != null ? Number(media.vote_average) : null,
-        title: media?.title ?? "Untitled",
+        title: (row.display_title as string | null) ?? media?.title ?? "Untitled",
         category: media?.category ?? "Movie",
         posterPath: media?.poster_path ?? null,
         watchedOn: row.watched_on,
@@ -391,7 +393,7 @@ export const supabaseLogRepository: LogRepository = {
   async getViewing(id) {
     const { data, error } = await getSupabase()
       .from("watch_sessions")
-      .select("media_id, scope, season_number, episode_number, watched_on, watched_at, rating, notes, primary_format, addons, auditorium, seats, total_tickets, venue_type, media:media_items(*), venue:venues(name, address, type)")
+      .select("display_title, media_id, scope, season_number, episode_number, watched_on, watched_at, rating, notes, primary_format, addons, auditorium, seats, total_tickets, venue_type, media:media_items(*), venue:venues(name, address, type)")
       .eq("id", id)
       .is("deleted_at", null)
       .maybeSingle();
@@ -403,7 +405,7 @@ export const supabaseLogRepository: LogRepository = {
 
     const parsed = logEntrySchema.safeParse({
       category: media.category,
-      title: media.title,
+      title: (data.display_title as string | null) ?? media.title,
       season: data.season_number,
       episode: data.episode_number,
       episodeTitle: null,

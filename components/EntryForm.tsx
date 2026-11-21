@@ -34,6 +34,8 @@ interface Props {
   disabled?: boolean;
   /** The matched show on TMDB; when set, Season and Episode become lists of its real seasons and episodes. */
   showTmdbId?: number | null;
+  /** The TMDB title this entry is linked to; shown as a read-only id with a chip whose x unlinks it. */
+  link?: { tmdbId: number; label: string; onClear: () => void } | null;
 }
 
 // Shown A–Z; the lists in formats.ts stay in their own order.
@@ -74,7 +76,7 @@ async function findVenues(query: string): Promise<VenueSuggestion[]> {
   return [...mine, ...found];
 }
 
-export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, typeAction, disabled, showTmdbId = null }: Props) {
+export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, lockTitle, typeAction, disabled, showTmdbId = null, link = null }: Props) {
   const show = useShowData(showTmdbId, showTmdbId !== null);
   const seasonList = show?.seasons ?? [];
   const episodeList = seasonList.find((x) => String(x.season) === draft.season)?.episodes ?? [];
@@ -214,6 +216,17 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
             <input className={field} placeholder="Title of the movie, show or event" value={draft.title} onChange={(e) => edit("title", { ...draft, title: e.target.value })} />
           </Labeled>
           {titleExtra}
+          {link && (
+            <>
+              <Labeled label="TMDB ID" plain><input readOnly value={link.tmdbId} className={`${field} text-neutral-500`} aria-label="TMDB ID" /></Labeled>
+              <div className="flex">
+                <span className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-xs text-white dark:bg-white dark:text-neutral-950">
+                  <span>{link.label}</span>
+                  <button type="button" aria-label={`Unlink ${link.label}`} onClick={link.onClear} className="relative flex h-5 w-5 items-center justify-center rounded-full bg-white/20 before:absolute before:-inset-2 before:content-[''] dark:bg-black/15"><Icon name="close" size={11} /></button>
+                </span>
+              </div>
+            </>
+          )}
         </div>
         {rolesFor(draft.category).map((role) => (
           <PeopleInput key={role} label={ROLE_LABEL[role]} people={draft.people[role]} onChange={(next) => set("people", { ...draft.people, [role]: next })} disabled={disabled} />

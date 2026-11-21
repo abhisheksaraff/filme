@@ -14,12 +14,12 @@ const subscribe = (listener: () => void) => {
 };
 
 /** Whether this card is the open one, and a function that opens it, or closes it when it is already open. */
-export function useOpenCard(id: string): { open: boolean; toggle: () => void } {
+export function useOpenCard(id: string, closeOnScroll = false): { open: boolean; toggle: () => void } {
   const current = useSyncExternalStore(subscribe, () => openId, () => null);
   const open = current === id;
-  // Scrolling folds an open card back down, so it never stays risen while the page moves under it.
+  // With several columns, scrolling folds an open card back down; with one column it stays open until tapped, as its details push the page down.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !closeOnScroll) return;
     const from = window.scrollY;
     const onScroll = () => {
       if (Math.abs(window.scrollY - from) < 12) return;
@@ -30,7 +30,7 @@ export function useOpenCard(id: string): { open: boolean; toggle: () => void } {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [open, id]);
+  }, [open, id, closeOnScroll]);
   return {
     open: current === id,
     toggle: () => {

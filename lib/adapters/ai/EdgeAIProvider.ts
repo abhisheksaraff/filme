@@ -25,7 +25,8 @@ async function request(text: string): Promise<Result<ExtractedData>> {
 }
 
 export const edgeAiProvider: AiProvider = {
-  extractTicket(text) {
+  extractTicket(text, fresh) {
+    if (fresh) cache.delete(text);
     const cached = cache.get(text);
     if (cached) return cached;
     const pending = request(text).then((result) => {

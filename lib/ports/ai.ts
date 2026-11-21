@@ -26,7 +26,8 @@ export interface StoryThemeInput {
 /** The AI jobs the app uses. */
 export interface AiProvider {
   /** Reads ticket text into structured data. */
-  extractTicket(text: string): Promise<Result<ExtractedData>>;
+  /** Reads a ticket. The same text is answered from memory unless `fresh` is set (a rescan). */
+  extractTicket(text: string, fresh?: boolean): Promise<Result<ExtractedData>>;
   /** The dates of the holidays that move, for one year. Each date is checked before it is returned. */
   holidayDates(year: number, slugs: string[]): Promise<Result<MovingDates>>;
   /** The mood of a story: a few captions, picture searches and one music search. The reply is checked before it is returned. */

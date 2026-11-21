@@ -6,7 +6,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import FlatMap, { KIND_ICON } from "@/components/FlatMap";
 import Icon, { type IconName } from "@/components/Icon";
 import ImageViewer from "@/components/ImageViewer";
@@ -20,6 +20,19 @@ import type { VenuePoint } from "@/lib/ports/browse";
 import type { StoredImage } from "@/lib/ports/images";
 import { reportFolded, useTallestFolded } from "@/lib/foldedHeight";
 import { useOpenCard } from "@/lib/openCard";
+
+/** True when the list has more than one column (tablet and wider), where an opened card must not move its neighbours. */
+function useWide(): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      const query = window.matchMedia("(min-width: 768px)");
+      query.addEventListener("change", notify);
+      return () => query.removeEventListener("change", notify);
+    },
+    () => window.matchMedia("(min-width: 768px)").matches,
+    () => false,
+  );
+}
 import { readCachedAppearance } from "@/lib/theme";
 import { formatScore } from "@/lib/domain/score";
 import { effectiveVenueType, venueIcon } from "@/lib/domain/venueTypes";
@@ -135,7 +148,8 @@ interface Props {
 export default function WatchedCard({ entry, index = 0, showTitle = true, label, rating, notes, animate = false }: Props) {
   // Keyed by page too, so the same viewing opened on Watched is not also open on its title page.
   const path = usePathname();
-  const { open, toggle } = useOpenCard(`${path}|${entry.id}`);
+  const wide = useWide();
+  const { open, toggle } = useOpenCard(`${path}|${entry.id}`, wide);
   const root = useRef<HTMLLIElement>(null);
   const near = useNearScreen(root);
   // Folded height: this card reports how tall its content is without the stretch, and takes the tallest on the page (wide screens only).
@@ -192,12 +206,12 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
   );
 
   return (
-    // An open card rises above the ones around it (the earlier in the list, the higher, so an open card never hides the details of the one above)
-    // and hands back the height it rolled out, so nothing else on the page moves.
-    <li ref={root} id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8), "--folded": `${tallestFolded}px`, zIndex: open ? 100 - Math.min(index, 80) : undefined, marginBottom: open ? -extraHeight : 0 } as React.CSSProperties}
+    // One column: an open card grows and pushes the ones below it down. Several columns: every closed card already keeps room below it for
+    // its details, which the open card fills, so nothing around it moves.
+    <li ref={root} id={`v-${entry.id}`} style={{ "--i": Math.min(index, 8), "--folded": `${tallestFolded}px`, marginBottom: wide && !open ? extraHeight : 0 } as React.CSSProperties}
       className={`${animate ? "rise-item" : ""} relative scroll-mt-24 rounded-3xl bg-white p-1 ${smooth ? "transition-[box-shadow,transform,margin-bottom] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]" : ""} dark:bg-neutral-900 ${
         open
-          ? `origin-top scale-[1.02] shadow-[0_2px_4px_rgba(0,0,0,0.08),0_24px_44px_-10px_rgba(0,0,0,0.45),0_8px_16px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_44px_-10px_rgba(0,0,0,0.95)]`
+          ? `shadow-[0_2px_4px_rgba(0,0,0,0.08),0_24px_44px_-10px_rgba(0,0,0,0.45),0_8px_16px_rgba(0,0,0,0.14)] dark:shadow-[0_24px_44px_-10px_rgba(0,0,0,0.95)]`
           : "shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]"
       }`}>
       {/* Tapping the card anywhere else rolls it out or back up. The title, poster, map, venue name and pictures sit above this and keep their own taps. */}

@@ -13,6 +13,10 @@ import UploadToImages, { type FileProcessingError } from "@/components/UploadToI
 import { OcrClient } from "@/lib/ocrClient";
 import EntryForm from "@/components/EntryForm";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import ImageViewer from "@/components/ImageViewer";
+import { ConfirmPopup } from "@/components/Popup";
+import { CancelButton, RescanButton } from "@/components/EntryActions";
+import { TitleHits } from "@/components/TitleHits";
 import {
   EMPTY_DRAFT,
   changesFromMatch,
@@ -20,22 +24,23 @@ import {
   entryFromDraft,
   mediaFromCatalog,
   peopleFromMatch,
+  titleAfterPick,
   withoutMatchPeople,
   type EntryDraft,
 } from "@/components/entryDraft";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import CropDialog from "@/components/CropDialog";
-import Icon from "@/components/Icon";
 import { convertImage, PHOTO_PRESET, STUB_PRESET } from "@/lib/images/convert";
 import { takePrefill } from "@/lib/logPrefill";
 import { withCoverage } from "@/lib/logShow";
 import type { CatalogDetails, CatalogHit } from "@/lib/ports/catalog";
 import { savePeople, syncCredits } from "@/lib/credits";
 import { services } from "@/lib/services";
-import SuggestionList, { SUGGESTION_NOTE, SuggestionItem } from "@/components/ui/SuggestionList";
 import { forgetEntry, recallEntry, rememberEntry } from "@/lib/entryMemory";
 
 const SEARCH_DELAY_MS = 500;
+const THUMB = "block h-14 w-14 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800";
+const PLUS = "flex h-14 w-14 items-center justify-center rounded-full bg-neutral-950 text-xl text-white dark:bg-white dark:text-neutral-950";
 
 export default function ScanPage() {
   const ready = useRequireSession();
@@ -56,6 +61,8 @@ export default function ScanPage() {
   /** What the blocking overlay says while something loads; null when the page is free to use. */
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [viewer, setViewer] = useState<{ kind: "ticket" | "photo"; start: number } | null>(null);
+  const [confirm, setConfirm] = useState<"cancel" | "rescan" | null>(null);
 
   // Written on every change so coming back finds the form as it was left.
   useEffect(() => {
@@ -109,11 +116,8 @@ export default function ScanPage() {
     setDraft((current) => ({ ...current, people: peopleFromMatch(current.people, details) }));
   }
 
-  /** The user changed the title or type: drop the old match and search again after a short pause. */
+  /** The user changed the title or type: look for TMDB titles to offer. The link and the people stay as they are until another title is picked or the chip is removed. */
   function onUserEdit(_field: "title" | "category", next: EntryDraft) {
-    setMatch(null);
-    // The old match's people no longer apply; anyone added by hand stays.
-    setDraft((current) => ({ ...current, people: withoutMatchPeople(current.people) }));
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const round = ++searchRound.current;
 
@@ -131,7 +135,7 @@ export default function ScanPage() {
     setBusy(null);
     if (!details.ok) return setProblem(details.error);
     setMatch(details.value);
-    setDraft((current) => ({ ...current, title: details.value.title, category: hit.kind, people: peopleFromMatch(current.people, details.value) }));
+    setDraft((current) => ({ ...current, title: titleAfterPick(current.title, details.value.title), category: hit.kind, people: peopleFromMatch(current.people, details.value) }));
   }
 
   // Whenever a TMDB title is matched, offer its posters and covers.
@@ -151,48 +155,46 @@ export default function ScanPage() {
     };
   }, [matchId, matchKind]);
 
-  useEffect(() => {
-    if (!ready || images.length === 0) return;
-    let cancelled = false;
-
-    (async () => {
-      setBusy("Reading ticket…");
-      setProblem(null);
-      try {
-        const texts = await OcrClient.extractTextFromImages(images);
-        const combined = texts.filter(Boolean).join("\n--- PAGE BREAK ---\n");
-        if (cancelled) return;
-        if (!combined.trim()) {
-          setProblem("Could not detect any readable text. Fill in the fields by hand.");
-          return;
-        }
-
-        setBusy("Asking AI…");
-        const result = await services.ai.extractTicket(combined);
-        if (cancelled) return;
-        if (!result.ok) {
-          setProblem(result.error);
-          return;
-        }
-        setDraft(draftFromExtraction(result.value));
-
-        if (result.value.title) {
-          setBusy("Finding on TMDB…");
-          await autoMatch(result.value.title, result.value.category ?? "Movie");
-        }
-      } catch (err) {
-        if (!cancelled) setProblem(err instanceof Error ? err.message : "Failed processing ticket images.");
-      } finally {
-        if (!cancelled) setBusy(null);
+  // Reads the tickets: the text off the pictures, then the AI's reading of it. Only a first upload or Rescan does this, so nothing is asked twice by accident.
+  const scanRound = useRef(0);
+  async function scanTickets(from: string[], rescan = false) {
+    if (from.length === 0) return;
+    const round = ++scanRound.current;
+    setBusy("Reading ticket…");
+    setProblem(null);
+    try {
+      const texts = await OcrClient.extractTextFromImages(from);
+      const combined = texts.filter(Boolean).join("\n--- PAGE BREAK ---\n");
+      if (round !== scanRound.current) return;
+      if (!combined.trim()) {
+        setProblem("Could not detect any readable text. Fill in the fields by hand.");
+        return;
       }
-    })();
 
-    return () => {
-      cancelled = true;
-    };
-    // autoMatch and adopt only use state setters and services, so they are safe to leave out.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, images]);
+      setBusy("Asking AI…");
+      const result = await services.ai.extractTicket(combined, rescan);
+      if (round !== scanRound.current) return;
+      if (!result.ok) {
+        setProblem(result.error);
+        return;
+      }
+      // The ticket's details replace the form's; people added by hand, the rating and the notes are kept.
+      setDraft((current) => ({ ...draftFromExtraction(result.value), people: rescan ? withoutMatchPeople(current.people) : current.people, rating: current.rating, notes: current.notes }));
+      if (rescan) {
+        setMatch(null);
+        setTmdbPictures(null);
+      }
+      const name = result.value.tmdbTitle ?? result.value.title;
+      if (name) {
+        setBusy("Finding on TMDB…");
+        await autoMatch(name, result.value.category ?? "Movie");
+      }
+    } catch (err) {
+      if (round === scanRound.current) setProblem(err instanceof Error ? err.message : "Failed processing ticket images.");
+    } finally {
+      if (round === scanRound.current) setBusy(null);
+    }
+  }
 
   // "Log another viewing" from a title page arrives here with the title already chosen.
   useEffect(() => {
@@ -274,42 +276,28 @@ export default function ScanPage() {
   const canSearch = draft.category === "Movie" || draft.category === "TV Show";
   const pictures = tmdbPictures && tmdbPictures.tmdbId === matchId ? tmdbPictures : null;
 
-  const suggestions =
-    hits.length > 0 ? (
-      <SuggestionList>
-        {hits.map((hit) => (
-          <SuggestionItem key={`${hit.kind}-${hit.tmdbId}`}>
-            <button type="button" onClick={() => pick(hit)} className="flex w-full items-center gap-3 p-2 text-left">
-              {hit.posterUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={hit.posterUrl} alt="" className="h-14 w-10 rounded-lg object-cover" />
-              ) : (
-                <div className="h-14 w-10 rounded-lg bg-neutral-300 dark:bg-neutral-600" />
-              )}
-              <span className="flex flex-col text-sm">
-                <span className="font-medium">{hit.title}</span>
-                <span className={SUGGESTION_NOTE}>{[hit.year, hit.kind].filter(Boolean).join(" · ")}</span>
-              </span>
-            </button>
-          </SuggestionItem>
-        ))}
-      </SuggestionList>
-    ) : null;
+  const suggestions = <TitleHits hits={hits} onPick={pick} />;
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-6">
       <LoadingOverlay active={busy !== null} hiddenAtStart />
 
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
       <button type="button" onClick={clearAll}
-        className={`self-start rounded-full px-4 py-1.5 text-sm transition-colors duration-150 ${clearFlash ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
+        className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-colors duration-150 ${clearFlash ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
         Clear all
       </button>
-      <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
+      </div>
       <UploadToImages
         id="stub-upload"
         onUpload={(imgs, errs) => {
-          setImages(imgs);
           setErrors(errs);
+          if (imgs.length === 0) return;
+          // The first tickets are read straight away; ones added later wait for Rescan tickets.
+          const next = [...images, ...imgs];
+          setImages(next);
+          if (images.length === 0) void scanTickets(next);
         }}
       />
 
@@ -318,14 +306,6 @@ export default function ScanPage() {
       ))}
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
-      {images.length > 0 && (
-        <ul className="-mx-6 flex gap-2 overflow-x-auto px-6">
-          {images.map((src, index) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <li key={index} className="shrink-0"><img src={src} alt={`Ticket ${index + 1}`} className="h-32 rounded-xl" /></li>
-          ))}
-        </ul>
-      )}
 
       <form onSubmit={onSave} className="flex flex-col gap-5">
         <EntryForm
@@ -335,6 +315,7 @@ export default function ScanPage() {
           onChange={setDraft}
           onUserEdit={onUserEdit}
           titleExtra={suggestions}
+          link={match ? { tmdbId: match.tmdbId, label: `${match.title}${match.releaseDate ? ` · ${match.releaseDate.slice(0, 4)}` : ""}`, onClear: () => { setMatch(null); setTmdbPictures(null); setDraft((cur) => ({ ...cur, people: withoutMatchPeople(cur.people) })); } } : null}
           typeAction={<RoundButton icon="stubUpload" label="Upload ticket stubs" tone="dark" size="lg" onClick={() => document.getElementById("stub-upload")?.click()} />}
           disabled={busy !== null}
         />
@@ -342,44 +323,73 @@ export default function ScanPage() {
         {!match && canSearch && draft.title.trim() && hits.length === 0 && (
           <p className="px-1 text-xs text-neutral-500">Pick a title from the list to use TMDB posters. Otherwise it is saved as a custom title.</p>
         )}
-        {match && (
-          <div className="flex items-center justify-between rounded-full bg-neutral-100 py-2 pl-4 pr-2 text-sm dark:bg-neutral-800">
-            <span className="font-medium">{match.title}{match.releaseDate ? ` · ${match.releaseDate.slice(0, 4)}` : ""}</span>
-            <RoundButton icon="close" label="Clear TMDB match" size="sm" onClick={() => { setMatch(null); setTmdbPictures(null); }} />
-          </div>
-        )}
 
         <PosterChooser title="Poster" shape="poster" paths={pictures?.posters ?? []} defaultPath={match?.posterPath ?? null} choice={poster} onChoose={setPoster} />
         <PosterChooser title="Cover" shape="backdrop" paths={pictures?.backdrops ?? []} defaultPath={match?.backdropPath ?? null} choice={backdrop} onChoose={setBackdrop} />
 
+        {/* Photos and ticket stubs sit as small circles, as on a saved viewing's edit page; tapping one opens it, and it can be removed there. */}
+        <input id="photo-upload" type="file" accept="image/*" hidden onChange={(e) => { setCropPhoto(e.target.files?.[0] ?? null); e.target.value = ""; }} />
         <section className="flex flex-col gap-2">
-          <h2 className="text-xs uppercase tracking-wide text-neutral-500">Photos</h2>
-          <input id="photo-upload" type="file" accept="image/*" hidden onChange={(e) => { setCropPhoto(e.target.files?.[0] ?? null); e.target.value = ""; }} />
-          <ul className="flex flex-wrap items-center gap-2">
-            {photos.map((photo) => (
+          <h2 className="px-1 text-xs text-neutral-500">Photos</h2>
+          <ul className="flex flex-wrap gap-2">
+            {photos.map((photo, i) => (
               <li key={photo.url}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo.url} alt="Your photo" className="h-12 w-12 rounded-full object-cover" />
+                <button type="button" className={THUMB} aria-label={`Photo ${i + 1}`} onClick={() => setViewer({ kind: "photo", start: i })}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo.url} alt="" className="h-full w-full object-cover" />
+                </button>
               </li>
             ))}
-            <li>
-              <button type="button" aria-label="Add a photo" onClick={() => document.getElementById("photo-upload")?.click()}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                <Icon name="plus" size={18} />
-              </button>
-            </li>
+            <li><button type="button" className={PLUS} aria-label="Add to photos" onClick={() => document.getElementById("photo-upload")?.click()}>+</button></li>
           </ul>
-          {cropPhoto && (
-            <CropDialog file={cropPhoto} aspect={1} maxEdge={PHOTO_PRESET.maxEdge} title="Frame your photo" onCancel={() => setCropPhoto(null)}
-              onDone={(blob) => { setCropPhoto(null); setPhotos((list) => [...list, { blob, url: URL.createObjectURL(blob) }]); }} />
-          )}
         </section>
+        <section className="flex flex-col gap-2">
+          <h2 className="px-1 text-xs text-neutral-500">Ticket stubs</h2>
+          <ul className="flex flex-wrap gap-2">
+            {images.map((src, i) => (
+              <li key={src}>
+                <button type="button" className={THUMB} aria-label={`Ticket ${i + 1}`} onClick={() => setViewer({ kind: "ticket", start: i })}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" className="h-full w-full object-cover" />
+                </button>
+              </li>
+            ))}
+            <li><button type="button" className={PLUS} aria-label="Add to ticket stubs" onClick={() => document.getElementById("stub-upload")?.click()}>+</button></li>
+          </ul>
+        </section>
+        {cropPhoto && (
+          <CropDialog file={cropPhoto} aspect={1} maxEdge={PHOTO_PRESET.maxEdge} title="Frame your photo" onCancel={() => setCropPhoto(null)}
+            onDone={(blob) => { setCropPhoto(null); setPhotos((list) => [...list, { blob, url: URL.createObjectURL(blob) }]); }} />
+        )}
 
+        {images.length > 0 && <RescanButton shape="full" disabled={busy !== null} onClick={() => setConfirm("rescan")} />}
         <button type="submit" disabled={busy !== null}
           className="rounded-full bg-neutral-950 px-5 py-4 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-950">
           Save
         </button>
+        <CancelButton shape="full" disabled={busy !== null} onClick={() => setConfirm("cancel")} />
       </form>
+
+      {confirm === "cancel" && (
+        <ConfirmPopup title="Discard this entry?" message="Everything you've entered here will be cleared." confirmLabel="Discard" confirmIcon="trash"
+          onConfirm={() => { setConfirm(null); clearAll(); router.push("/home/"); }} onCancel={() => setConfirm(null)} />
+      )}
+      {confirm === "rescan" && (
+        <ConfirmPopup title="Rescan your tickets?" message="What your tickets say will replace the details filled in above." confirmLabel="Rescan" confirmIcon="refresh"
+          onConfirm={() => { setConfirm(null); void scanTickets(images, true); }} onCancel={() => setConfirm(null)} />
+      )}
+      {viewer && (viewer.kind === "ticket" ? images.length > 0 : photos.length > 0) && (
+        <ImageViewer
+          images={viewer.kind === "ticket" ? images.map((url) => ({ url, local: true })) : photos.map((p) => ({ url: p.url, local: true }))}
+          start={viewer.start}
+          onClose={() => setViewer(null)}
+          onAdd={() => document.getElementById(viewer.kind === "ticket" ? "stub-upload" : "photo-upload")?.click()}
+          onDelete={(image) => {
+            if (viewer.kind === "ticket") setImages((list) => list.filter((u) => u !== image.url));
+            else setPhotos((list) => list.filter((p) => p.url !== image.url));
+          }}
+        />
+      )}
     </main>
   );
 }

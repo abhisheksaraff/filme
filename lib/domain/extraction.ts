@@ -13,7 +13,10 @@ const seatSchema = z.object({
 
 export const extractedDataSchema = z.object({
   category: z.enum(CATEGORIES).nullable(),
+  /** The title as printed on the ticket, format words and all. */
   title: z.string().nullable(),
+  /** Only the film or show's own name, for finding it on TMDB. */
+  tmdbTitle: z.string().nullable().default(null),
   season: z.number().int().nullable(),
   episode: z.number().int().nullable(),
   episodeTitle: z.string().nullable(),
@@ -33,6 +36,7 @@ export type ExtractedData = z.infer<typeof extractedDataSchema>;
 export const DEFAULT_EXTRACTED_DATA: ExtractedData = {
   category: null,
   title: null,
+  tmdbTitle: null,
   season: null,
   episode: null,
   episodeTitle: null,
@@ -87,6 +91,7 @@ export function normalizeExtraction(raw: unknown): ExtractedData {
   return {
     category,
     title: cleanText(obj.title),
+    tmdbTitle: cleanText(obj.tmdbTitle),
     season: cleanInt(obj.season),
     episode: cleanInt(obj.episode),
     episodeTitle: cleanText(obj.episodeTitle),

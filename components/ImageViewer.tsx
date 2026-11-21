@@ -1,6 +1,6 @@
 // components/ImageViewer.tsx
 // Full-screen picture viewer used everywhere: the pictures sit in one strip you swipe along, with pinch to zoom,
-// download, upload, make default, note and delete.
+// download, upload, make default and delete.
 "use client";
 
 import Portal from "@/components/Portal";
@@ -16,6 +16,8 @@ export interface ViewerImage {
   url: string;
   note?: string | null;
   isDefault?: boolean;
+  /** Not saved anywhere yet (a ticket or photo on a page still being filled in); it can still be removed. */
+  local?: boolean;
   /** A TMDB picture that is not saved anywhere; choosing it makes the title point at it. */
   tmdbPath?: string;
 }
@@ -27,7 +29,6 @@ interface Props {
   /** Shows an upload button; the page decides how the new picture is chosen and saved. */
   onAdd?: () => void;
   onSetDefault?: (image: ViewerImage) => void | Promise<void>;
-  onNote?: (image: ViewerImage, note: string | null) => void;
   /** Only your own pictures can be deleted; the viewer asks first. */
   onDelete?: (image: ViewerImage) => void | Promise<void>;
   /** What happens besides the deletion, shown in the confirmation. */
@@ -124,12 +125,10 @@ function Dots({ count, index }: { count: number; index: number }) {
   );
 }
 
-function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote, onDelete, deleteMessage }: Props) {
+function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onDelete, deleteMessage }: Props) {
   const [index, setIndex] = useState(Math.min(start, Math.max(0, images.length - 1)));
   const [view, setView] = useState<View>(REST);
   const zoom = view.s;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
@@ -171,7 +170,6 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
     if (next !== index) {
       setIndex(next);
       setView(REST);
-      setEditing(false);
     }
   }
 
@@ -333,31 +331,25 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onNote,
       </div>
 
       <div className="flex flex-col items-center gap-3 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 text-sm">
-        {image?.note && !editing && <p className="text-center text-white/80">{image.note}</p>}
-        {editing && (
-          <form className="flex w-full gap-2" onSubmit={(e) => { e.preventDefault(); if (image) onNote?.(image, draft.trim() || null); setEditing(false); }}>
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={300} placeholder="Add a note" className="h-11 flex-1 rounded-full bg-white/15 px-5 text-base outline-none placeholder:text-sm" />
-            <RoundButton icon="check" label="Save note" onClick={() => { if (image) onNote?.(image, draft.trim() || null); setEditing(false); }} tone="dark" className="!bg-white !text-neutral-950" />
-          </form>
-        )}
         {image && (
           <>
             {/* Arrows sit right under the picture, away from the buttons that change things. */}
             <div className="flex items-center gap-10">
               {images.length > 1 && <RoundButton icon="left" label="Previous" disabled={at === 0} onClick={() => go(-1)} size="lg" className={CIRCLE} />}
-              {onNote && image.id && <RoundButton icon="note" label="Note" onClick={() => { setDraft(image.note ?? ""); setEditing(true); }} size="lg" className={CIRCLE} />}
+              {/* The middle slot stays empty so the arrows keep the same distance they had. */}
+              {images.length > 1 && <span aria-hidden className="h-12 w-12" />}
               {images.length > 1 && <RoundButton icon="right" label="Next" disabled={at === images.length - 1} onClick={() => go(1)} size="lg" className={CIRCLE} />}
             </div>
 
             {/* Choices that change what is kept sit lower, with room above them so they are not hit by accident. */}
-            {((onSetDefault && (image.id || image.tmdbPath) && !image.isDefault) || (onDelete && image.id)) && (
+            {((onSetDefault && (image.id || image.tmdbPath) && !image.isDefault) || (onDelete && (image.id || image.local))) && (
               <div className="mt-6 flex items-center gap-3">
                 {onSetDefault && (image.id || image.tmdbPath) && !image.isDefault && (
                   <button type="button" onClick={() => onSetDefault(image)} className="rounded-full bg-white px-5 py-2.5 font-medium text-neutral-950">
                     Make default
                   </button>
                 )}
-                {onDelete && image.id && (
+                {onDelete && (image.id || image.local) && (
                   <button type="button" onClick={() => setConfirmDelete(true)} className="flex items-center gap-2 rounded-full bg-white/15 px-5 py-2.5 font-medium text-red-300">
                     <Icon name="trash" size={16} />
                     Delete photo
