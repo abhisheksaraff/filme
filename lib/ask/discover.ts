@@ -176,14 +176,14 @@ export async function discover(input: DiscoverInput): Promise<DiscoverOutcome> {
 
   // "In cinemas now" or "coming soon" is its own list, narrowed here by whatever else was asked.
   const cinema = plan.inTheatres && kinds.includes("Movie")
-    ? await catalog.theatres(plan.inTheatres, REGION).then((r) => (r.ok ? r.value.filter((h) => {
+    ? await Promise.all((plan.inTheatres === "both" ? (["now", "soon"] as const) : [plan.inTheatres]).map((when) => catalog.theatres(when, REGION))).then((lists) => dedupe(lists.flatMap((r) => (r.ok ? r.value : []))).filter((h) => {
         const year = Number(h.year);
         if (genreIds.length > 0 && h.genreIds && !genreIds.every((g) => h.genreIds?.includes(g))) return false;
         if (plan.languages.length > 0 && h.language && !plan.languages.includes(h.language)) return false;
         if (filter.releaseFrom !== null && (!year || year < filter.releaseFrom)) return false;
         if (filter.minRating !== null && (h.voteAverage ?? 0) < filter.minRating) return false;
         return true;
-      }) : []))
+      }))
     : null;
 
   let notice: string | null = null;

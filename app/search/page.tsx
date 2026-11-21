@@ -17,7 +17,7 @@ import SuggestTags, { type TagItem } from "@/components/SuggestTags";
 import { COUNTRY_ADJECTIVES, COUNTRY_CODES, LANGUAGE_CODES, countryName, languageName } from "@/lib/domain/tagLists";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import { EMPTY_FILTER, hasFilter, type LogFilter } from "@/lib/domain/askLog";
+import { EMPTY_FILTER, asList, hasFilter, type LogFilter } from "@/lib/domain/askLog";
 import { discover } from "@/lib/ask/discover";
 import { EMPTY_PLAN, hasPlan, LANGUAGE_NAMES, type AskPlan } from "@/lib/domain/askPlan";
 import { GENRES } from "@/lib/domain/home";
@@ -37,7 +37,6 @@ import { formatScore } from "@/lib/domain/score";
 import DateField from "@/components/ui/DateField";
 import ClearX from "@/components/ui/ClearX";
 import PickSelect from "@/components/ui/PickSelect";
-import SuggestInput from "@/components/ui/SuggestInput";
 import { FORMAT_ADDONS, PRIMARY_FORMATS } from "@/lib/domain/formats";
 
 const DEBOUNCE_MS = 350;
@@ -64,6 +63,8 @@ const ORDERS: { id: Order; label: string }[] = [
 /** Country and language suggestions, built once: the name typed matches ("germany") and so does the adjective ("german"). */
 const COUNTRY_TAGS: TagItem[] = COUNTRY_CODES.map((c) => ({ id: c, label: countryName(c), alias: COUNTRY_ADJECTIVES[c] }));
 const LANGUAGE_TAGS: TagItem[] = LANGUAGE_CODES.map((c) => ({ id: c, label: languageName(c) }));
+const FORMAT_TAGS: TagItem[] = PRIMARY_FORMATS.map((n) => ({ id: n, label: n }));
+const EXTRA_TAGS: TagItem[] = FORMAT_ADDONS.map((n) => ({ id: n, label: n }));
 const PROVIDER_TAGS: TagItem[] = ["Netflix", "Prime Video", "Disney+", "Max", "Apple TV+", "Hulu", "Crave", "Paramount+"].map((n) => ({ id: n, label: n }));
 const GENRE_TAGS: TagItem[] = GENRES.map((g) => ({ id: g.name, label: g.name }));
 
@@ -85,6 +86,8 @@ interface Item {
   scoreItem: { mediaId: string | null; kind: "Movie" | "TV Show"; tmdbId: number | null; tmdbRating: number | null; releaseDate: string | null } | null;
   /** Where it ranks when several countries, languages or genres were asked for; 0 is the best group. */
   group: number;
+  /** Watched more than once. */
+  rewatched?: boolean;
   /** Share of a show's episodes logged, from 0 to 1, when only part of it is; "pending" until that is known, so no eye shows too early. */
   progress?: number | "pending";
 }
@@ -228,7 +231,7 @@ function SearchView() {
     if (sessionStorage.getItem("filme_tap") === tapStamp) return;
     sessionStorage.setItem("filme_tap", tapStamp);
     Promise.resolve().then(() => {
-      setFilter({ ...EMPTY_FILTER, format: formatParam, extra: extraParam });
+      setFilter({ ...EMPTY_FILTER, format: formatParam ? [formatParam] : [], extra: extraParam ? [extraParam] : [] });
       setQuery("");
       setAskOn(false);
       setOrder("default");
@@ -262,12 +265,18 @@ function SearchView() {
   const active = q.length >= 2 || hasFilter(filter) || planOn || scope !== null;
   // Inside a list, the parts of a plan that your own log can answer (people, genres, languages) are checked against the log
   // itself. Anything else (countries, themes, titles) is looked up on TMDB and the list keeps what appears there too.
-  const planLookup = planOn && (scope === "watchlist" || scope === "both" || plan.countries.length > 0 || plan.keywords.length > 0 || plan.titles.length > 0 || plan.like.length > 0 || plan.providers.length > 0 || plan.inTheatres !== null || plan.maxRuntime !== null || plan.minRuntime !== null);
-  const needsLookup = scope === null ? planOn : planLookup;
+  // The pills combine. Not watched yet and the cinema pills need TMDB, so with them on the search reaches past your Watched and Watchlist;
+  // the lists below are then made from every source that is switched on, and ranked by how many of the pills each title matches.
+  const inW = scope === "watched" || scope === "both";
+  const inL = scope === "watchlist" || scope === "both";
+  const tmdbSide = plan.seen === "not-seen" || plan.inTheatres !== null;
+  const scopeEff = tmdbSide ? null : scope;
+  const planLookup = planOn && (scopeEff === "watchlist" || scopeEff === "both" || plan.countries.length > 0 || plan.keywords.length > 0 || plan.titles.length > 0 || plan.like.length > 0 || plan.providers.length > 0 || plan.inTheatres !== null || plan.maxRuntime !== null || plan.minRuntime !== null);
+  const needsLookup = scopeEff === null ? planOn : planLookup;
   // Venue, format, watch dates and rewatches exist only in your log, so TMDB has nothing to say about them.
-  const logOnly = Boolean(filter.venue || filter.format || filter.extra || filter.dateFrom || filter.dateTo || filter.maxRating !== null || filter.rewatchesOnly);
-  const kinds: CatalogKind[] = scope !== null ? [] : logOnly || filter.category === "Concert" || filter.category === "Live Event" ? [] : filter.category ? [filter.category] : ["Movie", "TV Show"];
-  const searchKey = JSON.stringify([planOn ? plan : null, filter.sort, q, scope, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly, personTmdb]);
+  const logOnly = Boolean(asList(filter.venue).length > 0 || asList(filter.format).length > 0 || asList(filter.extra).length > 0 || filter.dateFrom || filter.dateTo || filter.maxRating !== null || filter.rewatchesOnly);
+  const kinds: CatalogKind[] = scopeEff !== null ? [] : (logOnly && !tmdbSide) || filter.category === "Concert" || filter.category === "Live Event" ? [] : filter.category ? [filter.category] : ["Movie", "TV Show"];
+  const searchKey = JSON.stringify([planOn ? plan : null, filter.sort, q, scopeEff, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly, personTmdb]);
 
   useEffect(() => {
     if (!ready) return;
@@ -285,7 +294,7 @@ function SearchView() {
 
   // Titles and people from TMDB, and people already in your log.
   useEffect(() => {
-    if (!ready || !active || (scope !== null && !needsLookup)) return;
+    if (!ready || !active || (scopeEff !== null && !needsLookup)) return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       const personName = filter.person?.trim() || (q.length >= 2 ? q : "");
@@ -326,7 +335,7 @@ function SearchView() {
       // An AI plan looks people, themes and titles up first, then lists what fits.
       if (needsLookup && !creditResult) {
         const out = await discover({
-          plan, filter, kinds: scope !== null ? (filter.category === "Movie" || filter.category === "TV Show" ? [filter.category] : ["Movie", "TV Show"]) : kinds, catalog: services.catalog, genreId,
+          plan, filter, kinds: scopeEff !== null ? (filter.category === "Movie" || filter.category === "TV Show" ? [filter.category] : ["Movie", "TV Show"]) : kinds, catalog: services.catalog, genreId,
           lookupPerson: async (name) => {
             const own = await services.browse.searchPeople(name);
             const mine = own.ok ? own.value.find((p) => p.tmdbId !== null) : undefined;
@@ -403,7 +412,7 @@ function SearchView() {
       const { filter: f, plan: p } = res.value;
       setAskText(f.text ?? "");
       // People and genres live in the plan (and show as its chips) unless the question is about your own log.
-      const aboutLog = Boolean(f.venue || f.format || f.extra || f.dateFrom || f.dateTo || f.maxRating !== null || f.rewatchesOnly);
+      const aboutLog = Boolean(asList(f.venue).length > 0 || asList(f.format).length > 0 || asList(f.extra).length > 0 || f.dateFrom || f.dateTo || f.maxRating !== null || f.rewatchesOnly);
       setFilter({ ...f, text: null, person: aboutLog || p.people.length === 0 ? f.person : null, genre: aboutLog || p.genres.length === 0 ? f.genre : null, maxRating: f.minRating !== null && f.maxRating !== null && f.minRating > f.maxRating ? null : f.maxRating });
       setPlan(p);
       const by = p.sortBy ?? f.sort;
@@ -423,16 +432,19 @@ function SearchView() {
     const wantedKeys = new Set(wanted.flatMap((w) => (w.tmdbId === null ? [] : [seenKey(w.category === "TV Show" ? "TV Show" : "Movie", w.tmdbId)])));
     const wantedNames = new Set(wanted.map((w) => `${w.category}:${normalize(w.title)}`));
     const out = new Map<string, Item>();
+    const viewingCount = new Map<string, number>();
+    for (const r of rows) viewingCount.set(r.mediaId, (viewingCount.get(r.mediaId) ?? 0) + 1);
+    const rewatchedIds = new Set([...viewingCount].filter(([, n]) => n > 1).map(([id]) => id));
 
     // Your log: one entry per title, however many times it was watched.
     // With only an AI plan (no log filter or typed words) the list is what TMDB found, not your whole log.
-    const logPart = scope === "watched" || scope === "both" ? true : scope === "watchlist" ? false : !planOn || logOnly;
+    const logPart = inW || filter.rewatchesOnly ? true : scope === "watchlist" ? false : !planOn || logOnly;
     // Inside Watched, what your log can answer itself is checked against it; the rest must also appear in TMDB's answer.
     const fromTmdb = found?.key === searchKey ? found : null;
-    const members = (scope === "watched" || scope === "both") && planLookup ? new Set((fromTmdb?.hits ?? []).map((h) => identity(h.kind, h.title, h.year))) : null;
+    const members = inW && !tmdbSide && planLookup ? new Set((fromTmdb?.hits ?? []).map((h) => identity(h.kind, h.title, h.year))) : null;
     const nameIn = (pool: string[], name: string) => pool.some((p) => normalize(p) === normalize(name) || fuzzyMatches(name, p));
     const rowFits = (row: StatRow) => {
-      if ((scope !== "watched" && scope !== "both") || !planOn) return true;
+      if (!inW || !planOn) return true;
       for (const p of plan.people) {
         const pool = p.role === "director" ? row.directors : p.role === "cast" ? [...row.actors, ...row.performers] : p.role === "writer" ? null : [...row.directors, ...row.actors, ...row.performers];
         if (pool && !nameIn(pool, p.name)) return false;
@@ -442,7 +454,8 @@ function SearchView() {
       if (members && !members.has(identity(row.category, row.title, row.releaseYear ? String(row.releaseYear) : null))) return false;
       return true;
     };
-    for (const row of logPart ? applyFilter(rows, { ...filter, text: q.length >= 2 ? q : null }).filter(rowFits) : []) {
+    // With Watched on too, "Rewatches only" ranks rewatched titles first instead of hiding the rest.
+    for (const row of logPart ? applyFilter(rows, { ...filter, rewatchesOnly: filter.rewatchesOnly && !inW, text: q.length >= 2 ? q : null }).filter(rowFits) : []) {
       if (out.has(row.mediaId)) continue;
       out.set(row.mediaId, {
         key: row.mediaId,
@@ -457,19 +470,20 @@ function SearchView() {
         score: null,
         scoreItem: row.category === "Movie" || row.category === "TV Show" ? { mediaId: row.mediaId, kind: row.category, tmdbId: null, tmdbRating: null, releaseDate: row.releaseYear ? String(row.releaseYear) : null } : null,
         group: 0,
+        rewatched: rewatchedIds.has(row.mediaId),
         progress: progressOf(row.mediaId, row.category, row.title, row.releaseYear ? String(row.releaseYear) : null),
       });
     }
     const byIdentity = new Set([...out.values()].map((i) => identity(i.kind, i.title, i.year)));
 
     // Your Watchlist: when typed words match, or all of it when searching inside it.
-    if (scope === "watchlist" || scope === "both" || (scope === null && q.length >= 2 && !logOnly)) {
-      const inTmdb = (scope === "watchlist" || scope === "both") && planOn ? new Set((fromTmdb?.hits ?? []).map((h) => `${h.kind}:${h.tmdbId}`)) : null;
+    if (inL || (scope === null && q.length >= 2 && !logOnly)) {
+      const inTmdb = inL && !tmdbSide && planOn ? new Set((fromTmdb?.hits ?? []).map((h) => `${h.kind}:${h.tmdbId}`)) : null;
       for (const w of wanted) {
         if (q.length >= 2 && !normalize(w.title).includes(normalize(q))) continue;
         if (filter.category && w.category !== filter.category) continue;
         if (inTmdb && (w.tmdbId === null || !inTmdb.has(`${w.category}:${w.tmdbId}`))) continue;
-        if (scope === null && (byIdentity.has(identity(w.category, w.title, null)) || [...byIdentity].some((k) => k.startsWith(`${w.category}:${normalize(w.title)}:`)))) continue;
+        if (scopeEff === null && (byIdentity.has(identity(w.category, w.title, null)) || [...byIdentity].some((k) => k.startsWith(`${w.category}:${normalize(w.title)}:`)))) continue;
         const kind = w.category === "TV Show" ? "TV Show" : "Movie";
         out.set(`wanted:${w.mediaId}`, {
           key: `wanted:${w.mediaId}`,
@@ -491,7 +505,7 @@ function SearchView() {
       byIdentity.has(identity(kind, title, year)) || [...out.values()].some((i) => i.kind === kind && normalize(i.title) === normalize(title) && (i.year === null || year === null));
 
     // TMDB, in TMDB's order, skipping what is already listed from your own data.
-    if (scope === null && found?.key === searchKey) {
+    if (scopeEff === null && found?.key === searchKey) {
       for (const hit of found.hits) {
         if (covered(hit.kind, hit.title, hit.year)) continue;
         // Typed words narrow what a plan found, so a title typed beside the tags still has to match.
@@ -528,8 +542,19 @@ function SearchView() {
       : order === "za" ? b.title.localeCompare(a.title)
       : 0;
     // Otherwise they stay in order of how well they matched; whether you have seen one does not move it.
-    return list.map((item, index) => ({ item, index })).sort((a, b) => a.item.group - b.item.group || within(a.item, b.item) || a.index - b.index).map((x) => x.item);
-  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn, askOn, progressOf, scope, planLookup, plan, scores]);
+    // With two or more pills on, titles matching the most of them come first, then those matching fewer; ones matching none are left out.
+    const cinemaNames = new Set((fromTmdb?.hits ?? []).map((h) => identity(h.kind, h.title, h.year)));
+    const pills: ((i: Item) => boolean)[] = [
+      ...(inW ? [(i: Item) => i.watched] : []),
+      ...(inL ? [(i: Item) => i.wanted] : []),
+      ...(plan.seen === "not-seen" ? [(i: Item) => !i.watched] : []),
+      ...(filter.rewatchesOnly ? [(i: Item) => i.rewatched === true] : []),
+      ...(plan.inTheatres !== null ? [(i: Item) => cinemaNames.has(identity(i.kind, i.title, i.year))] : []),
+    ];
+    const hits = (i: Item) => pills.filter((fits) => fits(i)).length;
+    const ranked = pills.length >= 2 ? list.map((item) => ({ item, n: hits(item) })).filter((x) => x.n > 0) : list.map((item) => ({ item, n: 0 }));
+    return ranked.map((x, index) => ({ ...x, index })).sort((a, b) => b.n - a.n || a.item.group - b.item.group || within(a.item, b.item) || a.index - b.index).map((x) => x.item);
+  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn, askOn, progressOf, scope, scopeEff, inW, inL, tmdbSide, planLookup, plan, scores]);
 
   // IMDb scores for what is listed: saved ones come back at once, and a few missing ones are looked up in the background.
   useEffect(() => {
@@ -554,15 +579,15 @@ function SearchView() {
   if (!ready) return null;
 
   const current = found?.key === searchKey ? found : null;
-  const loading = active && (kinds.length > 0 || (scope !== null && needsLookup)) && !current;
+  const loading = active && (kinds.length > 0 || (scopeEff !== null && needsLookup)) && !current;
   // Every part of the filter shows as a chip with an x, so a date or a venue can be taken out without clearing the rest.
   const filterChips: { key: string; label: string; remove: () => void }[] = [
     ...(filter.category ? [{ key: "category", label: filter.category, remove: () => set({ category: null }) }] : []),
     ...(filter.genre ? [{ key: "genre", label: filter.genre, remove: () => set({ genre: null }) }] : []),
     ...(filter.person ? [{ key: "person", label: `with ${filter.person}`, remove: () => set({ person: null }) }] : []),
-    ...(filter.venue ? [{ key: "venue", label: `at ${filter.venue}`, remove: () => set({ venue: null }) }] : []),
-    ...(filter.format ? [{ key: "format", label: filter.format, remove: () => set({ format: null }) }] : []),
-    ...(filter.extra ? [{ key: "extra", label: filter.extra, remove: () => set({ extra: null }) }] : []),
+    ...asList(filter.venue).map((v) => ({ key: `venue:${v}`, label: `at ${v}`, remove: () => set({ venue: asList(filter.venue).filter((x) => x !== v) }) })),
+    ...asList(filter.format).map((v) => ({ key: `format:${v}`, label: v, remove: () => set({ format: asList(filter.format).filter((x) => x !== v) }) })),
+    ...asList(filter.extra).map((v) => ({ key: `extra:${v}`, label: v, remove: () => set({ extra: asList(filter.extra).filter((x) => x !== v) }) })),
     ...(filter.minRating !== null ? [{ key: "min", label: `★ ${formatScore(filter.minRating)}+`, remove: () => set({ minRating: null }) }] : []),
     ...(filter.maxRating !== null ? [{ key: "max", label: `★ up to ${formatScore(filter.maxRating)}`, remove: () => set({ maxRating: null }) }] : []),
     ...(filter.releaseFrom !== null || filter.releaseTo !== null ? [{ key: "released", label: filter.releaseFrom === filter.releaseTo ? `${filter.releaseFrom}` : `${filter.releaseFrom ?? "…"}–${filter.releaseTo ?? "…"}`, remove: () => set({ releaseFrom: null, releaseTo: null }) }] : []),
@@ -587,7 +612,7 @@ function SearchView() {
     ...(plan.maxRuntime !== null ? [{ key: "maxrt", label: `Under ${plan.maxRuntime >= 60 && plan.maxRuntime % 60 === 0 ? `${plan.maxRuntime / 60} h` : `${plan.maxRuntime} min`}`, remove: () => drop({ maxRuntime: null }) }] : []),
     ...(plan.minRuntime !== null ? [{ key: "minrt", label: `Over ${plan.minRuntime} min`, remove: () => drop({ minRuntime: null }) }] : []),
     ...plan.providers.map((x) => ({ key: `prov:${x}`, label: `On ${x}`, remove: () => drop({ providers: plan.providers.filter((y) => y !== x) }) })),
-    ...(plan.inTheatres ? [{ key: "theatres", label: plan.inTheatres === "now" ? "In cinemas now" : "Coming soon", remove: () => drop({ inTheatres: null }) }] : []),
+    ...(plan.inTheatres ? [{ key: "theatres", label: plan.inTheatres === "now" ? "In cinemas now" : plan.inTheatres === "soon" ? "Coming soon" : "In cinemas now or soon", remove: () => drop({ inTheatres: null }) }] : []),
     ...(plan.seen === "not-seen" ? [{ key: "seen", label: "Not seen yet", remove: () => drop({ seen: "either" }) }] : plan.seen === "seen" ? [{ key: "seen", label: "Seen", remove: () => drop({ seen: "either" }) }] : []),
   ];
   // What sits under each tag field while the filters are open: the same picks as the black chips outside, each with its x.
@@ -615,17 +640,19 @@ function SearchView() {
   const inWatched = scope === "watched" || scope === "both";
   const inWatchlist = scope === "watchlist" || scope === "both";
   // Watched and Watchlist can be on together (either list); "not watched yet" and Watched cancel each other out.
+  // The six pills are independent: any of them can be on together. Titles matching the most of them come first (see the list below).
   const toggleList = (which: "watched" | "watchlist") => {
     const watched = which === "watched" ? !inWatched : inWatched;
     const wishlist = which === "watchlist" ? !inWatchlist : inWatchlist;
-    if (which === "watched" && watched && plan.seen === "not-seen") drop({ seen: "either" });
     setScope(watched && wishlist ? "both" : watched ? "watched" : wishlist ? "watchlist" : null);
   };
-  const toggleNotSeen = () => {
-    if (plan.seen === "not-seen") return drop({ seen: "either" });
-    drop({ seen: "not-seen" });
-    if (scope === "watched") setScope(null);
-    else if (scope === "both") setScope("watchlist");
+  const toggleNotSeen = () => drop({ seen: plan.seen === "not-seen" ? "either" : "not-seen" });
+  const hasNow = plan.inTheatres === "now" || plan.inTheatres === "both";
+  const hasSoon = plan.inTheatres === "soon" || plan.inTheatres === "both";
+  const toggleTheatres = (which: "now" | "soon") => {
+    const now = which === "now" ? !hasNow : hasNow;
+    const soon = which === "soon" ? !hasSoon : hasSoon;
+    drop({ inTheatres: now && soon ? "both" : now ? "now" : soon ? "soon" : null });
   };
   const pill = (on: boolean) => `flex items-center gap-1.5 rounded-full px-3.5 py-1.5 ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`;
 
@@ -672,8 +699,8 @@ function SearchView() {
               <button type="button" aria-pressed={inWatchlist} onClick={() => toggleList("watchlist")} className={pill(inWatchlist)}>In Watchlist{inWatchlist && <Icon name="close" size={12} />}</button>
               <button type="button" aria-pressed={plan.seen === "not-seen"} onClick={toggleNotSeen} className={pill(plan.seen === "not-seen")}>Not watched yet{plan.seen === "not-seen" && <Icon name="close" size={12} />}</button>
               <button type="button" aria-pressed={filter.rewatchesOnly} onClick={() => set({ rewatchesOnly: !filter.rewatchesOnly })} className={pill(filter.rewatchesOnly)}>Rewatches only{filter.rewatchesOnly && <Icon name="close" size={12} />}</button>
-              <button type="button" aria-pressed={plan.inTheatres === "now"} onClick={() => drop({ inTheatres: plan.inTheatres === "now" ? null : "now" })} className={pill(plan.inTheatres === "now")}>In cinemas now{plan.inTheatres === "now" && <Icon name="close" size={12} />}</button>
-              <button type="button" aria-pressed={plan.inTheatres === "soon"} onClick={() => drop({ inTheatres: plan.inTheatres === "soon" ? null : "soon" })} className={pill(plan.inTheatres === "soon")}>Coming soon{plan.inTheatres === "soon" && <Icon name="close" size={12} />}</button>
+              <button type="button" aria-pressed={hasNow} onClick={() => toggleTheatres("now")} className={pill(hasNow)}>In cinemas now{hasNow && <Icon name="close" size={12} />}</button>
+              <button type="button" aria-pressed={hasSoon} onClick={() => toggleTheatres("soon")} className={pill(hasSoon)}>Coming soon{hasSoon && <Icon name="close" size={12} />}</button>
             </div>
             <PickSelect
               label="Type"
@@ -687,13 +714,13 @@ function SearchView() {
               label="Minimum rating"
               value={filter.minRating === null ? "" : String(filter.minRating)}
               onChange={(v) => set({ minRating: v ? Number(v) : null })}
-              options={[{ value: "", label: "Any rating" }, ...[5, 6, 7, 8, 9].filter((n) => filter.maxRating === null || n <= filter.maxRating || n === filter.minRating).map((n) => ({ value: String(n), label: `★ ${n}+` }))]}
+              options={[{ value: "", label: "Min. rating" }, ...[5, 6, 7, 8, 9].filter((n) => filter.maxRating === null || n <= filter.maxRating || n === filter.minRating).map((n) => ({ value: String(n), label: `★ ${n}+` }))]}
             />
             <PickSelect
               label="Maximum rating"
               value={filter.maxRating === null ? "" : String(filter.maxRating)}
               onChange={(v) => set({ maxRating: v ? Number(v) : null })}
-              options={[{ value: "", label: "No rating ceiling" }, ...[4, 5, 6, 7, 8].filter((n) => filter.minRating === null || n >= filter.minRating || n === filter.maxRating).map((n) => ({ value: String(n), label: `★ up to ${n}` }))]}
+              options={[{ value: "", label: "Max. rating" }, ...[4, 5, 6, 7, 8].filter((n) => filter.minRating === null || n >= filter.minRating || n === filter.maxRating).map((n) => ({ value: String(n), label: `★ up to ${n}` }))]}
             />
             <PickSelect
               className="col-span-2"
@@ -709,13 +736,13 @@ function SearchView() {
               onChange={(v) => set({ releaseTo: v ? Number(v) : null })}
               options={[{ value: "", label: "Released to any year" }, ...yearsWith(filter.releaseTo).filter((y) => filter.releaseFrom === null || y >= filter.releaseFrom || y === filter.releaseTo).map((y) => ({ value: String(y), label: String(y), shown: `Released to ${y}` }))]}
             />
-            <div className="relative min-w-0"><input inputMode="numeric" value={plan.minRuntime ?? ""} onChange={(e) => drop({ minRuntime: minutes(e.target.value) })} placeholder="Over (minutes)" aria-label="Longer than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.minRuntime !== null && <ClearX label="Over minutes" onClear={() => drop({ minRuntime: null })} />}</div>
-            <div className="relative min-w-0"><input inputMode="numeric" value={plan.maxRuntime ?? ""} onChange={(e) => drop({ maxRuntime: minutes(e.target.value) })} placeholder="Under (minutes)" aria-label="Shorter than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.maxRuntime !== null && <ClearX label="Under minutes" onClear={() => drop({ maxRuntime: null })} />}</div>
+            <div className="relative min-w-0"><input inputMode="numeric" value={plan.minRuntime ?? ""} onChange={(e) => drop({ minRuntime: minutes(e.target.value) })} placeholder="Over (minutes)" aria-label="Longer than, in minutes" className={`${FIELD} w-full${plan.minRuntime !== null ? " pr-11" : ""}`} />{plan.minRuntime !== null && <ClearX label="Over minutes" onClear={() => drop({ minRuntime: null })} />}</div>
+            <div className="relative min-w-0"><input inputMode="numeric" value={plan.maxRuntime ?? ""} onChange={(e) => drop({ maxRuntime: minutes(e.target.value) })} placeholder="Under (minutes)" aria-label="Shorter than, in minutes" className={`${FIELD} w-full${plan.maxRuntime !== null ? " pr-11" : ""}`} />{plan.maxRuntime !== null && <ClearX label="Under minutes" onClear={() => drop({ maxRuntime: null })} />}</div>
             <div className="col-span-2 flex flex-col gap-3">
               <SuggestTags
                 label="People"
                 tags={peopleTags}
-                placeholder="Agnès Varda"
+                examples={["Agnès Varda", "Wong Kar-wai", "Greta Gerwig", "Park Chan-wook", "Céline Sciamma", "Bong Joon-ho", "Claire Denis"]} placeholder="Agnès Varda…"
                 search={async (text) => {
                   const res = await services.catalog.searchPeople(text);
                   return res.ok ? res.value.map((p) => ({ id: String(p.tmdbId), label: p.name, image: p.profilePath, note: p.knownFor ?? null })) : [];
@@ -723,14 +750,14 @@ function SearchView() {
                 onAdd={(t) => drop({ people: [...plan.people.filter((x) => x.tmdbId !== Number(t.id)), { name: t.label, role: "any", tmdbId: Number(t.id), profilePath: t.image ?? null }] })}
                 onRemove={(id) => drop({ people: plan.people.filter((p) => String(p.tmdbId ?? p.name) !== id) })}
               />
-              <SuggestTags label="Genres" tags={tagsOf("g:")} options={GENRE_TAGS} showOnTap placeholder="Drama, Comedy" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={(id) => removeTag("g:", id)} />
-              <SuggestTags label="Countries" tags={tagsOf("c:")} options={COUNTRY_TAGS} placeholder="France, Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={(id) => removeTag("c:", id)} />
-              <SuggestTags label="Languages" tags={tagsOf("lang:")} options={LANGUAGE_TAGS} placeholder="French, Japanese" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={(id) => removeTag("lang:", id)} />
+              <SuggestTags label="Genres" tags={tagsOf("g:")} options={GENRE_TAGS} showOnTap examples={GENRE_TAGS.map((g) => g.label)} placeholder="Drama, Comedy…" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={(id) => removeTag("g:", id)} />
+              <SuggestTags label="Countries" tags={tagsOf("c:")} options={COUNTRY_TAGS} examples={COUNTRY_TAGS.map((g) => g.label)} placeholder="France, Germany…" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={(id) => removeTag("c:", id)} />
+              <SuggestTags label="Languages" tags={tagsOf("lang:")} options={LANGUAGE_TAGS} examples={LANGUAGE_TAGS.map((g) => g.label)} placeholder="French, Japanese…" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={(id) => removeTag("lang:", id)} />
               <SuggestTags
                 label="Keywords"
                 tags={tagsOf("k:", lower)}
                 allowFree
-                placeholder="heist, German expressionism"
+                examples={["heist", "german expressionism", "road trip", "coming of age", "film noir", "time loop", "revenge"]} placeholder="heist, German expressionism…"
                 search={async (text) => {
                   const res = await services.catalog.searchKeywords(text);
                   return res.ok ? res.value.map((k) => ({ id: k.toLowerCase(), label: k })) : [];
@@ -738,21 +765,28 @@ function SearchView() {
                 onAdd={(t) => drop({ keywords: [...new Set([...plan.keywords, t.label])] })}
                 onRemove={(id) => removeTag("k:", id, lower)}
               />
-              <SuggestTags label="Streaming on" tags={tagsOf("prov:").map((t) => ({ ...t, label: t.label.replace(/^On /, "") }))} options={PROVIDER_TAGS} allowFree showOnTap placeholder="Netflix, Crave" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={(id) => removeTag("prov:", id)} />
+              <SuggestTags label="Streaming on" tags={tagsOf("prov:").map((t) => ({ ...t, label: t.label.replace(/^On /, "") }))} options={PROVIDER_TAGS} allowFree showOnTap examples={PROVIDER_TAGS.map((g) => g.label)} placeholder="Netflix, Crave…" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={(id) => removeTag("prov:", id)} />
             </div>
-            <SuggestInput
-              className="col-span-2"
-              label="Venue"
-              placeholder="Cineplex Yonge-Dundas"
-              value={filter.venue ?? ""}
-              onChange={(v) => set({ venue: v || null })}
-              search={async (text) => {
-                const res = text.length >= 2 ? await services.browse.searchVenues(text) : await services.browse.recentVenues();
-                return res.ok ? [...new Set(res.value.map((v) => v.name))].slice(0, 20) : [];
-              }}
-            />
-            <SuggestInput className="col-span-2" label="Format" placeholder="IMAX" value={filter.format ?? ""} onChange={(v) => set({ format: v || null })} options={PRIMARY_FORMATS} />
-            <SuggestInput className="col-span-2" label="Extras" placeholder="3D, D-BOX" value={filter.extra ?? ""} onChange={(v) => set({ extra: v || null })} options={FORMAT_ADDONS} />
+            <div className="col-span-2 flex flex-col gap-3">
+              <SuggestTags
+                label="Venue"
+                tags={asList(filter.venue).map((v) => ({ id: v, label: v }))}
+                allowFree
+                placeholder="Cineplex Yonge-Dundas…"
+                recent={async () => {
+                  const res = await services.browse.recentVenues();
+                  return res.ok ? [...new Set(res.value.map((v) => v.name))].slice(0, 20).map((n) => ({ id: n, label: n })) : [];
+                }}
+                search={async (text) => {
+                  const res = await services.browse.searchVenues(text);
+                  return res.ok ? [...new Set(res.value.map((v) => v.name))].map((n) => ({ id: n, label: n })) : [];
+                }}
+                onAdd={(t) => set({ venue: [...new Set([...asList(filter.venue), t.label])] })}
+                onRemove={(id) => set({ venue: asList(filter.venue).filter((v) => v !== id) })}
+              />
+              <SuggestTags label="Format" tags={asList(filter.format).map((v) => ({ id: v, label: v }))} options={FORMAT_TAGS} showOnTap allowFree examples={[...PRIMARY_FORMATS]} placeholder="IMAX…" onAdd={(t) => set({ format: [...new Set([...asList(filter.format), t.label])] })} onRemove={(id) => set({ format: asList(filter.format).filter((v) => v !== id) })} />
+              <SuggestTags label="Extras" tags={asList(filter.extra).map((v) => ({ id: v, label: v }))} options={EXTRA_TAGS} showOnTap allowFree examples={[...FORMAT_ADDONS]} placeholder="3D, D-BOX…" onAdd={(t) => set({ extra: [...new Set([...asList(filter.extra), t.label])] })} onRemove={(id) => set({ extra: asList(filter.extra).filter((v) => v !== id) })} />
+            </div>
             <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" hint="yearAgo" /></label>
             <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><DateField value={filter.dateTo ?? ""} onChange={(v) => set({ dateTo: v || null })} label="Watched to" /></label>
           </div>

@@ -37,6 +37,10 @@ interface Props {
   placeholder?: string;
   /** Show the whole fixed list as soon as the box is tapped, before anything is typed (short lists only). */
   showOnTap?: boolean;
+  /** Short suggestions asked for as soon as the box is tapped with nothing typed (such as the venues used most recently). */
+  recent?: () => Promise<TagItem[]>;
+  /** Names to show as the grey example: three of them, picked at random, followed by "…". */
+  examples?: string[];
 }
 
 const SHOWN = 8;
@@ -52,11 +56,26 @@ function Face({ image, size }: { image: string | null | undefined; size: number 
   );
 }
 
-export default function SuggestTags({ label, tags, options, search, allowFree, onAdd, onRemove, placeholder, showOnTap }: Props) {
+export default function SuggestTags({ label, tags, options, search, allowFree, onAdd, onRemove, placeholder, showOnTap, recent, examples }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
+  // The example is picked once, when the box first appears, so it does not change while you look at it.
+  const [picks] = useState<string[]>(() => (examples ? [...examples].sort(() => Math.random() - 0.5).slice(0, 3) : []));
+  const [seen, setSeen] = useState<string[]>([]);
+  useEffect(() => {
+    if (!recent || examples) return;
+    let stale = false;
+    void recent().then((items) => {
+      if (!stale) setSeen([...items].sort(() => Math.random() - 0.5).slice(0, 3).map((i) => i.label));
+    });
+    return () => {
+      stale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const shown = picks.length > 0 ? `${picks.join(", ")}…` : seen.length > 0 ? `${seen.join(", ")}…` : placeholder;
   useOutsideClose(wrap, open, close);
   const [remote, setRemote] = useState<{ for: string; items: TagItem[] }>({ for: "", items: [] });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -115,8 +134,11 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
             else if (allowFree && text.trim().length >= 2 && !taken.has(text.trim().toLowerCase())) add({ id: text.trim().toLowerCase(), label: text.trim() });
           }
         }}
-        onFocus={() => setOpen(true)}
-        placeholder={placeholder}
+        onFocus={() => {
+          setOpen(true);
+          if (recent && !text) void recent().then((items) => setRemote({ for: "", items }));
+        }}
+        placeholder={shown}
         aria-label={label}
         autoComplete="off"
         autoCapitalize="none"

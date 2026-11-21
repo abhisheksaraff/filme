@@ -1,6 +1,6 @@
 // lib/domain/search.ts
 // Typo-tolerant search and filtering over the user's own viewings.
-import type { LogFilter } from "./askLog";
+import { asList, type LogFilter } from "./askLog";
 import type { StatRow } from "./stats";
 import { formatScore } from "./score";
 
@@ -50,9 +50,12 @@ export function applyFilter(rows: StatRow[], filter: LogFilter): StatRow[] {
     if (filter.category && row.category !== filter.category) return false;
     if (filter.minRating !== null && (row.score ?? 0) < filter.minRating) return false;
     if (filter.maxRating !== null && (row.score === null || row.score > filter.maxRating)) return false;
-    if (filter.format && !sameFold(row.format, filter.format)) return false;
-    if (filter.extra && !row.addons.some((a) => sameFold(a, filter.extra as string))) return false;
-    if (filter.venue && !sameFold(row.venue, filter.venue)) return false;
+    const formats = asList(filter.format);
+    const extras = asList(filter.extra);
+    const venues = asList(filter.venue);
+    if (formats.length > 0 && !formats.some((f) => sameFold(row.format, f))) return false;
+    if (extras.length > 0 && !extras.some((x) => row.addons.some((a) => sameFold(a, x)))) return false;
+    if (venues.length > 0 && !venues.some((v) => sameFold(row.venue, v))) return false;
     if (filter.genre && !row.genres.some((g) => sameFold(g, filter.genre as string))) return false;
     if (filter.person && ![...row.directors, ...row.actors, ...row.performers].some((p) => fuzzyMatches(filter.person as string, p))) return false;
     if (filter.releaseFrom !== null && (row.releaseYear === null || row.releaseYear < filter.releaseFrom)) return false;
@@ -90,9 +93,9 @@ export function describeFilter(filter: LogFilter): string[] {
     filter.category,
     filter.genre,
     filter.person && `with ${filter.person}`,
-    filter.venue && `at ${filter.venue}`,
-    filter.format,
-    filter.extra,
+    asList(filter.venue).length > 0 && `at ${asList(filter.venue).join(" or ")}`,
+    asList(filter.format).join(" or "),
+    asList(filter.extra).join(" or "),
     filter.minRating !== null && `★ ${formatScore(filter.minRating)}+`,
     filter.maxRating !== null && `★ up to ${formatScore(filter.maxRating)}`,
     (filter.releaseFrom !== null || filter.releaseTo !== null) && (filter.releaseFrom === filter.releaseTo ? `${filter.releaseFrom}` : `${filter.releaseFrom ?? "…"}–${filter.releaseTo ?? "…"}`),

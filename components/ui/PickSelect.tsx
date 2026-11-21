@@ -27,7 +27,7 @@ export default function PickSelect({ value, onChange, options, label, idle = "",
   const on = value !== idle;
   return (
     <div className={`relative h-10 min-w-0 ${className}`}>
-      <div className={`pointer-events-none flex h-full items-center justify-between gap-2 rounded-full px-5 text-base ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
+      <div className={`pointer-events-none flex h-full items-center justify-between gap-2 rounded-full px-4 text-sm ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
         <span className="truncate">{picked?.shown ?? picked?.label ?? ""}</span>
         <Icon name="chevronDown" size={16} />
       </div>

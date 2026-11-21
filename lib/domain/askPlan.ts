@@ -22,7 +22,7 @@ export const askPlanSchema = z.object({
   minRuntime: z.number().int().min(1).max(600).nullable(),
   /** Streaming services by name, such as Netflix. */
   providers: z.array(z.string().min(1).max(80)).max(3),
-  inTheatres: z.enum(["now", "soon"]).nullable(),
+  inTheatres: z.enum(["now", "soon", "both"]).nullable(),
 });
 export type AskPlan = z.infer<typeof askPlanSchema>;
 
