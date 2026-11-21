@@ -217,15 +217,12 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           </Labeled>
           {titleExtra}
           {link && (
-            <>
-              <Labeled label="TMDB ID" plain><input readOnly value={link.tmdbId} className={`${field} text-neutral-500`} aria-label="TMDB ID" /></Labeled>
-              <div className="flex">
-                <span className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-xs text-white dark:bg-white dark:text-neutral-950">
-                  <span>{link.label}</span>
-                  <button type="button" aria-label={`Unlink ${link.label}`} onClick={link.onClear} className="relative flex h-5 w-5 items-center justify-center rounded-full bg-white/20 before:absolute before:-inset-2 before:content-[''] dark:bg-black/15"><Icon name="close" size={11} /></button>
-                </span>
-              </div>
-            </>
+            <div className="flex">
+              <span className="flex items-center gap-1 rounded-full bg-neutral-950 py-1 pl-3 pr-1 text-xs text-white dark:bg-white dark:text-neutral-950">
+                <span>{link.label}</span>
+                <button type="button" aria-label={`Unlink ${link.label}`} onClick={link.onClear} className="relative flex h-5 w-5 items-center justify-center rounded-full bg-white/20 before:absolute before:-inset-2 before:content-[''] dark:bg-black/15"><Icon name="close" size={11} /></button>
+              </span>
+            </div>
           )}
         </div>
         {rolesFor(draft.category).map((role) => (
@@ -333,11 +330,11 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
       )}
       {/* The time of day goes right after the date, since the two belong together. */}
       {shownWhen !== "none" && (
-        <Labeled label="Time">
-          <input className={field} placeholder="Time, such as 7:30 PM" value={draft.time} onChange={(e) => set("time", e.target.value)} />
+        <Labeled label="Time" plain>
+          <DateField type="time" label="Time" value={draft.time} onChange={(v) => set("time", v)} />
         </Labeled>
       )}
-      <Labeled label="Rating">
+      <Labeled label="Rating" plain>
         <RatingSlider value={draft.rating === "" ? null : Number(draft.rating)} onChange={(v) => set("rating", v === null ? "" : String(v))} />
       </Labeled>
 
@@ -349,12 +346,13 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
         </select>
       </Labeled>
 
-      <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more} className="self-start px-1 text-sm text-neutral-500">
+      <button type="button" onClick={() => setMore((m) => !m)} aria-expanded={more}
+        className={`self-start rounded-full px-4 py-2 text-sm transition-colors ${more ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
         {more ? "Fewer details" : "More details"}
       </button>
 
       {more && (
-        <>
+        <div className="flex flex-col gap-4 rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]">
           <Labeled label="Screen or hall">
             <input className={field} placeholder="Screen or hall, such as Screen 4" value={draft.auditorium} onChange={(e) => void typeScreen(e.target.value)} />
           </Labeled>
@@ -385,7 +383,7 @@ export default function EntryForm({ draft, onChange, onUserEdit, titleExtra, loc
           <Labeled label="Notes">
             <textarea className={AREA} rows={3} placeholder="Anything you want to remember about it" value={draft.notes} onChange={(e) => set("notes", e.target.value)} />
           </Labeled>
-        </>
+        </div>
       )}
     </fieldset>
   );

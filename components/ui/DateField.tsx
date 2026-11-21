@@ -5,7 +5,7 @@
 import Icon from "@/components/Icon";
 
 interface Props {
-  type?: "date" | "month";
+  type?: "date" | "month" | "time";
   value: string;
   onChange: (value: string) => void;
   label: string;
@@ -21,7 +21,8 @@ interface Props {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** Today written the way people say it, as an example only; it is never put into the box. */
-function example(type: "date" | "month", hint: "today" | "yearAgo"): string {
+function example(type: "date" | "month" | "time", hint: "today" | "yearAgo"): string {
+  if (type === "time") return "7:30 PM";
   const now = new Date();
   if (hint === "yearAgo") now.setFullYear(now.getFullYear() - 1);
   const month = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;

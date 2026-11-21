@@ -1,5 +1,6 @@
 // components/entryDraft.ts
 // The entry form's working copy: every field is a string, because that is what inputs hold.
+import { fromTimeInput, toTimeInput } from "@/lib/domain/time";
 import { logEntrySchema, type EntryMedia, type LogEntry } from "@/lib/domain/entry";
 import type { ExtractedData } from "@/lib/domain/extraction";
 import type { FormatAddon, PrimaryFormat } from "@/lib/domain/formats";
@@ -28,6 +29,8 @@ export interface EntryDraft {
   auditorium: string;
   date: string;
   time: string;
+  /** A time that was saved as words ("evening") and cannot go in the time box; kept so saving does not lose it. */
+  timeKept: string;
   totalTickets: string;
   primaryFormat: PrimaryFormat | null;
   addons: FormatAddon[];
@@ -113,6 +116,7 @@ export const EMPTY_DRAFT: EntryDraft = {
   auditorium: "",
   date: "",
   time: "",
+  timeKept: "",
   totalTickets: "",
   primaryFormat: null,
   addons: [],
@@ -138,7 +142,8 @@ export function draftFromExtraction(data: ExtractedData): EntryDraft {
     address: text(data.address),
     auditorium: text(data.auditorium),
     date: /^\d{4}-\d{2}-\d{2}$/.test(data.date ?? "") ? (data.date as string) : "",
-    time: text(data.time),
+    time: toTimeInput(data.time),
+    timeKept: toTimeInput(data.time) ? "" : text(data.time),
     totalTickets: String(data.totalTickets),
     primaryFormat: data.primaryFormat,
     addons: data.addons,
@@ -182,7 +187,7 @@ export function entryFromDraft(draft: EntryDraft, media: EntryMedia | null): Res
     venueType: draft.location.trim() ? draft.venueType : null,
     auditorium: orNull(draft.auditorium),
     date: orNull(draft.date),
-    time: orNull(draft.time),
+    time: draft.time ? fromTimeInput(draft.time) : orNull(draft.timeKept),
     seats: draft.seats
       .map((s) => ({ section: orNull(s.section), row: orNull(s.row), seat: orNull(s.seat) }))
       .filter((s) => s.section || s.row || s.seat),
@@ -235,7 +240,8 @@ export function draftFromEntry(entry: LogEntry): EntryDraft {
     venueType: (entry.venueType as VenueType | null | undefined) ?? null,
     auditorium: text(entry.auditorium),
     date: /^\d{4}(-\d{2}(-\d{2})?)?$/.test(entry.date ?? "") ? (entry.date as string) : "",
-    time: text(entry.time),
+    time: toTimeInput(entry.time),
+    timeKept: toTimeInput(entry.time) ? "" : text(entry.time),
     totalTickets: numberText(entry.totalTickets),
     primaryFormat: entry.primaryFormat,
     addons: entry.addons,

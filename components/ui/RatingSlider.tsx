@@ -1,5 +1,5 @@
 // components/ui/RatingSlider.tsx
-// A 0 to 10 rating in half steps. The track fills black as you slide, and a round black handle carries the score.
+// A 0 to 10 rating in half steps. The track fills black as you slide, and a round black handle carries the score (grey while there is none).
 // No rating is its own state, separate from 0: the track is empty and the handle shows a dash.
 // While a finger is down, a round bubble with the score floats above the handle (and the handle goes blank) so the finger never hides it.
 "use client";
@@ -26,20 +26,19 @@ export default function RatingSlider({ value, onChange, label = "Rating" }: Prop
   const slide = `(100% - ${THUMB}px) * ${share}`;
   return (
     <div className="flex flex-col gap-1">
-      {/* The room above is for the bubble, so it never covers the label. */}
-      <div className="relative mt-14 h-9 select-none touch-pan-y">
+      <div className="relative h-9 select-none touch-pan-y">
         <div aria-hidden className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-neutral-200 dark:bg-neutral-700" />
         <div aria-hidden className="absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-neutral-950 dark:bg-white" style={{ width: `calc(${slide} + ${THUMB / 2}px)` }} />
         <div
           aria-hidden
-          className="absolute top-0 flex items-center justify-center rounded-full bg-neutral-950 text-sm font-medium text-white shadow-md dark:bg-white dark:text-neutral-950"
+          className={`absolute top-0 flex items-center justify-center rounded-full text-sm font-medium shadow-md ${value === null ? "bg-neutral-300 text-neutral-600 dark:bg-neutral-600 dark:text-neutral-200" : "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"}`}
           style={{ width: THUMB, height: THUMB, left: `calc(${slide})` }}
         >
           {holding ? "" : value === null ? "–" : show(value)}
         </div>
         <div
           aria-hidden
-          className={`pointer-events-none absolute -top-[3.25rem] flex flex-col items-center transition-opacity duration-150 ${holding ? "opacity-100" : "opacity-0"}`}
+          className={`pointer-events-none absolute -top-[3.25rem] z-30 flex flex-col items-center transition-opacity duration-150 ${holding ? "opacity-100" : "opacity-0"}`}
           style={{ width: THUMB, left: `calc(${slide})` }}
         >
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-950 text-sm font-medium text-white dark:bg-white dark:text-neutral-950">
@@ -68,7 +67,7 @@ export default function RatingSlider({ value, onChange, label = "Rating" }: Prop
         />
       </div>
       {value !== null && (
-        <button type="button" onClick={() => onChange(null)} className="self-end px-1 text-xs text-neutral-500">Clear rating</button>
+        <button type="button" onClick={() => onChange(null)} className="self-end rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 transition-colors active:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-200 dark:active:bg-neutral-600">Clear rating</button>
       )}
     </div>
   );

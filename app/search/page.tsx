@@ -697,9 +697,9 @@ function SearchView() {
         // The options sit in one rounded card with a soft shadow, like a Watched card; the chips for what is set stay below it.
         <div className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]">
           {/* The row is always there, so the pill appearing never pushes the options down. */}
-          <div className="flex h-7 justify-end">
+          <div className="-mb-1 flex h-5 justify-end">
             {(hasFilter(filter) || planOn || scope !== null) && (
-              <button type="button" onClick={() => { setScope(null); setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="rounded-full bg-neutral-100 px-3 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">Clear filters</button>
+              <button type="button" onClick={() => { setScope(null); setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="h-5 rounded-full bg-neutral-100 px-2.5 text-[11px] leading-5 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">Clear</button>
             )}
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -860,6 +860,8 @@ function SearchView() {
       {active && !loading && !current?.problem && items.length === 0 && (current?.people.length ?? 0) === 0 && (
         <p className="text-sm text-neutral-500">Nothing found.</p>
       )}
+      {/* Empty room below everything, so the filters at the bottom can be scrolled clear of the bar. */}
+      <div aria-hidden className="h-72" />
     </main>
   );
 }
