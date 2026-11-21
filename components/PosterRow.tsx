@@ -1,5 +1,6 @@
 // components/PosterRow.tsx
-// A sideways-scrolling strip of posters. On Continue watching a first tap lifts the poster and shows an x; a second tap opens the show.
+// A sideways-scrolling strip of posters. On Continue watching a first tap lifts the whole poster, name and date included, onto a
+// white card and shows an x; a second tap opens the show.
 "use client";
 
 import Link from "next/link";
@@ -12,10 +13,12 @@ import { warmTitle } from "@/lib/handoff";
 import { useWantedKeys, wantedKeyOf } from "@/lib/useWantedKeys";
 import type { RowItem } from "@/lib/home/rows";
 
-/** The biggest the ring (and the x that takes its place) grows, in pixels. */
+/** The biggest the ring (and the x beside it) grows, in pixels. */
 const RING_MAX = 24;
 /** The ring's width as the badge sizes it (a quarter of the poster, within limits), so `left` can park it against the right edge. */
 const RING_WIDTH = `clamp(18px, 24%, ${RING_MAX}px)`;
+/** The small gap between the ring and the x when both show. */
+const RING_GAP = "4px";
 
 interface Props {
   items: RowItem[];
@@ -25,7 +28,7 @@ interface Props {
 
 export default function PosterRow({ items, onRemove }: Props) {
   const wanted = useWantedKeys();
-  // The one poster that is lifted, and the one waiting for the answer to "Remove from Home?".
+  // The one poster that is lifted, and the one waiting for the answer to "Remove from Home".
   const [lifted, setLifted] = useState<string | null>(null);
   const [asking, setAsking] = useState<RowItem | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,8 +61,8 @@ export default function PosterRow({ items, onRemove }: Props) {
 
   return (
     <>
-      {/* Room above the posters for a lifted one to grow into; the negative margin gives it back so nothing moves. */}
-      <ul className="-mx-5 -mt-3 flex gap-3 overflow-x-auto px-5 pb-2 pt-3">
+      {/* Room above and below the posters for a lifted card and its shadow to grow into; the negative margins give it back so nothing moves. */}
+      <ul className="-mx-5 -mb-8 -mt-3 flex gap-3 overflow-x-auto px-5 pb-10 pt-3">
         {items.map((item) => {
           const removable = !!item.removable && !!onRemove;
           const up = removable && lifted === item.key;
@@ -77,28 +80,33 @@ export default function PosterRow({ items, onRemove }: Props) {
                   }
                   warmTitle(item.href, { title: item.title, posterUrl: item.posterUrl, subtitle: item.subtitle });
                 }}
-                className="flex flex-col gap-1"
+                {...(up ? { "data-lifted": "" } : {})}
+                className={`relative isolate flex flex-col gap-1 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${up ? "z-20 scale-[1.04]" : ""}`}
               >
-                <div
-                  {...(up ? { "data-lifted": "" } : {})}
-                  className={`relative origin-bottom rounded-lg transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    up ? "z-20 scale-[1.05] shadow-[0_1px_2px_rgba(0,0,0,0.1),0_6px_14px_-4px_rgba(0,0,0,0.3)] ring-[3px] ring-white dark:ring-neutral-900" : ""
-                  }`}
-                >
+                {/* The white card behind the poster, name and date. It reaches past them without moving anything, and fades in with a shadow. */}
+                {removable && (
+                  <span
+                    aria-hidden
+                    className={`absolute -inset-1.5 -z-10 rounded-2xl bg-white transition-[opacity,box-shadow] duration-300 dark:bg-neutral-900 ${
+                      up ? "opacity-100 shadow-[0_2px_4px_rgba(0,0,0,0.08),0_14px_28px_-8px_rgba(0,0,0,0.4),0_6px_12px_rgba(0,0,0,0.1)] dark:shadow-[0_14px_28px_-8px_rgba(0,0,0,0.9)]" : "opacity-0"
+                    }`}
+                  />
+                )}
+                <div className="relative rounded-lg">
                   {item.posterUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.posterUrl} alt="" loading="lazy" decoding="async" className="aspect-[2/3] w-full rounded-lg object-cover" />
                   ) : (
                     <div className="aspect-[2/3] w-full rounded-lg bg-neutral-200 dark:bg-neutral-800" />
                   )}
-                  {/* The ring sits top right; on a lifted poster it slides left to make room for the x. */}
+                  {/* The ring sits top right; on a lifted poster it slides left, just far enough to leave room for the x. */}
                   {partly && (
                     <StatusBadge
                       kind="watched"
                       progress={item.progress}
                       maxSize={RING_MAX}
                       className={`absolute top-[3%] ${removable ? "transition-[left] duration-300 ease-out" : "right-[4%]"}`}
-                      style={removable ? { left: up ? "4%" : `calc(96% - ${RING_WIDTH})` } : undefined}
+                      style={removable ? { left: up ? `calc(96% - ${RING_WIDTH} - ${RING_WIDTH} - ${RING_GAP})` : `calc(96% - ${RING_WIDTH})` } : undefined}
                     />
                   )}
                   {/* The ring wins when a show is both partly watched and on the watchlist. */}
@@ -114,7 +122,7 @@ export default function PosterRow({ items, onRemove }: Props) {
                         setAsking(item);
                       }}
                       style={{ width: RING_WIDTH }}
-                      className={`absolute right-[4%] top-[3%] flex aspect-square items-center justify-center rounded-full bg-black text-white shadow-md ring-2 ring-white transition-[opacity,transform] duration-300 ease-out before:absolute before:-inset-2 before:content-[''] dark:ring-neutral-950 ${
+                      className={`absolute right-[4%] top-[3%] flex aspect-square items-center justify-center rounded-full bg-black text-white shadow-md ring-1 ring-white transition-[opacity,transform] duration-300 ease-out before:absolute before:-inset-2 before:content-[''] dark:ring-neutral-950 ${
                         up ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-3 opacity-0"
                       }`}
                     >
@@ -134,8 +142,8 @@ export default function PosterRow({ items, onRemove }: Props) {
       </ul>
       {asking && (
         <ConfirmPopup
-          title="Remove from Home?"
-          message={`${asking.title} leaves Continue watching. It comes back when you log another viewing of it.`}
+          title="Remove from Home"
+          message={`${asking.title} leaves Continue watching.`}
           confirmLabel="Remove from Home"
           busy={busy}
           onConfirm={confirmRemove}

@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { searchFocus } from "@/lib/searchFocus";
 import Icon from "@/components/Icon";
+import RoundButton from "@/components/RoundButton";
 import PersonCircle from "@/components/PersonCircle";
 import SuggestTags, { type TagItem } from "@/components/SuggestTags";
 import { COUNTRY_ADJECTIVES, COUNTRY_CODES, LANGUAGE_CODES, countryName, languageName } from "@/lib/domain/tagLists";
@@ -612,102 +613,101 @@ function SearchView() {
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
       <h1 className="font-serif text-3xl tracking-tight">Search</h1>
 
-      {/* The same bar in both modes: Ask AI only changes what Return does. */}
-      <form onSubmit={(e) => { e.preventDefault(); if (askOn) void ask(); else inputRef.current?.blur(); }} className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color-mix(in_srgb,var(--foreground)_50%,transparent)]"><Icon name="search" size={24} /></span>
-        <input
-          ref={inputRef}
-          type={askOn ? "text" : "search"}
-          value={askOn ? question : query}
-          onChange={(e) => (askOn ? setQuestion(e.target.value) : setQuery(e.target.value))}
-          maxLength={askOn ? 300 : undefined}
-          placeholder="Search movies, shows, concerts…"
-          autoComplete="off"
-          enterKeyHint={askOn ? "go" : "search"}
-          // 16px keeps iOS Safari from zooming the page when the field is focused.
-          aria-busy={asking}
-          className={`h-11 w-full rounded-full bg-neutral-100 pl-12 pr-11 text-base placeholder:text-sm transition-opacity [&::-webkit-search-cancel-button]:hidden dark:bg-neutral-800 ${asking ? "opacity-60" : ""}`}
-        />
-        {(askOn ? question : query) !== "" && <ClearX label="search" onClear={() => { if (askOn) setQuestion(""); else setQuery(""); inputRef.current?.focus(); }} />}
-      </form>
-      <div className="flex items-center gap-3 text-sm">
-        <button type="button" aria-pressed={filtersOpen} onClick={() => setFiltersOpen((o) => !o)} className="flex items-center gap-1.5 py-1.5 text-neutral-500">
-          <Icon name="filter" size={16} />{filtersOpen ? "Hide filters" : "Filters"}
-        </button>
-        {/* Black with white text and icon while on, like a pressed checkbox. */}
-        <button type="button" aria-pressed={askOn} onClick={toggleAsk}
-          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 ${askOn ? "border-neutral-950 bg-neutral-950 text-white dark:border-white dark:bg-white dark:text-neutral-950" : "border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"}`}>
-          <Icon name="sparkle" size={16} />Ask AI
-        </button>
-        {(hasFilter(filter) || planOn || scope !== null) && (
-          <button type="button" onClick={() => { setScope(null); setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="ml-auto text-neutral-500">Clear filters</button>
-        )}
+      {/* The same bar in both modes: Ask AI only changes what Return does. Ask AI and Filters are round buttons beside it, black while on. */}
+      <div className="flex items-center gap-2">
+        <form onSubmit={(e) => { e.preventDefault(); if (askOn) void ask(); else inputRef.current?.blur(); }} className="relative min-w-0 flex-1">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color-mix(in_srgb,var(--foreground)_50%,transparent)]"><Icon name="search" size={24} /></span>
+          <input
+            ref={inputRef}
+            type={askOn ? "text" : "search"}
+            value={askOn ? question : query}
+            onChange={(e) => (askOn ? setQuestion(e.target.value) : setQuery(e.target.value))}
+            maxLength={askOn ? 300 : undefined}
+            placeholder="Search movies, shows, concerts…"
+            autoComplete="off"
+            enterKeyHint={askOn ? "go" : "search"}
+            // 16px keeps iOS Safari from zooming the page when the field is focused.
+            aria-busy={asking}
+            className={`h-11 w-full rounded-full bg-neutral-100 pl-12 pr-11 text-base placeholder:text-sm transition-opacity [&::-webkit-search-cancel-button]:hidden dark:bg-neutral-800 ${asking ? "opacity-60" : ""}`}
+          />
+          {(askOn ? question : query) !== "" && <ClearX label="search" onClear={() => { if (askOn) setQuestion(""); else setQuery(""); inputRef.current?.focus(); }} />}
+        </form>
+        <RoundButton icon="sparkle" label="Ask AI" pressed={askOn} onClick={toggleAsk} />
+        <RoundButton icon="filter" label={filtersOpen ? "Hide filters" : "Filters"} pressed={filtersOpen} onClick={() => setFiltersOpen((o) => !o)} />
       </div>
       <ProblemPopup message={askProblem} onClose={() => setAskProblem(null)} />
 
       {filtersOpen && (
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="col-span-2 flex flex-wrap gap-2">
-            <button type="button" aria-pressed={inWatched} onClick={() => toggleList("watched")} className={pill(inWatched)}>In Watched</button>
-            <button type="button" aria-pressed={inWatchlist} onClick={() => toggleList("watchlist")} className={pill(inWatchlist)}>In Watchlist</button>
-            <button type="button" aria-pressed={plan.seen === "not-seen"} onClick={toggleNotSeen} className={pill(plan.seen === "not-seen")}>Not watched yet</button>
-            <button type="button" aria-pressed={filter.rewatchesOnly} onClick={() => set({ rewatchesOnly: !filter.rewatchesOnly })} className={pill(filter.rewatchesOnly)}>Rewatches only</button>
-            <button type="button" aria-pressed={plan.inTheatres === "now"} onClick={() => drop({ inTheatres: plan.inTheatres === "now" ? null : "now" })} className={pill(plan.inTheatres === "now")}>In cinemas now</button>
-            <button type="button" aria-pressed={plan.inTheatres === "soon"} onClick={() => drop({ inTheatres: plan.inTheatres === "soon" ? null : "soon" })} className={pill(plan.inTheatres === "soon")}>Coming soon</button>
+        // The options sit in one rounded card with a soft shadow, like a Watched card; the chips for what is set stay below it.
+        <div className="flex flex-col gap-3 rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05),0_8px_24px_-8px_rgba(0,0,0,0.2),0_2px_6px_rgba(0,0,0,0.06)] dark:bg-neutral-900 dark:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.7)]">
+          {(hasFilter(filter) || planOn || scope !== null) && (
+            <div className="flex justify-end">
+              <button type="button" onClick={() => { setScope(null); setFilter(EMPTY_FILTER); setPlan(EMPTY_PLAN); setOrder("default"); setAskText(""); }} className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">Clear filters</button>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="col-span-2 flex flex-wrap gap-2">
+              <button type="button" aria-pressed={inWatched} onClick={() => toggleList("watched")} className={pill(inWatched)}>In Watched</button>
+              <button type="button" aria-pressed={inWatchlist} onClick={() => toggleList("watchlist")} className={pill(inWatchlist)}>In Watchlist</button>
+              <button type="button" aria-pressed={plan.seen === "not-seen"} onClick={toggleNotSeen} className={pill(plan.seen === "not-seen")}>Not watched yet</button>
+              <button type="button" aria-pressed={filter.rewatchesOnly} onClick={() => set({ rewatchesOnly: !filter.rewatchesOnly })} className={pill(filter.rewatchesOnly)}>Rewatches only</button>
+              <button type="button" aria-pressed={plan.inTheatres === "now"} onClick={() => drop({ inTheatres: plan.inTheatres === "now" ? null : "now" })} className={pill(plan.inTheatres === "now")}>In cinemas now</button>
+              <button type="button" aria-pressed={plan.inTheatres === "soon"} onClick={() => drop({ inTheatres: plan.inTheatres === "soon" ? null : "soon" })} className={pill(plan.inTheatres === "soon")}>Coming soon</button>
+            </div>
+            <select value={filter.category ?? ""} onChange={(e) => set({ category: (e.target.value || null) as LogFilter["category"] })} className={FIELD} aria-label="Type">
+              <option value="">Any type</option>
+              {["Movie", "TV Show", "Concert", "Live Event"].map((c) => <option key={c}>{c}</option>)}
+            </select>
+            <select value={filter.minRating ?? ""} onChange={(e) => set({ minRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Minimum rating">
+              <option value="">Any rating</option>
+              {[5, 6, 7, 8, 9].map((n) => <option key={n} value={n}>★ {n}+</option>)}
+            </select>
+            <select value={filter.maxRating ?? ""} onChange={(e) => set({ maxRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Maximum rating">
+              <option value="">No rating ceiling</option>
+              {[4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>★ up to {n}</option>)}
+            </select>
+            <select value={order} onChange={(e) => setOrder(e.target.value as Order)} className={FIELD} aria-label="Sort by">
+              {ORDERS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+            <div className="relative col-span-2 min-w-0"><input inputMode="numeric" value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: num(e.target.value) })} placeholder="Released from (year)" aria-label="Released from" className={`${FIELD} w-full pr-11`} />{filter.releaseFrom !== null && filter.releaseFrom !== undefined && <ClearX label="Released from" onClear={() => set({ releaseFrom: null })} />}</div>
+            <div className="relative col-span-2 min-w-0"><input inputMode="numeric" value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: num(e.target.value) })} placeholder="Released to (year)" aria-label="Released to" className={`${FIELD} w-full pr-11`} />{filter.releaseTo !== null && filter.releaseTo !== undefined && <ClearX label="Released to" onClear={() => set({ releaseTo: null })} />}</div>
+            <div className="relative min-w-0"><input inputMode="numeric" value={plan.minRuntime ?? ""} onChange={(e) => drop({ minRuntime: minutes(e.target.value) })} placeholder="Over (minutes)" aria-label="Longer than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.minRuntime !== null && <ClearX label="Over minutes" onClear={() => drop({ minRuntime: null })} />}</div>
+            <div className="relative min-w-0"><input inputMode="numeric" value={plan.maxRuntime ?? ""} onChange={(e) => drop({ maxRuntime: minutes(e.target.value) })} placeholder="Under (minutes)" aria-label="Shorter than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.maxRuntime !== null && <ClearX label="Under minutes" onClear={() => drop({ maxRuntime: null })} />}</div>
+            <div className="col-span-2 flex flex-col gap-3">
+              <SuggestTags
+                label="People"
+                tags={[]}
+                placeholder="Type a name, then tap the right one"
+                search={async (text) => {
+                  const res = await services.catalog.searchPeople(text);
+                  return res.ok ? res.value.map((p) => ({ id: String(p.tmdbId), label: p.name, image: p.profilePath, note: p.knownFor ?? null })) : [];
+                }}
+                onAdd={(t) => drop({ people: [...plan.people.filter((x) => x.tmdbId !== Number(t.id)), { name: t.label, role: "any", tmdbId: Number(t.id), profilePath: t.image ?? null }] })}
+                onRemove={() => {}}
+              />
+              <SuggestTags label="Genres" tags={[]} options={GENRE_TAGS} placeholder="Type a genre" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={() => {}} />
+              <SuggestTags label="Countries" tags={[]} options={COUNTRY_TAGS} placeholder="Type a country, such as Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={() => {}} />
+              <SuggestTags label="Languages" tags={[]} options={LANGUAGE_TAGS} placeholder="Type a language, such as French" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={() => {}} />
+              <SuggestTags
+                label="Keywords"
+                tags={[]}
+                allowFree
+                placeholder="A theme, such as heist or german expressionism"
+                search={async (text) => {
+                  const res = await services.catalog.searchKeywords(text);
+                  return res.ok ? res.value.map((k) => ({ id: k.toLowerCase(), label: k })) : [];
+                }}
+                onAdd={(t) => drop({ keywords: [...new Set([...plan.keywords, t.label])] })}
+                onRemove={() => {}}
+              />
+              <SuggestTags label="Streaming on" tags={[]} options={PROVIDER_TAGS} allowFree placeholder="Type a service, such as Netflix" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={() => {}} />
+            </div>
+            <div className="relative min-w-0"><input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={`${FIELD} w-full pr-11`} />{filter.venue && <ClearX label="Venue" onClear={() => set({ venue: null })} />}</div>
+            <div className="relative min-w-0"><input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={`${FIELD} w-full pr-11`} />{filter.format && <ClearX label="Format" onClear={() => set({ format: null })} />}</div>
+            <div className="relative col-span-2 min-w-0"><input value={filter.extra ?? ""} onChange={(e) => set({ extra: e.target.value || null })} placeholder="Extras (your log), such as IMAX or 3D" className={`${FIELD} w-full pr-11`} />{filter.extra && <ClearX label="Extras" onClear={() => set({ extra: null })} />}</div>
+            <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" hint="yearAgo" /></label>
+            <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><DateField value={filter.dateTo ?? ""} onChange={(v) => set({ dateTo: v || null })} label="Watched to" /></label>
           </div>
-          <select value={filter.category ?? ""} onChange={(e) => set({ category: (e.target.value || null) as LogFilter["category"] })} className={FIELD} aria-label="Type">
-            <option value="">Any type</option>
-            {["Movie", "TV Show", "Concert", "Live Event"].map((c) => <option key={c}>{c}</option>)}
-          </select>
-          <select value={filter.minRating ?? ""} onChange={(e) => set({ minRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Minimum rating">
-            <option value="">Any rating</option>
-            {[5, 6, 7, 8, 9].map((n) => <option key={n} value={n}>★ {n}+</option>)}
-          </select>
-          <select value={filter.maxRating ?? ""} onChange={(e) => set({ maxRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Maximum rating">
-            <option value="">No rating ceiling</option>
-            {[4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>★ up to {n}</option>)}
-          </select>
-          <select value={order} onChange={(e) => setOrder(e.target.value as Order)} className={FIELD} aria-label="Sort by">
-            {ORDERS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </select>
-          <div className="relative col-span-2 min-w-0"><input inputMode="numeric" value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: num(e.target.value) })} placeholder="Released from (year)" aria-label="Released from" className={`${FIELD} w-full pr-11`} />{filter.releaseFrom !== null && filter.releaseFrom !== undefined && <ClearX label="Released from" onClear={() => set({ releaseFrom: null })} />}</div>
-          <div className="relative col-span-2 min-w-0"><input inputMode="numeric" value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: num(e.target.value) })} placeholder="Released to (year)" aria-label="Released to" className={`${FIELD} w-full pr-11`} />{filter.releaseTo !== null && filter.releaseTo !== undefined && <ClearX label="Released to" onClear={() => set({ releaseTo: null })} />}</div>
-          <div className="relative min-w-0"><input inputMode="numeric" value={plan.minRuntime ?? ""} onChange={(e) => drop({ minRuntime: minutes(e.target.value) })} placeholder="Over (minutes)" aria-label="Longer than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.minRuntime !== null && <ClearX label="Over minutes" onClear={() => drop({ minRuntime: null })} />}</div>
-          <div className="relative min-w-0"><input inputMode="numeric" value={plan.maxRuntime ?? ""} onChange={(e) => drop({ maxRuntime: minutes(e.target.value) })} placeholder="Under (minutes)" aria-label="Shorter than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.maxRuntime !== null && <ClearX label="Under minutes" onClear={() => drop({ maxRuntime: null })} />}</div>
-          <div className="col-span-2 flex flex-col gap-3">
-            <SuggestTags
-              label="People"
-              tags={[]}
-              placeholder="Type a name, then tap the right one"
-              search={async (text) => {
-                const res = await services.catalog.searchPeople(text);
-                return res.ok ? res.value.map((p) => ({ id: String(p.tmdbId), label: p.name, image: p.profilePath, note: p.knownFor ?? null })) : [];
-              }}
-              onAdd={(t) => drop({ people: [...plan.people.filter((x) => x.tmdbId !== Number(t.id)), { name: t.label, role: "any", tmdbId: Number(t.id), profilePath: t.image ?? null }] })}
-              onRemove={() => {}}
-            />
-            <SuggestTags label="Genres" tags={[]} options={GENRE_TAGS} placeholder="Type a genre" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={() => {}} />
-            <SuggestTags label="Countries" tags={[]} options={COUNTRY_TAGS} placeholder="Type a country, such as Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={() => {}} />
-            <SuggestTags label="Languages" tags={[]} options={LANGUAGE_TAGS} placeholder="Type a language, such as French" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={() => {}} />
-            <SuggestTags
-              label="Keywords"
-              tags={[]}
-              allowFree
-              placeholder="A theme, such as heist or german expressionism"
-              search={async (text) => {
-                const res = await services.catalog.searchKeywords(text);
-                return res.ok ? res.value.map((k) => ({ id: k.toLowerCase(), label: k })) : [];
-              }}
-              onAdd={(t) => drop({ keywords: [...new Set([...plan.keywords, t.label])] })}
-              onRemove={() => {}}
-            />
-            <SuggestTags label="Streaming on" tags={[]} options={PROVIDER_TAGS} allowFree placeholder="Type a service, such as Netflix" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={() => {}} />
-          </div>
-          <div className="relative min-w-0"><input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={`${FIELD} w-full pr-11`} />{filter.venue && <ClearX label="Venue" onClear={() => set({ venue: null })} />}</div>
-          <div className="relative min-w-0"><input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={`${FIELD} w-full pr-11`} />{filter.format && <ClearX label="Format" onClear={() => set({ format: null })} />}</div>
-          <div className="relative col-span-2 min-w-0"><input value={filter.extra ?? ""} onChange={(e) => set({ extra: e.target.value || null })} placeholder="Extras (your log), such as IMAX or 3D" className={`${FIELD} w-full pr-11`} />{filter.extra && <ClearX label="Extras" onClear={() => set({ extra: null })} />}</div>
-          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" hint="yearAgo" /></label>
-          <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><DateField value={filter.dateTo ?? ""} onChange={(v) => set({ dateTo: v || null })} label="Watched to" /></label>
         </div>
       )}
 
