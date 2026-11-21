@@ -132,7 +132,7 @@ function PreviewView() {
         onCoverClick={details ? () => setViewer("backdrop") : undefined}
         onPosterClick={details ? () => setViewer("poster") : undefined}
         loading={!details && !problem}
-        extra={details && <RatingsLine links={links} mine={null} />}
+        extra={details && <RatingsLine links={links} />}
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">

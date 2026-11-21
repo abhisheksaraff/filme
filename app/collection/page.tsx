@@ -187,9 +187,9 @@ function CollectionView() {
                   {rows.map((row, i) =>
                     "node" in row ? (
                       <StackCard key={row.node.id} node={row.node} viewings={byId} edits={data.edits} completions={completions} collectionId={data.detail.id}
-                        label={`${data.detail.name} completed`} show={show} showTitle index={i} />
+                        label={`${data.detail.name} Completed`} show={show} showTitle index={i} />
                     ) : (
-                      <WatchedCard key={row.v.id} index={i} animate rating={row.v.rating} notes={row.v.notes} entry={cardOf(row.v, show)} />
+                      <WatchedCard key={row.v.id} index={i} animate notes={row.v.notes} entry={cardOf(row.v, show)} />
                     ),
                   )}
                 </ul>

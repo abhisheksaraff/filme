@@ -203,7 +203,7 @@ function EpisodeView() {
                 <h2 className="font-serif text-xl">Your viewings</h2>
                 <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
                   {covering.map((v, i) => (
-                    <WatchedCard key={v.id} index={i} showTitle={false} animate rating={v.rating} notes={v.notes}
+                    <WatchedCard key={v.id} index={i} showTitle={false} animate notes={v.notes}
                       entry={cardOf(v, { mediaId: detail.mediaId as string, title: detail.title, category: "TV Show", posterPath: detail.posterPath })} />
                   ))}
                 </ul>

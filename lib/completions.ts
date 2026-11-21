@@ -55,7 +55,8 @@ async function collectionOf(mediaId: string): Promise<number | null | undefined>
   return seen.ok ? seen.value : undefined;
 }
 
-const CHECKED_KEY = "filme_collections_checked";
+// The "_2" makes every phone rebuild its cards once after the cards were cleared (migration 0028).
+const CHECKED_KEY = "filme_collections_checked_2";
 
 /**
  * Once a day: looks up the collection of films logged before collections existed (a few at a time), then rebuilds the cards of every

@@ -1,21 +1,18 @@
 // components/RatingsLine.tsx
-// Under a title: a plain-text IMDb link, then IMDb's rating and your own.
+// Under a title: a plain-text IMDb link, then IMDb's rating.
 import Icon from "@/components/Icon";
 import { formatScore } from "@/lib/domain/score";
 import type { TitleLinks } from "@/lib/ports/ratings";
 
 interface Props {
   links: TitleLinks | null;
-  /** Your rating from your latest rated viewing; null before you have logged one. */
-  mine: number | null;
 }
 
 const num = formatScore;
 
-export default function RatingsLine({ links, mine }: Props) {
+export default function RatingsLine({ links }: Props) {
   const shown = links?.imdbRating ?? null;
-  // Only IMDb's rating and yours are shown; TMDB's score is never a stand-in.
-  const hasRatings = shown !== null || mine !== null;
+  // Only IMDb's rating is shown; TMDB's score is never a stand-in, and your own rating is never shown.
 
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
@@ -29,12 +26,7 @@ export default function RatingsLine({ links, mine }: Props) {
           IMDb<Icon name="open" size={14} />
         </span>
       )}
-      {hasRatings && (
-        <span className="flex gap-3 text-neutral-500">
-          {shown !== null && <span>★ {num(shown)}</span>}
-          {mine !== null && <span>★ {num(mine)} yours</span>}
-        </span>
-      )}
+      {shown !== null && <span className="text-neutral-500">★ {num(shown)}</span>}
     </p>
   );
 }

@@ -3,9 +3,12 @@
 // episode watched until it is edited. The button swaps the card for a rounded box of the cards it was made from.
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Icon from "@/components/Icon";
 import WatchedCard, { type CardData } from "@/components/WatchedCard";
+import { usePageState } from "@/lib/pageMemory";
 import type { StackNode } from "@/lib/domain/passes";
 import type { CollectionViewing, ViewingSummary } from "@/lib/ports/log";
 import type { Completion, StackEdit, StackFields } from "@/lib/ports/passes";
@@ -37,21 +40,22 @@ export function withFields(base: ViewingSummary, fields: StackFields | undefined
     card: {
       watchedOn: f.date !== undefined ? f.date : base.watchedOn,
       watchedAt: f.time !== undefined ? f.time : base.watchedAt,
-      primaryFormat: f.primaryFormat !== undefined ? f.primaryFormat : base.primaryFormat,
-      addons: f.addons ?? base.addons,
+      // A card copies only the last viewing's date, time and place; everything else starts empty and is filled in by hand.
+      primaryFormat: f.primaryFormat ?? null,
+      addons: f.addons ?? [],
       venueId: "venueId" in f ? f.venueId ?? null : moved ? null : base.venueId,
       venue: moved ? f.location ?? null : base.venue,
       venueLatitude: "venueLatitude" in f ? f.venueLatitude ?? null : moved ? null : base.venueLatitude,
       venueLongitude: "venueLongitude" in f ? f.venueLongitude ?? null : moved ? null : base.venueLongitude,
       venueType: f.venueType !== undefined ? f.venueType : base.venueType,
-      auditorium: f.auditorium !== undefined ? f.auditorium : base.auditorium,
-      seats: f.seats ?? base.seats,
-      totalTickets: f.totalTickets !== undefined ? f.totalTickets : base.totalTickets,
+      auditorium: f.auditorium ?? null,
+      seats: f.seats ?? [],
+      totalTickets: f.totalTickets ?? null,
       season: base.season,
       episode: base.episode,
     },
-    rating: f.rating !== undefined ? f.rating : base.rating,
-    notes: f.notes !== undefined ? f.notes : base.notes,
+    rating: f.rating ?? null,
+    notes: f.notes ?? null,
   };
 }
 
@@ -70,7 +74,7 @@ interface Props {
   completions?: readonly Completion[];
   /** Set for a movie collection's card: where its edit page and pictures belong. */
   collectionId?: number;
-  /** What the card says it is; "Season 3 completed" or "Series completed" when left out. */
+  /** What the card says it is; "<Show> Completed" or "<Show> Season 3 Completed" when left out. */
   label?: string;
   /** For a card that arrives without its episodes (the Watched page): fetches them when the card is opened. */
   load?: () => Promise<LoadedCard | null>;
@@ -81,7 +85,9 @@ interface Props {
 }
 
 export default function StackCard({ node, viewings, edits, show, completions = [], collectionId, label: given, load, depth = 0, showTitle = false, index = 0 }: Props) {
-  const [open, setOpen] = useState(false);
+  // Open or closed is remembered, so coming Back from a title or collection page finds the card as it was left.
+  const path = usePathname();
+  const [open, setOpen] = usePageState(`stack.${path}.${collectionId ?? show.mediaId}.${node.id}`, false);
   const [full, setFull] = useState<LoadedCard | null>(null);
   const current = full ?? { node, viewings, edits };
 
@@ -100,7 +106,9 @@ export default function StackCard({ node, viewings, edits, show, completions = [
   if (!base) return null;
   const edit = current.edits.find((e) => e.season === node.season && e.passKey === node.passKey);
   const mine = withFields(base, edit?.fields);
-  const label = given ?? (node.season === null ? "Series completed" : `Season ${node.season} completed`);
+  const label = given ?? (node.season === null ? `${show.title} Completed` : `${show.title} Season ${node.season} Completed`);
+  // The name opens the collection, the show or the season.
+  const labelHref = collectionId !== undefined ? `/collection/?id=${collectionId}` : node.season === null ? `/title/?id=${show.mediaId}` : `/season/?id=${show.mediaId}&n=${node.season}`;
   const stored = completions.find((c) => (collectionId !== undefined ? c.collectionId === collectionId : c.mediaId === show.mediaId) && c.season === node.season && c.passKey === node.passKey);
 
   if (!open) {
@@ -110,7 +118,11 @@ export default function StackCard({ node, viewings, edits, show, completions = [
         showTitle={showTitle}
         animate
         label={label}
-        rating={mine.rating}
+        labelHref={labelHref}
+        posterHref={collectionId !== undefined ? labelHref : undefined}
+        hideTitle={collectionId !== undefined}
+        noRating={collectionId !== undefined || node.season !== null}
+       
         notes={mine.notes}
         entry={{ ...mine.card, id: `stack:${node.id}`, mediaId: show.mediaId, title: show.title, category: show.category, posterPath: show.posterPath, season: collectionId !== undefined ? null : node.season, episode: null }}
         pictureId={base.id}
@@ -125,9 +137,9 @@ export default function StackCard({ node, viewings, edits, show, completions = [
   return (
     <li className="md:col-span-full lg:col-span-full">
       <div className={`relative rounded-[2rem] p-3 pt-4 shadow-[0_2px_4px_rgba(0,0,0,0.08),0_16px_36px_-10px_rgba(0,0,0,0.4)] ${box}`}>
-        <div className="flex items-center justify-between gap-3 px-2 pb-3">
-          <span className="text-xs uppercase tracking-wide text-neutral-500">{label}</span>
-          <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="relative flex h-9 w-9 items-center justify-center rounded-full bg-black text-white before:absolute before:-inset-2 before:content-['']">
+        <div className="flex items-start justify-between gap-3 px-2 pb-3">
+          <Link href={labelHref} className="line-clamp-2 min-w-0 pt-1 font-serif text-xl font-medium leading-tight no-underline">{label}</Link>
+          <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black text-white before:absolute before:-inset-2 before:content-['']">
             <Icon name="close" size={18} />
           </button>
         </div>
@@ -138,7 +150,7 @@ export default function StackCard({ node, viewings, edits, show, completions = [
               return <StackCard key={item.node.id} node={item.node} viewings={current.viewings} edits={current.edits} show={show} completions={completions} depth={depth + 1} showTitle={showTitle} index={i} />;
             }
             const v = current.viewings.get(item.viewingId);
-            return v ? <WatchedCard key={v.id} index={i} showTitle={showTitle} rating={v.rating} notes={v.notes} entry={cardOf(v, show)} /> : null;
+            return v ? <WatchedCard key={v.id} index={i} showTitle={showTitle} notes={v.notes} entry={cardOf(v, show)} /> : null;
           })}
         </ul>
       </div>

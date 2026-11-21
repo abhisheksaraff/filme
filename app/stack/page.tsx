@@ -26,6 +26,9 @@ type Ask = "save" | "cancel" | "reset" | "delete" | null;
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
+/** A card copies only the last viewing's date, time and place; the rest of the form starts empty. */
+const blankCard = (entry: LogEntry): LogEntry => ({ ...entry, auditorium: null, seats: [], totalTickets: null, primaryFormat: null, addons: [], rating: null, notes: null });
+
 function StackEditView() {
   const ready = useRequireSession();
   const router = useRouter();
@@ -66,8 +69,9 @@ function StackEditView() {
         void _a; void _b; void _c;
         setTitle(res.value.detail.name);
         setNode(found);
-        setOriginal(base.value.entry);
-        setDraft({ ...draftFromEntry({ ...base.value.entry, ...own }), season: "", episode: "" });
+        const blank = blankCard(base.value.entry);
+        setOriginal(blank);
+        setDraft({ ...draftFromEntry({ ...blank, ...own }), season: "", episode: "" });
         setEpisodeIds(viewingIdsOf(found));
         const row = await services.passes.completion({ collectionId: cParam }, 1, passKey);
         if (!cancelled && row.ok) setComp(row.value);
@@ -89,7 +93,7 @@ function StackEditView() {
       const saved = edits.ok ? edits.value.find((e) => e.season === season && e.passKey === passKey)?.fields : undefined;
       const { venueId: _a, venueLatitude: _b, venueLongitude: _c, ...own } = saved ?? {};
       void _a; void _b; void _c;
-      const entry = base.value.entry;
+      const entry = blankCard(base.value.entry);
       setTitle(detail.value.title);
       setNode(found);
       setOriginal(entry);

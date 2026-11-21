@@ -12,6 +12,7 @@ import Icon, { type IconName } from "@/components/Icon";
 import ImageViewer from "@/components/ImageViewer";
 import RoundButton from "@/components/RoundButton";
 import ViewingDetails from "@/components/ViewingDetails";
+import { useCardImdb } from "@/hooks/useCardImdb";
 import { useViewingPictures } from "@/hooks/useViewingPictures";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { scopeLabel } from "@/lib/domain/tv";
@@ -139,7 +140,6 @@ interface Props {
   showTitle?: boolean;
   /** "First viewing", "Second viewing" and so on. */
   label?: string;
-  rating?: number | null;
   notes?: string | null;
   /** Rises into place as the page opens; only the title page does this. */
   animate?: boolean;
@@ -151,9 +151,17 @@ interface Props {
   pictureId?: string;
   /** The completion card whose own pictures to show instead (once it has some). */
   completionId?: string;
+  /** Makes the label a link in the title's style (a completion card's "<Name> Completed"). */
+  labelHref?: string;
+  /** Where the poster goes, when not the title's page. */
+  posterHref?: string;
+  /** No title line under the poster (a collection's card, which has no single title). */
+  hideTitle?: boolean;
+  /** No IMDb rating on this card (seasons and collections have none). */
+  noRating?: boolean;
 }
 
-export default function WatchedCard({ entry, index = 0, showTitle = true, label, rating, notes, animate = false, editHref, onStack, pictureId, completionId }: Props) {
+export default function WatchedCard({ entry, index = 0, showTitle = true, label, notes, animate = false, editHref, onStack, pictureId, completionId, labelHref, posterHref, hideTitle = false, noRating = false }: Props) {
   // Keyed by page too, so the same viewing opened on Watched is not also open on its title page.
   const path = usePathname();
   const wide = useWide();
@@ -190,6 +198,11 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
     return () => watcher.disconnect();
   }, []);
   const images = useViewingPictures(pictureId ?? entry.id, near, completionId);
+  // IMDb's rating sits on the title line: a film's own, a show's own, or the episode's. Seasons and collections have none.
+  const isShow = entry.category === "TV Show";
+  const whole = !noRating && showTitle && !hideTitle && (!isShow || (entry.episode === null && entry.season === null));
+  const ofEpisode = !noRating && showTitle && !hideTitle && isShow && entry.episode !== null && entry.season !== null;
+  const imdb = useCardImdb(whole || ofEpisode ? entry.mediaId : null, isShow ? "TV Show" : "Movie", near && (whole || ofEpisode), ofEpisode ? entry.season : null, ofEpisode ? entry.episode : null);
   // The roll-out is smooth unless animations are switched off, when it just snaps.
   const [smooth] = useState(() => readCachedAppearance().animationsEnabled);
 
@@ -230,11 +243,18 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
         <div className={`${smooth ? "transition-[opacity,transform] duration-300" : ""} ${open && editHref !== null ? "scale-100 opacity-100" : "pointer-events-none scale-75 opacity-0"}`}>
           <RoundButton icon="edit" label="Edit viewing" href={editHref ?? `/entry/?id=${entry.id}`} className="relative !bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)] before:absolute before:-inset-3 before:content-['']" />
         </div>
-        {onStack && <RoundButton icon="layers" label="Show the episodes" onClick={onStack} className="relative !bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)] before:absolute before:-inset-3 before:content-['']" />}
+        {onStack && <RoundButton icon="fan" label="Show the episodes" onClick={onStack} className="relative !bg-black !text-white shadow-[0_6px_16px_rgba(0,0,0,0.4)] before:absolute before:-inset-3 before:content-['']" />}
       </div>
 
       <div ref={fold} className="flex flex-col md:min-h-[var(--folded)]">
-      {label && <span className={`mb-1 block px-3 pt-2 text-xs uppercase tracking-wide text-neutral-500 `}>{label}</span>}
+      {label && (labelHref ? (
+        // Room is kept on the right for the buttons, so the name never sits under them and a tap here is only ever the name.
+        <div className="mb-1 pl-3 pr-28 pt-2">
+          <Link href={labelHref} className="relative z-10 line-clamp-2 w-fit max-w-full font-serif text-xl font-medium leading-tight no-underline">{label}</Link>
+        </div>
+      ) : (
+        <span className={`mb-1 block px-3 pt-2 text-xs uppercase tracking-wide text-neutral-500 `}>{label}</span>
+      ))}
       <div className="flex gap-1">
         <div className="flex w-1/2 flex-col gap-1">
           {at ? (
@@ -255,17 +275,20 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
           {at && <Link href={`/map/?venue=${entry.venueId}`} className="relative z-10 line-clamp-2 px-2 pb-1 text-sm font-normal leading-tight text-neutral-500">{entry.venue}</Link>}
         </div>
         <div className="flex w-1/2 flex-col gap-1">
-          {showTitle ? <Link href={titleHref} aria-label={`Open ${entry.title}`} className="relative z-10 block">{posterEl}</Link> : posterEl}
+          {showTitle ? <Link href={posterHref ?? titleHref} aria-label={`Open ${entry.title}`} className="relative z-10 block">{posterEl}</Link> : posterEl}
         </div>
       </div>
       <div className="mt-2 flex flex-col gap-2 px-3">
-        {showTitle && <Link href={titleHref} className="relative z-10 self-start font-serif text-xl font-medium leading-tight">{entry.title}</Link>}
-        {(episode || rating != null) && (
-          <span className="flex items-baseline justify-between text-sm text-neutral-600 dark:text-neutral-400">
-            <span>{episode}</span>
-            {rating != null && <span>★ {formatScore(rating)}</span>}
-          </span>
+        {showTitle && !hideTitle && (
+          <div className="flex items-start justify-between gap-3">
+            {/* About as long as "Spider-Man: Brand New Day" fits on a line; longer names go to a second line, then "…". */}
+            <Link href={titleHref} className="relative z-10 line-clamp-2 min-w-0 max-w-[15.5rem] font-serif text-xl font-medium leading-tight">{entry.title}</Link>
+            {imdb && imdb.rating !== null && (
+              <a href={`https://www.imdb.com/title/${imdb.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label={`IMDb rating ${formatScore(imdb.rating)}`} className="relative z-10 shrink-0 pt-1 text-sm text-neutral-500">★ {formatScore(imdb.rating)}</a>
+            )}
+          </div>
         )}
+        {episode && <span className="text-sm text-neutral-600 dark:text-neutral-400">{episode}</span>}
       </div>
 
       <div ref={spacer} className="flex-1" />

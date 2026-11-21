@@ -21,6 +21,7 @@ const ALLOWED_PATHS: RegExp[] = [
   /^\/tv\/\d+\/season\/\d+$/,
   /^\/tv\/\d+\/season\/\d+\/episode\/\d+$/,
   /^\/tv\/\d+\/season\/\d+\/episode\/\d+\/credits$/,
+  /^\/tv\/\d+\/season\/\d+\/episode\/\d+\/external_ids$/,
   /^\/person\/\d+$/,
   /^\/person\/\d+\/combined_credits$/,
   /^\/person\/\d+\/images$/,

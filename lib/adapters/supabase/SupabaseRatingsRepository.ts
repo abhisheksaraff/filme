@@ -2,7 +2,7 @@
 // IMDb ids and ratings for the title pages: saved on the title, refreshed from OMDb at most weekly.
 import { edgeCatalog } from "@/lib/adapters/tmdb/EdgeCatalog";
 import { ok } from "@/lib/ports/result";
-import { scoreKey, type RatingsRepository, type ScoreItem } from "@/lib/ports/ratings";
+import { cardKey, scoreKey, type CardTitle, type ImdbInfo, type RatingsRepository, type ScoreItem } from "@/lib/ports/ratings";
 import { callFunction } from "./functions";
 import { getSupabase } from "./client";
 
@@ -111,6 +111,87 @@ export const supabaseRatingsRepository: RatingsRepository = {
       };
       await Promise.all(Array.from({ length: AT_ONCE }, worker));
     })();
+    return out;
+  },
+
+  async cardLinks(items, onInfo) {
+    const db = getSupabase();
+    const out = new Map<string, ImdbInfo>();
+    const ids = [...new Set(items.map((i) => i.mediaId))];
+    if (ids.length === 0) return out;
+    const wholes = items.filter((i) => i.season == null || i.episode == null);
+    const episodes = items.filter((i) => i.season != null && i.episode != null);
+    const [media, saved] = await Promise.all([
+      db.from("media_items").select("id, tmdb_id, imdb_id, imdb_rating, imdb_rating_at").in("id", ids),
+      episodes.length ? db.from("episode_scores").select("media_id, season, episode, imdb_id, imdb_rating, checked_at").in("media_id", [...new Set(episodes.map((i) => i.mediaId))]) : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    ]);
+    const rows = new Map((media.data ?? []).map((r) => [r.id as string, r] as const));
+    const late: CardTitle[] = [];
+    for (const item of wholes) {
+      const r = rows.get(item.mediaId);
+      const id = (r?.imdb_id as string | null | undefined) ?? null;
+      const at = r?.imdb_rating_at as string | null | undefined;
+      if (id && r?.imdb_rating != null) out.set(item.key, { imdbId: id, rating: Number(r.imdb_rating) });
+      if (!id || !at || Date.now() - Date.parse(at) > LIST_STALE_MS) late.push(item);
+    }
+    const have = new Map<string, Record<string, unknown>>((saved.data ?? []).map((r) => [`${r.media_id}:${r.season}:${r.episode}`, r]));
+    const lateEpisodes: CardTitle[] = [];
+    for (const item of episodes) {
+      const r = have.get(cardKey(item.mediaId, item.season, item.episode));
+      const id = (r?.imdb_id as string | null | undefined) ?? null;
+      if (id && r?.imdb_rating != null) out.set(item.key, { imdbId: id, rating: Number(r.imdb_rating) });
+      const at = r?.checked_at as string | undefined;
+      if (!r || !at || Date.now() - Date.parse(at) > LIST_STALE_MS) lateEpisodes.push(item);
+    }
+
+    // Titles with nothing saved (or a stale score) are looked up in the background.
+    const wholeQueue = late.filter((i) => !asked.has(`c:${i.key}`)).slice(0, 8);
+    const episodeQueue = lateEpisodes.filter((i) => !asked.has(`c:${i.key}`)).slice(0, 6);
+    for (const i of [...wholeQueue, ...episodeQueue]) asked.add(`c:${i.key}`);
+    if (wholeQueue.length > 0) {
+      void supabaseRatingsRepository.scores(
+        wholeQueue.map((i) => ({ mediaId: i.mediaId, kind: i.kind, tmdbId: null })),
+        {
+          fill: wholeQueue.length,
+          onScore: () => {
+            void (async () => {
+              const fresh = await db.from("media_items").select("id, imdb_id, imdb_rating").in("id", wholeQueue.map((i) => i.mediaId));
+              for (const r of fresh.data ?? []) {
+                if (!r.imdb_id || r.imdb_rating == null) continue;
+                for (const i of wholeQueue) if (i.mediaId === r.id) onInfo(i.key, { imdbId: r.imdb_id as string, rating: Number(r.imdb_rating) });
+              }
+            })();
+          },
+        },
+      );
+    }
+    if (episodeQueue.length > 0 && Date.now() >= omdbPausedUntil) {
+      void (async () => {
+        const work = [...episodeQueue];
+        const worker = async () => {
+          for (let item = work.shift(); item; item = work.shift()) {
+            const tmdbId = rows.get(item.mediaId)?.tmdb_id as number | null | undefined;
+            if (tmdbId == null || item.season == null || item.episode == null) continue;
+            const ext = await callFunction<{ imdb_id?: string | null }>("tmdb", { path: `/tv/${tmdbId}/season/${item.season}/episode/${item.episode}/external_ids` });
+            if (!ext.ok) continue;
+            const imdbId = ext.value.imdb_id ?? null;
+            let rating: number | null = null;
+            if (imdbId) {
+              const res = await callFunction<{ rating: number | null }>("omdb", { imdbId });
+              if (!res.ok) {
+                omdbPausedUntil = Date.now() + 10 * 60_000;
+                asked.delete(`c:${item.key}`);
+                continue;
+              }
+              rating = res.value.rating;
+            }
+            await db.from("episode_scores").upsert({ media_id: item.mediaId, season: item.season, episode: item.episode, imdb_id: imdbId, imdb_rating: rating, checked_at: new Date().toISOString() }, { onConflict: "user_id,media_id,season,episode" });
+            if (imdbId && rating !== null) onInfo(item.key, { imdbId, rating });
+          }
+        };
+        await Promise.all([worker(), worker()]);
+      })();
+    }
     return out;
   },
 

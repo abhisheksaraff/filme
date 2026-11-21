@@ -108,7 +108,6 @@ export default function StatsPage() {
                 <Tile label="Titles" value={String(stats.titles)} />
                 <Tile label="Watch time" value={stats.minutes > 0 ? formatDuration(stats.minutes) : "—"} />
                 <Tile label="Tickets" value={stats.tickets > 0 ? String(stats.tickets) : "—"} />
-                <Tile label="Avg rating" value={stats.averageRating === null ? "—" : stats.averageRating.toFixed(1)} />
                 <Tile label="Rewatches" value={String(stats.rewatches)} />
                 <Tile label="Venues" value={stats.uniqueVenues > 0 ? String(stats.uniqueVenues) : "—"} />
                 <Tile label="Watchlist cleared" value={String(clearedHere.length)} />
@@ -124,15 +123,12 @@ export default function StatsPage() {
                 <Section title="By month"><BarList items={stats.months} /></Section>
               )}
               <Section title="Day of the week"><BarList items={stats.weekdays} /></Section>
-              {stats.ratings.some((r) => r.value > 0) && <Section title="Ratings"><BarList items={stats.ratings} /></Section>}
               {stats.topTitles.length > 0 && <Section title="Watched most"><BarList items={stats.topTitles} /></Section>}
               {stats.venues.length > 0 && <Section title="Places"><BarList items={stats.venues} /></Section>}
               {stats.formats.length > 0 && <Section title="Formats"><BarList items={stats.formats} /></Section>}
-              {stats.formatRatings.length > 0 && <Section title="Best-rated formats"><BarList items={stats.formatRatings} decimals={1} /></Section>}
               {stats.genres.length > 0 && <Section title="Genres"><BarList items={stats.genres} /></Section>}
               {stats.directors.length > 0 && <Section title="Directors"><BarList items={stats.directors} /></Section>}
               {stats.actors.length > 0 && <Section title="Actors"><BarList items={stats.actors} /></Section>}
-              {stats.bestActors.length > 0 && <Section title="Highest-rated actors"><BarList items={stats.bestActors} decimals={1} /></Section>}
               {stats.performers.length > 0 && <Section title="Artists seen live"><BarList items={stats.performers} /></Section>}
               <Link href="/map/" className="rounded-2xl border border-neutral-300 px-4 py-3 text-sm dark:border-neutral-700">See your venues on the map →</Link>
               {stats.categories.length > 0 && <Section title="Types"><BarList items={stats.categories} /></Section>}

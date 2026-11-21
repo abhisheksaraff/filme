@@ -31,9 +31,9 @@ interface Props {
 /** The same shapes as a real row, so nothing moves when the pictures arrive. */
 function Placeholder() {
   return (
-    <ul className="-mx-5 flex gap-3 overflow-hidden px-5 pb-2" aria-label="Loading">
+    <ul className="-mx-5 flex gap-1.5 overflow-hidden px-5 pb-2" aria-label="Loading">
       {Array.from({ length: 4 }, (_, i) => (
-        <li key={i} className="flex w-28 shrink-0 flex-col gap-1 md:w-36 lg:w-40">
+        <li key={i} className="flex w-[134px] shrink-0 flex-col gap-1 md:w-[173px] lg:w-[192px]">
           <div className="skeleton aspect-[2/3] w-full rounded-lg" />
           <div className="skeleton h-8 w-full rounded" />
           <div className="skeleton h-4 w-1/2 rounded" />
@@ -121,7 +121,7 @@ export default function HomeRowSection({ rowId, nonce, load, index, onNear, bloc
         ) : label}
       </h2>
       {shown?.subtitle && <p className="-mt-1.5 text-sm text-neutral-500">{shown.subtitle}</p>}
-      {shown ? <PosterRow items={items} onRemove={remove} /> : <Placeholder />}
+      {shown ? <PosterRow items={items} onRemove={remove} home /> : <Placeholder />}
     </section>
   );
 }

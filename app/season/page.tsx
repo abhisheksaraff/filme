@@ -301,7 +301,7 @@ function SeasonView() {
                     "node" in row ? (
                       <StackCard key={row.node.id} node={row.node} viewings={byId} edits={sp.edits} completions={sp.completions} show={showRef} index={i} />
                     ) : (
-                      <WatchedCard key={row.v.id} index={i} showTitle={false} animate rating={row.v.rating} notes={row.v.notes} entry={cardOf(row.v, showRef)} />
+                      <WatchedCard key={row.v.id} index={i} showTitle={false} animate notes={row.v.notes} entry={cardOf(row.v, showRef)} />
                     ),
                   )}
                 </ul>

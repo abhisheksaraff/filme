@@ -168,7 +168,7 @@ function TitleView() {
         loading={!detail && !problem}
         onCoverClick={detail ? () => setViewer("backdrop") : undefined}
         onPosterClick={detail ? () => setViewer("poster") : undefined}
-        extra={detail && !isLive && <RatingsLine links={links} mine={detail.viewings.find((v) => v.rating !== null)?.rating ?? null} />}
+        extra={detail && !isLive && <RatingsLine links={links} />}
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">
@@ -235,7 +235,7 @@ function TitleView() {
                 "node" in row ? (
                   <StackCard key={row.node.id} node={row.node} viewings={byId} edits={sp.edits} completions={sp.completions} show={showRef(detail)} index={i} />
                 ) : (
-                  <WatchedCard key={row.v.id} index={i} showTitle={false} animate rating={row.v.rating} notes={row.v.notes} entry={cardOf(row.v, showRef(detail))} />
+                  <WatchedCard key={row.v.id} index={i} showTitle={false} animate notes={row.v.notes} entry={cardOf(row.v, showRef(detail))} />
                 ),
               )}
               {detail.viewings.length === 0 && <li className="text-sm text-neutral-500">No viewings left.</li>}

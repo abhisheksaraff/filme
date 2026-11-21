@@ -24,9 +24,13 @@ interface Props {
   onRemove?: (item: RowItem) => Promise<string | null>;
   /** Lays the posters out in a grid that wraps instead of one sideways strip. */
   grid?: boolean;
+  /** Home's rows: posters a fifth bigger with half the gap, the ring and badges keeping their size but nearer the corner. */
+  home?: boolean;
 }
 
-export default function PosterRow({ items, onRemove, grid }: Props) {
+export default function PosterRow({ items, onRemove, grid, home }: Props) {
+  // The same few pixels from the corner on a bigger poster means a smaller share of it.
+  const corner = home ? "right-[3.4%] top-[2.5%]" : "right-[4%] top-[3%]";
   const wanted = useWantedKeys();
   // The one poster that is lifted, and the one waiting for the answer to "Remove from Home".
   const [lifted, setLifted] = useState<string | null>(null);
@@ -62,13 +66,13 @@ export default function PosterRow({ items, onRemove, grid }: Props) {
   return (
     <>
       {/* Room above and below the posters for a lifted card and its shadow to grow into; the negative margins give it back so nothing moves. */}
-      <ul className={grid ? "grid grid-cols-3 gap-x-3 gap-y-4 md:grid-cols-5 lg:grid-cols-6" : "-mx-5 -mb-8 -mt-3 flex gap-3 overflow-x-auto px-5 pb-10 pt-3"}>
+      <ul className={grid ? "grid grid-cols-3 gap-x-3 gap-y-4 md:grid-cols-5 lg:grid-cols-6" : `-mx-5 -mb-8 -mt-3 flex ${home ? "gap-1.5" : "gap-3"} overflow-x-auto px-5 pb-10 pt-3`}>
         {items.map((item) => {
           const removable = !!item.removable && !!onRemove;
           const up = removable && lifted === item.key;
           const partly = item.progress !== undefined;
           return (
-            <li key={item.key} className={grid ? "min-w-0" : "w-28 shrink-0 md:w-36 lg:w-40"}>
+            <li key={item.key} className={grid ? "min-w-0" : home ? "w-[134px] shrink-0 md:w-[173px] lg:w-[192px]" : "w-28 shrink-0 md:w-36 lg:w-40"}>
               <Link
                 href={item.href}
                 onClick={(e) => {
@@ -105,14 +109,14 @@ export default function PosterRow({ items, onRemove, grid }: Props) {
                       kind="watched"
                       progress={item.progress}
                       maxSize={RING_MAX}
-                      className={`absolute right-[4%] top-[3%] transition-opacity duration-300 ${up ? "opacity-0" : ""}`}
+                      className={`absolute ${corner} transition-opacity duration-300 ${up ? "opacity-0" : ""}`}
                     />
                   )}
-                  {!partly && item.watched && <StatusBadge kind="watched" maxSize={28} className="absolute right-[4%] top-[3%]" />}
+                  {!partly && item.watched && <StatusBadge kind="watched" maxSize={28} className={`absolute ${corner}`} />}
                   {/* The ring wins when a show is both partly watched and on the watchlist. */}
-                  {!partly && !item.watched && wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" maxSize={28} className="absolute right-[4%] top-[3%]" />}
+                  {!partly && !item.watched && wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" maxSize={28} className={`absolute ${corner}`} />}
                   {removable && (
-                    <span style={{ width: RING_WIDTH }} className={`absolute right-[4%] top-[3%] aspect-square transition-opacity duration-300 ease-out ${up ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+                    <span style={{ width: RING_WIDTH }} className={`absolute ${corner} aspect-square transition-opacity duration-300 ease-out ${up ? "opacity-100" : "pointer-events-none opacity-0"}`}>
                       <button
                         type="button"
                         aria-label={`Remove ${item.title} from Home`}
@@ -127,8 +131,10 @@ export default function PosterRow({ items, onRemove, grid }: Props) {
                         <Icon name="close" size={12} />
                       </button>
                       {/* A thin outline round the x: a dark track with a white arc for how far through you are. */}
-                      <svg viewBox="0 0 100 100" aria-hidden="true" className="pointer-events-none absolute -inset-[3px] h-[calc(100%+6px)] w-[calc(100%+6px)] -rotate-90">
+                      <svg viewBox="0 0 100 100" aria-hidden="true" className="pointer-events-none absolute -inset-[3px] h-[calc(100%+6px)] w-[calc(100%+6px)] -rotate-90 overflow-visible">
                         <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,0,0,0.6)" strokeWidth="8" />
+                        <circle cx="50" cy="50" r="50" fill="none" stroke="rgba(0,0,0,0.85)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(0,0,0,0.85)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
                         <circle cx="50" cy="50" r="46" fill="none" stroke="#ffffff" strokeWidth="8" pathLength={100} strokeDasharray={`${Math.min(0.97, Math.max(0.04, item.progress ?? 0)) * 100} 100`} />
                       </svg>
                     </span>

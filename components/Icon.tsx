@@ -6,7 +6,7 @@ export type IconName =
   | "home" | "calendar" | "ticket" | "bookmark" | "plus" | "close" | "download" | "upload" | "star"
   | "note" | "trash" | "edit" | "filter" | "shuffle" | "refresh" | "database" | "watch" | "sliders" | "image" | "bell" | "archive"
   | "calendarPlus" | "check" | "back" | "search" | "user" | "undo" | "open" | "sparkle" | "globe" | "chart"
-  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "posterFrame" | "coverFrame" | "none" | "eye" | "sound" | "mute"
+  | "map" | "film" | "mic" | "masks" | "tv" | "stubUpload" | "clock" | "sortNew" | "sortOld" | "sortHigh" | "sortLow" | "minus" | "palette" | "key" | "folder" | "logout" | "left" | "right" | "layers" | "fan" | "posterFrame" | "coverFrame" | "none" | "eye" | "sound" | "mute"
   | "dancer" | "comedy" | "stadium" | "tent" | "car" | "people" | "plane" | "pin" | "chevronDown";
 
 interface Props {
@@ -135,6 +135,14 @@ export default function Icon({ name, size = 20, filled = false }: Props) {
     key: <path d="M14 10a4 4 0 1 1-1.500-3.100L20 14l-2 2-1.500-1.500L15 16l-2-2 1-1.500z" />,
     folder: <path d="M4 7a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" />,
     logout: <path d="M10 5H5v14h5M14 8l4 4-4 4M18 12H9" />,
+    // Three cards fanned out from the bottom; the front ones are filled so the ones behind only show their edges.
+    fan: (
+      <>
+        <rect x="8" y="4.500" width="9" height="14" rx="2" transform="rotate(-16 12.500 19)" fill="#000" />
+        <rect x="8" y="4.500" width="9" height="14" rx="2" transform="rotate(16 12.500 19)" fill="#000" />
+        <rect x="8" y="4.500" width="9" height="14" rx="2" fill="#000" />
+      </>
+    ),
     layers: <path d="M12 4l8 4-8 4-8-4zM4 12l8 4 8-4M4 16l8 4 8-4" />,
     dancer: (
       <>

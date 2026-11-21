@@ -162,10 +162,10 @@ export default function WatchlistPage() {
         {merged.map((item, i) => "card" in item ? (
           <StackCard key={item.card.node.id} node={item.card.node} viewings={item.card.viewings} edits={item.card.edits} showTitle index={i}
             completions={[item.card.completion]} collectionId={item.card.completion.collectionId ?? undefined}
-            label={item.card.completion.collectionId !== null ? `${item.card.completion.collectionName ?? "Collection"} completed` : undefined}
+            label={item.card.completion.collectionId !== null ? `${item.card.completion.collectionName ?? "Collection"} Completed` : undefined}
             load={() => loadItems(item.card)}
             show={(() => { const v = item.card.viewings.get(item.card.node.last.viewingId); const coll = item.card.completion.collectionId !== null; return { mediaId: v?.mediaId ?? "", title: coll ? item.card.completion.collectionName ?? v?.title ?? "" : v?.title ?? "", category: coll ? "Movie" : "TV Show", posterPath: v?.posterPath ?? null }; })()} />
-        ) : <WatchedCard key={item.entry.id} entry={item.entry} index={i} rating={scores.get(scoreKey({ mediaId: item.entry.mediaId, kind: item.entry.category as "Movie", tmdbId: item.entry.tmdbId })) ?? item.entry.score} notes={item.entry.notes} />)}
+        ) : <WatchedCard key={item.entry.id} entry={item.entry} index={i} notes={item.entry.notes} />)}
         {recent === null && !failed && Array.from({ length: 3 }, (_, i) => <li key={i} className="skeleton h-64 rounded-2xl" />)}
         {failed && <li className="text-sm text-neutral-500">We&apos;re having some trouble loading your viewings. Please check back later.</li>}
         {recent !== null && recent.length === 0 && <li className="text-sm text-neutral-500">Nothing logged yet.</li>}

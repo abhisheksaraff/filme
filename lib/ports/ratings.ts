@@ -26,7 +26,30 @@ export interface ScoreItem {
 /** The key a score is returned under: the saved title's id, else the kind and TMDB id. */
 export const scoreKey = (item: Pick<ScoreItem, "mediaId" | "kind" | "tmdbId">): string => item.mediaId ?? `${item.kind}:${item.tmdbId}`;
 
+/** A title or episode a card wants IMDb's page and rating for. */
+export interface CardTitle {
+  /** Where the answer is returned: the saved title's id, plus season and episode for an episode. */
+  key: string;
+  mediaId: string;
+  kind: CatalogKind;
+  season?: number | null;
+  episode?: number | null;
+}
+
+export interface ImdbInfo {
+  imdbId: string;
+  rating: number | null;
+}
+
+export const cardKey = (mediaId: string, season?: number | null, episode?: number | null): string => (season != null && episode != null ? `${mediaId}:${season}:${episode}` : mediaId);
+
 export interface RatingsRepository {
+  /**
+   * IMDb's page and rating for the titles and episodes on screen, as saved. Anything not saved yet (or a month old) is looked up
+   * in the background, a couple at a time, and each answer is passed to `onInfo`.
+   */
+  cardLinks(items: CardTitle[], onInfo: (key: string, info: ImdbInfo) => void): Promise<Map<string, ImdbInfo>>;
+
   /**
    * The best score known for each title, now: IMDb when saved, else the catalogue's. Titles with no saved IMDb score are
    * then looked up in the background (at most `fill` of them, a few at a time) and each answer is passed to `onScore`.

@@ -44,6 +44,9 @@ export default function StatusBadge({ kind, size, progress, maxSize = 40, classN
             <circle cx="50" cy="50" r={R} fill="none" stroke="rgba(55,55,60,0.75)" strokeWidth={STROKE} />
             <circle cx="50" cy="50" r={R + STROKE / 2} fill="none" stroke="#ffffff" strokeWidth={1.4} />
             <circle cx="50" cy="50" r={R - STROKE / 2} fill="none" stroke="#ffffff" strokeWidth={1.4} />
+            {/* A 1 px dark line on both edges (always 1 px, whatever the size) so the ring is not cut off on a white background. */}
+            <circle cx="50" cy="50" r={R + STROKE / 2} fill="none" stroke="rgba(0,0,0,0.85)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+            <circle cx="50" cy="50" r={R - STROKE / 2} fill="none" stroke="rgba(0,0,0,0.85)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
             <circle cx="50" cy="50" r={R} fill="none" stroke="#ffffff" strokeWidth={STROKE} strokeLinecap="butt" strokeDasharray={`${arc(progress) * LENGTH} ${LENGTH}`} />
           </svg>
         ) : (

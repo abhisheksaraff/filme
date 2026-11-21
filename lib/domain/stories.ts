@@ -2,7 +2,6 @@
 // Short recaps of a day, month or year, built from the log. Nothing is stored; they are
 // recalculated each time so they always match the current log.
 import { MONTH_NAMES, computeStats, formatDuration, type StatRow } from "./stats";
-import { formatScore } from "./score";
 
 export type StoryKind = "day" | "month" | "year";
 
@@ -74,7 +73,7 @@ function daySlides(rows: StatRow[], period: string): Slide[] {
       return {
         heading: `${plural(ago, "year")} ago today`,
         big: row.title,
-        caption: [row.venue, row.format, row.rating !== null ? `★ ${formatScore(row.rating)}` : null].filter(Boolean).join(" · ") || null,
+        caption: [row.venue, row.format].filter(Boolean).join(" · ") || null,
         posterPath: row.posterPath,
         sessionIds: [row.id],
       };
@@ -100,21 +99,6 @@ function periodSlides(all: StatRow[], kind: "month" | "year", period: string): S
         : undefined,
     },
   ];
-
-  const rated = rows.filter((row) => row.rating !== null).sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-  const best = rated[0];
-  if (best) {
-    // The three best-rated titles, each once.
-    const ranked = rated.filter((row, i) => rated.findIndex((r) => r.title === row.title) === i).slice(0, 3);
-    slides.push({
-      heading: "Your top rated",
-      big: best.title,
-      caption: `★ ${formatScore(best.rating ?? 0)}`,
-      posterPath: best.posterPath,
-      sessionIds: [best.id],
-      design: { type: "podium", ranked: ranked.map((row) => ({ title: row.title, posterPath: row.posterPath })) },
-    });
-  }
 
   const again = stats.topTitles[0];
   if (again && again.value > 1) {
