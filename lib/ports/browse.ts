@@ -134,6 +134,8 @@ export interface BrowseRepository {
   /** Venues that have no position yet. */
   /** Own venues whose name, address or city contains the text, the ones watched at most recently first. */
   searchVenues(query: string): Promise<Result<OwnVenue[]>>;
+  /** Own venues in use, the ones watched at most recently first; for suggesting before anything is typed. */
+  recentVenues(): Promise<Result<OwnVenue[]>>;
   /** The home used most recently, or null if none has been used. */
   lastHome(): Promise<Result<OwnVenue | null>>;
   unlocatedVenues(limit: number): Promise<Result<{ id: string; name: string; address: string | null }[]>>;

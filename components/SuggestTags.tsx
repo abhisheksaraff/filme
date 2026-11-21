@@ -4,11 +4,12 @@
 // are asked for from a search once a couple of letters are in.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "@/components/Icon";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { normalize } from "@/lib/domain/search";
 import { FIELD_SM as FIELD } from "@/components/ui/fields";
+import { useOutsideClose } from "@/components/ui/useOutsideClose";
 import SuggestionList, { SUGGESTION_NOTE, SuggestionItem } from "@/components/ui/SuggestionList";
 
 export interface TagItem {
@@ -34,6 +35,8 @@ interface Props {
   onAdd: (item: TagItem) => void;
   onRemove: (id: string) => void;
   placeholder?: string;
+  /** Show the whole fixed list as soon as the box is tapped, before anything is typed (short lists only). */
+  showOnTap?: boolean;
 }
 
 const SHOWN = 8;
@@ -49,8 +52,12 @@ function Face({ image, size }: { image: string | null | undefined; size: number 
   );
 }
 
-export default function SuggestTags({ label, tags, options, search, allowFree, onAdd, onRemove, placeholder }: Props) {
+export default function SuggestTags({ label, tags, options, search, allowFree, onAdd, onRemove, placeholder, showOnTap }: Props) {
   const [text, setText] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useOutsideClose(wrap, open, close);
   const [remote, setRemote] = useState<{ for: string; items: TagItem[] }>({ for: "", items: [] });
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -60,17 +67,21 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
   const needle = normalize(text);
 
   let suggestions: TagItem[] = [];
-  if (options && needle) {
+  if (options && !needle && showOnTap) {
+    suggestions = options.filter((o) => !taken.has(o.id.toLowerCase()));
+  } else if (options && needle) {
     const matches = options.filter((o) => !taken.has(o.id.toLowerCase()) && normalize(`${o.label} ${o.alias ?? ""}`).includes(needle));
     // Names that start with what was typed come before names that only contain it.
     suggestions = [...matches.filter((o) => normalize(o.label).startsWith(needle) || normalize(o.alias ?? "").startsWith(needle)), ...matches.filter((o) => !(normalize(o.label).startsWith(needle) || normalize(o.alias ?? "").startsWith(needle)))];
   } else if (search && remote.for === text.trim()) {
     suggestions = remote.items.filter((o) => !taken.has(o.id.toLowerCase()));
   }
-  suggestions = suggestions.slice(0, SHOWN);
+  const everything = showOnTap && !needle;
+  suggestions = everything ? suggestions : suggestions.slice(0, SHOWN);
 
   function onType(value: string) {
     setText(value);
+    setOpen(true);
     if (!search) return;
     clearTimeout(timer.current);
     const asked = value.trim();
@@ -91,7 +102,7 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div ref={wrap} className="flex flex-col gap-2">
       <span className="px-1 text-xs text-neutral-500">{label}</span>
       <input
         value={text}
@@ -104,6 +115,7 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
             else if (allowFree && text.trim().length >= 2 && !taken.has(text.trim().toLowerCase())) add({ id: text.trim().toLowerCase(), label: text.trim() });
           }
         }}
+        onFocus={() => setOpen(true)}
         placeholder={placeholder}
         aria-label={label}
         autoComplete="off"
@@ -112,8 +124,8 @@ export default function SuggestTags({ label, tags, options, search, allowFree, o
         enterKeyHint="done"
         className={`${FIELD} w-full`}
       />
-      {suggestions.length > 0 && (
-        <SuggestionList label={`${label} suggestions`}>
+      {open && suggestions.length > 0 && (
+        <SuggestionList label={`${label} suggestions`} scroll={everything}>
           {suggestions.map((s) => (
             <SuggestionItem key={s.id}>
               <button type="button" onClick={() => add(s)} className="press flex w-full items-center gap-3 px-3 py-2 text-left">

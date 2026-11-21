@@ -1,12 +1,43 @@
 // lib/adapters/supabase/SupabaseBrowseRepository.ts
 // Reads people, venues and credits for the pages that link between them.
-import type { BrowseRepository, PersonPick, PersonWork, VenueViewing } from "@/lib/ports/browse";
-import { fail, ok } from "@/lib/ports/result";
+import type { BrowseRepository, OwnVenue, PersonPick, PersonWork, VenueViewing } from "@/lib/ports/browse";
+import { fail, ok, type Result } from "@/lib/ports/result";
 import { getSupabase } from "./client";
 import { effectiveVenueType, normalizeVenueType } from "@/lib/domain/venueTypes";
 import { lastHomeVenue, literal } from "./venues";
 
 const one = <T>(value: unknown): T | null => ((Array.isArray(value) ? value[0] : value) as T | undefined) ?? null;
+
+type VenueRow = { id: string; name: string; address: string | null; type: string };
+
+/** Venues that have been used, the ones watched at most recently first. */
+async function rankVenues(db: ReturnType<typeof getSupabase>, venues: VenueRow[]): Promise<Result<OwnVenue[]>> {
+  if (venues.length === 0) return ok([]);
+
+  // When each was last used, and as what kind of place, so the ones visited most recently lead.
+  const used = await db
+    .from("watch_sessions")
+    .select("venue_id, watched_on, created_at, venue_type")
+    .in("venue_id", venues.map((v) => v.id))
+    .is("deleted_at", null)
+    .order("watched_on", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (used.error) return fail("Could not search your venues.");
+  const last = new Map<string, { on: string | null; at: string; type: string | null }>();
+  for (const row of used.data as { venue_id: string; watched_on: string | null; created_at: string; venue_type: string | null }[]) {
+    const known = last.get(row.venue_id);
+    // A dated viewing beats an undated one; among dated ones the rows already arrive newest first.
+    if (!known || (known.on === null && row.watched_on !== null)) last.set(row.venue_id, { on: row.watched_on, at: row.created_at, type: row.venue_type });
+  }
+  const rank = (id: string) => last.get(id)?.on ?? "";
+  // A venue only its deleted viewings used is not suggested; it is gone for good once those are.
+  const list = venues
+    .filter((v) => last.has(v.id))
+    .map((v) => ({ ...v, lastType: last.has(v.id) ? normalizeVenueType(last.get(v.id)?.type ?? v.type) : null, lastWatchedOn: last.get(v.id)?.on ?? null }))
+    .sort((a, b) => Number(last.has(b.id)) - Number(last.has(a.id)) || rank(b.id).localeCompare(rank(a.id)) || (last.get(b.id)?.at ?? "").localeCompare(last.get(a.id)?.at ?? "") || a.name.localeCompare(b.name));
+  return ok(list.slice(0, 20));
+}
 
 export const supabaseBrowseRepository: BrowseRepository = {
   async titleCredits(mediaId) {
@@ -222,32 +253,14 @@ export const supabaseBrowseRepository: BrowseRepository = {
       .or(`name.ilike.${pattern},address.ilike.${pattern},city.ilike.${pattern}${homes}`)
       .limit(60);
     if (error) return fail("Could not search your venues.");
-    const venues = data as { id: string; name: string; address: string | null; type: string }[];
-    if (venues.length === 0) return ok([]);
+    return rankVenues(db, data as VenueRow[]);
+  },
 
-    // When each was last used, and as what kind of place, so the ones visited most recently lead.
-    const used = await db
-      .from("watch_sessions")
-      .select("venue_id, watched_on, created_at, venue_type")
-      .in("venue_id", venues.map((v) => v.id))
-      .is("deleted_at", null)
-      .order("watched_on", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .limit(1000);
-    if (used.error) return fail("Could not search your venues.");
-    const last = new Map<string, { on: string | null; at: string; type: string | null }>();
-    for (const row of used.data as { venue_id: string; watched_on: string | null; created_at: string; venue_type: string | null }[]) {
-      const known = last.get(row.venue_id);
-      // A dated viewing beats an undated one; among dated ones the rows already arrive newest first.
-      if (!known || (known.on === null && row.watched_on !== null)) last.set(row.venue_id, { on: row.watched_on, at: row.created_at, type: row.venue_type });
-    }
-    const rank = (id: string) => last.get(id)?.on ?? "";
-    // A venue only its deleted viewings used is not suggested; it is gone for good once those are.
-    const list = venues
-      .filter((v) => last.has(v.id))
-      .map((v) => ({ ...v, lastType: last.has(v.id) ? normalizeVenueType(last.get(v.id)?.type ?? v.type) : null, lastWatchedOn: last.get(v.id)?.on ?? null }))
-      .sort((a, b) => Number(last.has(b.id)) - Number(last.has(a.id)) || rank(b.id).localeCompare(rank(a.id)) || (last.get(b.id)?.at ?? "").localeCompare(last.get(a.id)?.at ?? "") || a.name.localeCompare(b.name));
-    return ok(list.slice(0, 20));
+  async recentVenues() {
+    const db = getSupabase();
+    const { data, error } = await db.from("venues").select("id, name, address, type").limit(200);
+    if (error) return fail("Could not load your venues.");
+    return rankVenues(db, data as VenueRow[]);
   },
 
   async lastHome() {

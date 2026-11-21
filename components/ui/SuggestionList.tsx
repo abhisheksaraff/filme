@@ -18,7 +18,7 @@ export default function SuggestionList({ label, scroll = false, className = "", 
   return (
     <ul
       aria-label={label}
-      className={`flex flex-col rounded-xl bg-neutral-200 text-sm dark:bg-neutral-700 ${scroll ? "max-h-72 overflow-y-auto overscroll-contain" : "overflow-hidden"} ${className}`}
+      className={`flex flex-col rounded-xl bg-neutral-300 text-sm dark:bg-neutral-700 ${scroll ? "max-h-72 overflow-y-auto overscroll-contain" : "overflow-hidden"} ${className}`}
       {...rest}
     >
       {children}
@@ -29,7 +29,7 @@ export default function SuggestionList({ label, scroll = false, className = "", 
 /** One suggestion: put its own button inside. Every one after the first gets the fading line above it. */
 export function SuggestionItem({ children }: { children: ReactNode }) {
   return (
-    <li className="relative [&:not(:first-child)]:before:absolute [&:not(:first-child)]:before:inset-x-3 [&:not(:first-child)]:before:top-0 [&:not(:first-child)]:before:h-px [&:not(:first-child)]:before:bg-gradient-to-r [&:not(:first-child)]:before:from-transparent [&:not(:first-child)]:before:via-neutral-400 [&:not(:first-child)]:before:to-transparent dark:[&:not(:first-child)]:before:via-neutral-500">
+    <li className="relative [&:not(:first-child)]:before:absolute [&:not(:first-child)]:before:inset-x-3 [&:not(:first-child)]:before:top-0 [&:not(:first-child)]:before:h-[0.5px] [&:not(:first-child)]:before:bg-gradient-to-r [&:not(:first-child)]:before:from-transparent [&:not(:first-child)]:before:via-neutral-400/60 [&:not(:first-child)]:before:to-transparent dark:[&:not(:first-child)]:before:via-neutral-500/70">
       {children}
     </li>
   );

@@ -36,6 +36,9 @@ import { services } from "@/lib/services";
 import { formatScore } from "@/lib/domain/score";
 import DateField from "@/components/ui/DateField";
 import ClearX from "@/components/ui/ClearX";
+import PickSelect from "@/components/ui/PickSelect";
+import SuggestInput from "@/components/ui/SuggestInput";
+import { FORMAT_ADDONS, PRIMARY_FORMATS } from "@/lib/domain/formats";
 
 const DEBOUNCE_MS = 350;
 /** Merges lists by taking one from each in turn. */
@@ -401,7 +404,7 @@ function SearchView() {
       setAskText(f.text ?? "");
       // People and genres live in the plan (and show as its chips) unless the question is about your own log.
       const aboutLog = Boolean(f.venue || f.format || f.extra || f.dateFrom || f.dateTo || f.maxRating !== null || f.rewatchesOnly);
-      setFilter({ ...f, text: null, person: aboutLog || p.people.length === 0 ? f.person : null, genre: aboutLog || p.genres.length === 0 ? f.genre : null });
+      setFilter({ ...f, text: null, person: aboutLog || p.people.length === 0 ? f.person : null, genre: aboutLog || p.genres.length === 0 ? f.genre : null, maxRating: f.minRating !== null && f.maxRating !== null && f.minRating > f.maxRating ? null : f.maxRating });
       setPlan(p);
       const by = p.sortBy ?? f.sort;
       setOrder(by === "newest" ? "newest" : by === "oldest" ? "oldest" : by === "rating" ? "rating" : "default");
@@ -624,7 +627,7 @@ function SearchView() {
     if (scope === "watched") setScope(null);
     else if (scope === "both") setScope("watchlist");
   };
-  const pill = (on: boolean) => `rounded-full px-3.5 py-1.5 ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`;
+  const pill = (on: boolean) => `flex items-center gap-1.5 rounded-full px-3.5 py-1.5 ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`;
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
@@ -665,43 +668,54 @@ function SearchView() {
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="col-span-2 flex flex-wrap gap-2">
-              <button type="button" aria-pressed={inWatched} onClick={() => toggleList("watched")} className={pill(inWatched)}>In Watched</button>
-              <button type="button" aria-pressed={inWatchlist} onClick={() => toggleList("watchlist")} className={pill(inWatchlist)}>In Watchlist</button>
-              <button type="button" aria-pressed={plan.seen === "not-seen"} onClick={toggleNotSeen} className={pill(plan.seen === "not-seen")}>Not watched yet</button>
-              <button type="button" aria-pressed={filter.rewatchesOnly} onClick={() => set({ rewatchesOnly: !filter.rewatchesOnly })} className={pill(filter.rewatchesOnly)}>Rewatches only</button>
-              <button type="button" aria-pressed={plan.inTheatres === "now"} onClick={() => drop({ inTheatres: plan.inTheatres === "now" ? null : "now" })} className={pill(plan.inTheatres === "now")}>In cinemas now</button>
-              <button type="button" aria-pressed={plan.inTheatres === "soon"} onClick={() => drop({ inTheatres: plan.inTheatres === "soon" ? null : "soon" })} className={pill(plan.inTheatres === "soon")}>Coming soon</button>
+              <button type="button" aria-pressed={inWatched} onClick={() => toggleList("watched")} className={pill(inWatched)}>In Watched{inWatched && <Icon name="close" size={12} />}</button>
+              <button type="button" aria-pressed={inWatchlist} onClick={() => toggleList("watchlist")} className={pill(inWatchlist)}>In Watchlist{inWatchlist && <Icon name="close" size={12} />}</button>
+              <button type="button" aria-pressed={plan.seen === "not-seen"} onClick={toggleNotSeen} className={pill(plan.seen === "not-seen")}>Not watched yet{plan.seen === "not-seen" && <Icon name="close" size={12} />}</button>
+              <button type="button" aria-pressed={filter.rewatchesOnly} onClick={() => set({ rewatchesOnly: !filter.rewatchesOnly })} className={pill(filter.rewatchesOnly)}>Rewatches only{filter.rewatchesOnly && <Icon name="close" size={12} />}</button>
+              <button type="button" aria-pressed={plan.inTheatres === "now"} onClick={() => drop({ inTheatres: plan.inTheatres === "now" ? null : "now" })} className={pill(plan.inTheatres === "now")}>In cinemas now{plan.inTheatres === "now" && <Icon name="close" size={12} />}</button>
+              <button type="button" aria-pressed={plan.inTheatres === "soon"} onClick={() => drop({ inTheatres: plan.inTheatres === "soon" ? null : "soon" })} className={pill(plan.inTheatres === "soon")}>Coming soon{plan.inTheatres === "soon" && <Icon name="close" size={12} />}</button>
             </div>
-            <select value={filter.category ?? ""} onChange={(e) => set({ category: (e.target.value || null) as LogFilter["category"] })} className={FIELD} aria-label="Type">
-              <option value="">Any type</option>
-              {["Movie", "TV Show", "Concert", "Live Event"].map((c) => <option key={c}>{c}</option>)}
-            </select>
-            <select value={filter.minRating ?? ""} onChange={(e) => set({ minRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Minimum rating">
-              <option value="">Any rating</option>
-              {[5, 6, 7, 8, 9].map((n) => <option key={n} value={n}>★ {n}+</option>)}
-            </select>
-            <select value={filter.maxRating ?? ""} onChange={(e) => set({ maxRating: e.target.value ? Number(e.target.value) : null })} className={FIELD} aria-label="Maximum rating">
-              <option value="">No rating ceiling</option>
-              {[4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>★ up to {n}</option>)}
-            </select>
-            <select value={order} onChange={(e) => setOrder(e.target.value as Order)} className={FIELD} aria-label="Sort by">
-              {ORDERS.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
-            </select>
-            <select value={filter.releaseFrom ?? ""} onChange={(e) => set({ releaseFrom: e.target.value ? Number(e.target.value) : null })} className={`${FIELD} col-span-2`} aria-label="Released from">
-              <option value="">Released from any year</option>
-              {yearsWith(filter.releaseFrom).map((y) => <option key={y} value={y}>Released from {y}</option>)}
-            </select>
-            <select value={filter.releaseTo ?? ""} onChange={(e) => set({ releaseTo: e.target.value ? Number(e.target.value) : null })} className={`${FIELD} col-span-2`} aria-label="Released to">
-              <option value="">Released to any year</option>
-              {yearsWith(filter.releaseTo).map((y) => <option key={y} value={y}>Released to {y}</option>)}
-            </select>
+            <PickSelect
+              label="Type"
+              value={filter.category ?? ""}
+              onChange={(v) => set({ category: (v || null) as LogFilter["category"] })}
+              options={[{ value: "", label: "Any type" }, ...["Movie", "TV Show", "Concert", "Live Event"].map((c) => ({ value: c, label: c }))]}
+            />
+            <PickSelect label="Sort by" value={order} idle="default" onChange={(v) => setOrder(v as Order)} options={ORDERS.map((o) => ({ value: o.id, label: o.label }))} />
+            {/* A minimum only offers ratings up to the maximum, and the maximum only ratings from the minimum, so the two can never disagree. */}
+            <PickSelect
+              label="Minimum rating"
+              value={filter.minRating === null ? "" : String(filter.minRating)}
+              onChange={(v) => set({ minRating: v ? Number(v) : null })}
+              options={[{ value: "", label: "Any rating" }, ...[5, 6, 7, 8, 9].filter((n) => filter.maxRating === null || n <= filter.maxRating || n === filter.minRating).map((n) => ({ value: String(n), label: `★ ${n}+` }))]}
+            />
+            <PickSelect
+              label="Maximum rating"
+              value={filter.maxRating === null ? "" : String(filter.maxRating)}
+              onChange={(v) => set({ maxRating: v ? Number(v) : null })}
+              options={[{ value: "", label: "No rating ceiling" }, ...[4, 5, 6, 7, 8].filter((n) => filter.minRating === null || n >= filter.minRating || n === filter.maxRating).map((n) => ({ value: String(n), label: `★ up to ${n}` }))]}
+            />
+            <PickSelect
+              className="col-span-2"
+              label="Released from"
+              value={filter.releaseFrom === null ? "" : String(filter.releaseFrom)}
+              onChange={(v) => set({ releaseFrom: v ? Number(v) : null })}
+              options={[{ value: "", label: "Released from any year" }, ...yearsWith(filter.releaseFrom).filter((y) => filter.releaseTo === null || y <= filter.releaseTo || y === filter.releaseFrom).map((y) => ({ value: String(y), label: String(y), shown: `Released from ${y}` }))]}
+            />
+            <PickSelect
+              className="col-span-2"
+              label="Released to"
+              value={filter.releaseTo === null ? "" : String(filter.releaseTo)}
+              onChange={(v) => set({ releaseTo: v ? Number(v) : null })}
+              options={[{ value: "", label: "Released to any year" }, ...yearsWith(filter.releaseTo).filter((y) => filter.releaseFrom === null || y >= filter.releaseFrom || y === filter.releaseTo).map((y) => ({ value: String(y), label: String(y), shown: `Released to ${y}` }))]}
+            />
             <div className="relative min-w-0"><input inputMode="numeric" value={plan.minRuntime ?? ""} onChange={(e) => drop({ minRuntime: minutes(e.target.value) })} placeholder="Over (minutes)" aria-label="Longer than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.minRuntime !== null && <ClearX label="Over minutes" onClear={() => drop({ minRuntime: null })} />}</div>
             <div className="relative min-w-0"><input inputMode="numeric" value={plan.maxRuntime ?? ""} onChange={(e) => drop({ maxRuntime: minutes(e.target.value) })} placeholder="Under (minutes)" aria-label="Shorter than, in minutes" className={`${FIELD} w-full pr-11`} />{plan.maxRuntime !== null && <ClearX label="Under minutes" onClear={() => drop({ maxRuntime: null })} />}</div>
             <div className="col-span-2 flex flex-col gap-3">
               <SuggestTags
                 label="People"
                 tags={peopleTags}
-                placeholder="Type a name, then tap the right one"
+                placeholder="Agnès Varda"
                 search={async (text) => {
                   const res = await services.catalog.searchPeople(text);
                   return res.ok ? res.value.map((p) => ({ id: String(p.tmdbId), label: p.name, image: p.profilePath, note: p.knownFor ?? null })) : [];
@@ -709,14 +723,14 @@ function SearchView() {
                 onAdd={(t) => drop({ people: [...plan.people.filter((x) => x.tmdbId !== Number(t.id)), { name: t.label, role: "any", tmdbId: Number(t.id), profilePath: t.image ?? null }] })}
                 onRemove={(id) => drop({ people: plan.people.filter((p) => String(p.tmdbId ?? p.name) !== id) })}
               />
-              <SuggestTags label="Genres" tags={tagsOf("g:")} options={GENRE_TAGS} placeholder="Type a genre" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={(id) => removeTag("g:", id)} />
-              <SuggestTags label="Countries" tags={tagsOf("c:")} options={COUNTRY_TAGS} placeholder="Type a country, such as Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={(id) => removeTag("c:", id)} />
-              <SuggestTags label="Languages" tags={tagsOf("lang:")} options={LANGUAGE_TAGS} placeholder="Type a language, such as French" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={(id) => removeTag("lang:", id)} />
+              <SuggestTags label="Genres" tags={tagsOf("g:")} options={GENRE_TAGS} showOnTap placeholder="Drama, Comedy" onAdd={(t) => drop({ genres: [...new Set([...plan.genres, t.id])] })} onRemove={(id) => removeTag("g:", id)} />
+              <SuggestTags label="Countries" tags={tagsOf("c:")} options={COUNTRY_TAGS} placeholder="France, Germany" onAdd={(t) => drop({ countries: [...new Set([...plan.countries, t.id])] })} onRemove={(id) => removeTag("c:", id)} />
+              <SuggestTags label="Languages" tags={tagsOf("lang:")} options={LANGUAGE_TAGS} placeholder="French, Japanese" onAdd={(t) => drop({ languages: [...new Set([...plan.languages, t.id])] })} onRemove={(id) => removeTag("lang:", id)} />
               <SuggestTags
                 label="Keywords"
                 tags={tagsOf("k:", lower)}
                 allowFree
-                placeholder="A theme, such as heist or german expressionism"
+                placeholder="heist, German expressionism"
                 search={async (text) => {
                   const res = await services.catalog.searchKeywords(text);
                   return res.ok ? res.value.map((k) => ({ id: k.toLowerCase(), label: k })) : [];
@@ -724,11 +738,21 @@ function SearchView() {
                 onAdd={(t) => drop({ keywords: [...new Set([...plan.keywords, t.label])] })}
                 onRemove={(id) => removeTag("k:", id, lower)}
               />
-              <SuggestTags label="Streaming on" tags={tagsOf("prov:").map((t) => ({ ...t, label: t.label.replace(/^On /, "") }))} options={PROVIDER_TAGS} allowFree placeholder="Type a service, such as Netflix" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={(id) => removeTag("prov:", id)} />
+              <SuggestTags label="Streaming on" tags={tagsOf("prov:").map((t) => ({ ...t, label: t.label.replace(/^On /, "") }))} options={PROVIDER_TAGS} allowFree showOnTap placeholder="Netflix, Crave" onAdd={(t) => drop({ providers: [...new Set([...plan.providers, t.label])].slice(0, 3) })} onRemove={(id) => removeTag("prov:", id)} />
             </div>
-            <div className="relative min-w-0"><input value={filter.venue ?? ""} onChange={(e) => set({ venue: e.target.value || null })} placeholder="Venue (your log)" className={`${FIELD} w-full pr-11`} />{filter.venue && <ClearX label="Venue" onClear={() => set({ venue: null })} />}</div>
-            <div className="relative min-w-0"><input value={filter.format ?? ""} onChange={(e) => set({ format: e.target.value || null })} placeholder="Format (your log)" className={`${FIELD} w-full pr-11`} />{filter.format && <ClearX label="Format" onClear={() => set({ format: null })} />}</div>
-            <div className="relative col-span-2 min-w-0"><input value={filter.extra ?? ""} onChange={(e) => set({ extra: e.target.value || null })} placeholder="Extras (your log), such as IMAX or 3D" className={`${FIELD} w-full pr-11`} />{filter.extra && <ClearX label="Extras" onClear={() => set({ extra: null })} />}</div>
+            <SuggestInput
+              className="col-span-2"
+              label="Venue"
+              placeholder="Cineplex Yonge-Dundas"
+              value={filter.venue ?? ""}
+              onChange={(v) => set({ venue: v || null })}
+              search={async (text) => {
+                const res = text.length >= 2 ? await services.browse.searchVenues(text) : await services.browse.recentVenues();
+                return res.ok ? [...new Set(res.value.map((v) => v.name))].slice(0, 20) : [];
+              }}
+            />
+            <SuggestInput className="col-span-2" label="Format" placeholder="IMAX" value={filter.format ?? ""} onChange={(v) => set({ format: v || null })} options={PRIMARY_FORMATS} />
+            <SuggestInput className="col-span-2" label="Extras" placeholder="3D, D-BOX" value={filter.extra ?? ""} onChange={(v) => set({ extra: v || null })} options={FORMAT_ADDONS} />
             <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched from</span><DateField value={filter.dateFrom ?? ""} onChange={(v) => set({ dateFrom: v || null })} label="Watched from" hint="yearAgo" /></label>
             <label className="flex min-w-0 flex-col gap-1"><span className="px-1 text-xs text-neutral-500">Watched to</span><DateField value={filter.dateTo ?? ""} onChange={(v) => set({ dateTo: v || null })} label="Watched to" /></label>
           </div>
