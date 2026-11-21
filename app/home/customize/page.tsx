@@ -6,9 +6,9 @@ import ProblemPopup from "@/components/ProblemPopup";
 import Choice from "@/components/ui/Choice";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Icon from "@/components/Icon";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { arrangeHomeRows, resolveHomeRows, type HomeRowState } from "@/lib/domain/home";
+import { homeSnapshot } from "@/lib/home/session";
 import { services } from "@/lib/services";
 
 const small = "rounded-xl border border-neutral-300 px-2 py-1 text-sm disabled:opacity-30 dark:border-neutral-700";
@@ -71,6 +71,9 @@ export default function CustomizeHomePage() {
       setBusy(false);
       return;
     }
+    // Home starts over from the saved choices, so a new order (or a switched-off shuffle) shows straight away.
+    homeSnapshot.rows = null;
+    homeSnapshot.claims = {};
     router.replace("/home/");
   }
 
@@ -78,14 +81,7 @@ export default function CustomizeHomePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 py-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-serif text-3xl tracking-tight">Customize Home</h1>
-        {/* On: Home shows the rows in a new random order each time it opens. Black while on, like a pressed button. */}
-        <button type="button" aria-label="Random order" title="Random order" aria-pressed={shuffle} onClick={() => setShuffle((on) => !on)}
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${shuffle ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-white"}`}>
-          <Icon name="shuffle" size={20} />
-        </button>
-      </div>
+      <h1 className="font-serif text-3xl tracking-tight">Customize Home</h1>
       <p className="text-sm text-neutral-500">Switch rows on or off and use the arrows to change their order.</p>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
@@ -107,6 +103,16 @@ export default function CustomizeHomePage() {
           className="flex-1 rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
         >
           Save
+        </button>
+        {/* On: Home shows the rows in a new random order each time it opens, until this is switched off and saved. */}
+        <button
+          type="button"
+          aria-pressed={shuffle}
+          disabled={busy}
+          onClick={() => setShuffle((on) => !on)}
+          className={`rounded-2xl border px-4 py-3 text-sm ${shuffle ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900" : "border-neutral-300 dark:border-neutral-700"}`}
+        >
+          Shuffle
         </button>
         <button
           type="button"

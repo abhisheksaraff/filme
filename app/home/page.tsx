@@ -95,19 +95,21 @@ export default function HomePage() {
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
       <header className="flex items-center justify-between">
         <Wordmark className="text-3xl" />
-        <Link href="/profile/" aria-label="Profile" className="translate-y-1"><Avatar /></Link>
+        {/* Refresh sits just left of the picture, level with it. */}
+        <div className="flex translate-y-1 items-center gap-3">
+          <RoundButton icon="refresh" label="Refresh" onClick={() => { clearHomeCache(); homeSnapshot.claims = {}; setClaims({}); setNonce((n) => n + 1); }} />
+          <Link href="/profile/" aria-label="Profile"><Avatar /></Link>
+        </div>
       </header>
 
       <LogoLights />
 
-      {/* Search takes the room the buttons leave; its words are trimmed on a narrow phone. */}
-      <div className="flex items-center gap-2">
+      {/* Full width on an upright phone; centred with room either side on a sideways phone, tablet and laptop. */}
+      <div className="mx-auto flex w-full items-center md:max-w-xl landscape:max-w-xl">
         <Link href="/search/" onClick={() => searchFocus.prime()} className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-neutral-100 px-4 text-base text-[color-mix(in_srgb,var(--foreground)_50%,transparent)] dark:bg-neutral-800">
           <span className="shrink-0"><Icon name="search" size={24} /></span>
           <span className="truncate text-sm">Search movies, shows, concerts…</span>
         </Link>
-        <RoundButton icon="refresh" label="Refresh" onClick={() => { clearHomeCache(); homeSnapshot.claims = {}; setClaims({}); setNonce((n) => n + 1); }} />
-        <RoundButton icon="sliders" label="Customize Home" href="/home/customize/" />
       </div>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />

@@ -287,7 +287,7 @@ async function continueRow(): Promise<Result<RowResult>> {
  * and a ring for how far through you are. Taken off Home the same way as a show.
  */
 async function collectionItems(): Promise<RowItem[]> {
-  const [seen, hiddenAt, noRec] = await Promise.all([services.passes.collectionsSeen(), services.passes.hiddenCollections(), services.passes.hiddenCollectionIds()]);
+  const [seen, noRec] = await Promise.all([services.passes.collectionsSeen(), services.passes.hiddenCollectionIds()]);
   if (!seen.ok) return [];
   const loaded = await Promise.all(seen.value.slice(0, 12).map((c) => loadCollection(c.collectionId)));
   const out: RowItem[] = [];
@@ -298,8 +298,6 @@ async function collectionItems(): Promise<RowItem[]> {
     const inPass = new Set(passes.events.map((e) => e.viewingId));
     const latest = viewings.filter((v) => inPass.has(v.id)).map((v) => v.addedAt).sort().at(-1);
     if (!latest) continue;
-    const removedAt = hiddenAt.ok ? hiddenAt.value.get(detail.id) : undefined;
-    if (removedAt && Date.parse(latest) <= Date.parse(removedAt)) continue;
     out.push({
       key: `collection:${detail.id}`,
       title: detail.name,
@@ -519,11 +517,13 @@ function savedItem(entry: { kind: CatalogKind; tmdbId: number; item: WantedItem 
 
 /** A random handful of what is on the watchlist, movies and shows together, reshuffled on every refresh. */
 async function wantPickRow(): Promise<Result<RowResult>> {
-  const saved = await savedTitles();
+  const [savedAll, marked, noRec] = await Promise.all([savedTitles(), hiddenKeys(), services.passes.hiddenCollectionIds()]);
+  const skipped = new Set(marked);
+  const saved = savedAll.filter((s) => !skipped.has(seenKey(s.kind, s.tmdbId)));
   const movies = shuffle(saved.filter((s) => s.kind === "Movie"));
   const shows = shuffle(saved.filter((s) => s.kind === "TV Show"));
   const savedCollections = await services.wanted.collections();
-  const collections = shuffle(savedCollections.ok ? savedCollections.value : []).map((c): RowItem => ({
+  const collections = shuffle(savedCollections.ok ? savedCollections.value.filter((c) => !(noRec.ok && noRec.value.has(c.collectionId))) : []).map((c): RowItem => ({
     key: `wantcol:${c.collectionId}`,
     claim: `collection:${c.collectionId}`,
     title: c.name,
@@ -669,10 +669,29 @@ export function loadRow(id: string): Promise<Result<RowResult>> {
     if (id.startsWith("genre-")) return genreRow(Number(id.slice("genre-".length)));
     return Promise.resolve(fail("Unknown row."));
   }, id === "continue" ? 0 : Infinity, id !== "continue" && id !== "want-pick" && id !== "because-saved");
-  result.then((res) => {
+  // Whatever is marked "Do not recommend" never shows on Home, whichever row built the list.
+  const visible = result.then(withoutHidden);
+  visible.then((res) => {
     if (res.ok) resolved.set(id, res);
   });
-  return result;
+  return visible;
+}
+
+/** Takes titles and collections marked "Do not recommend" out of a finished row. */
+async function withoutHidden(res: Result<RowResult>): Promise<Result<RowResult>> {
+  if (!res.ok) return res;
+  const [hidden, noRec] = await Promise.all([hiddenKeys(), services.passes.hiddenCollectionIds()]);
+  const marked = new Set(hidden);
+  const collections = noRec.ok ? noRec.value : new Set<number>();
+  const keep = (item: RowItem): boolean => {
+    const claim = claimOf(item);
+    if (marked.has(claim) || marked.has(item.key)) return false;
+    return !(claim.startsWith("collection:") && collections.has(Number(claim.slice("collection:".length))));
+  };
+  const items = res.value.items.filter(keep);
+  const rest = res.value.rest?.filter(keep);
+  if (items.length === res.value.items.length && rest?.length === res.value.rest?.length) return res;
+  return ok({ ...res.value, items, ...(rest ? { rest } : {}) });
 }
 
 
@@ -681,11 +700,4 @@ export async function loadMoreRow(more: { spec: BrowseSpec; page: number }): Pro
   const [hits, seen] = await Promise.all([services.catalog.browse({ ...more.spec, page: more.page }), seenSet()]);
   if (!hits.ok) return hits;
   return ok(hits.value.map(hitItem).filter((item) => !seen.has(item.key)));
-}
-
-/** Takes a Continue watching poster off Home; resolves to a message when it could not be done. */
-export async function removeFromContinue(item: RowItem): Promise<string | null> {
-  if (!item.removable) return null;
-  const res = item.removable.collectionId !== undefined ? await services.passes.hideCollection(item.removable.collectionId, item.removable.addedAt) : await services.follows.removeFromContinue(item.removable.mediaId, item.removable.addedAt);
-  return res.ok ? null : res.error;
 }

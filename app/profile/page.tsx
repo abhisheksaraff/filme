@@ -21,6 +21,7 @@ const LINKS: { href: string; label: string; note: string; icon: IconName }[] = [
   { href: "/stats/", icon: "chart", label: "Stats", note: "Totals and charts for everything you have logged" },
   { href: "/profile/appearance/", icon: "palette", label: "Appearance", note: "Light or dark, themes and decorations" },
   { href: "/profile/data/", icon: "archive", label: "Import and export", note: "Letterboxd and Trakt files" },
+  { href: "/home/customize/", icon: "sliders", label: "Customize Home", note: "Choose and order the rows, or shuffle them" },
   { href: "/profile/hidden/", icon: "close", label: "Do not recommend", note: "Titles kept out of Home, with undo" },
   { href: "/profile/watch/", icon: "watch", label: "Watch link", note: "Which website the Watch button opens" },
   { href: "/profile/keys/", icon: "key", label: "API keys", note: "AI and TMDB keys, models and order" },

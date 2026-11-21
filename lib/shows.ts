@@ -26,15 +26,13 @@ export function withNewEpisodes(shows: readonly TrackedShow[]): TrackedShow[] {
 }
 
 /**
- * Shows that may belong in Continue watching, before episodes are counted: the user has not switched the show off or taken it off
- * Home since the last viewing, and it is followed or not just newly aired (a show finished long ago does not come back for a new
+ * Shows that may belong in Continue watching, before episodes are counted: the user has not switched the show off, and it is followed or not just newly aired (a show finished long ago does not come back for a new
  * season unless it is followed). Whether aired episodes remain after where you are is decided with the episode counts.
  */
 export function continueCandidates(shows: readonly TrackedShow[]): TrackedShow[] {
   return shows
     .filter((s) => {
       if (s.mode === "off" || !s.latest) return false;
-      if (s.removedAfter && Date.parse(s.latest.addedAt) <= Date.parse(s.removedAfter)) return false;
       return isFollowing(s) || !isNewSince(s.aired?.airDate ?? null, s.covers);
     })
     .sort((a, b) => Date.parse(b.latest?.addedAt ?? "") - Date.parse(a.latest?.addedAt ?? ""));

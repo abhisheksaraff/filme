@@ -4,10 +4,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { claimOf, forgetRow, loadRow, peekRow, removeFromContinue, type RowItem, type RowResult } from "@/lib/home/rows";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { claimOf, loadRow, peekRow, type RowResult } from "@/lib/home/rows";
 import { keepIfSame } from "@/lib/same";
-import { ok, type Result } from "@/lib/ports/result";
+import type { Result } from "@/lib/ports/result";
 import { HOME_ROWS } from "@/lib/domain/home";
 import Icon from "./Icon";
 import PosterRow from "./PosterRow";
@@ -79,15 +79,6 @@ export default function HomeRowSection({ rowId, nonce, load, index, onNear, bloc
     };
   }, [rowId, key, near]);
 
-  // Takes a Continue watching poster off Home: saved first, then dropped from what is on screen without reloading the row.
-  const remove = useCallback(async (item: RowItem): Promise<string | null> => {
-    const problem = await removeFromContinue(item);
-    if (problem) return problem;
-    forgetRow(rowId);
-    setLoaded((now) => (now && now.res.ok ? { key: now.key, res: ok({ ...now.res.value, items: now.res.value.items.filter((i) => i.key !== item.key), rest: now.res.value.rest?.filter((i) => i.key !== item.key) }) } : now));
-    return null;
-  }, [rowId]);
-
   const done = loaded?.key === key ? loaded.res : null;
   // Continue watching shows everything; every other row leaves out what a row above already shows.
   const items = useMemo(() => {
@@ -121,7 +112,7 @@ export default function HomeRowSection({ rowId, nonce, load, index, onNear, bloc
         ) : label}
       </h2>
       {shown?.subtitle && <p className="-mt-1.5 text-sm text-neutral-500">{shown.subtitle}</p>}
-      {shown ? <PosterRow items={items} onRemove={remove} home /> : <Placeholder />}
+      {shown ? <PosterRow items={items} home /> : <Placeholder />}
     </section>
   );
 }

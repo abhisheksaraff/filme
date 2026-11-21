@@ -22,7 +22,7 @@ interface Props {
 /** Drawn as it is: a quarter of the ring is a quarter of the way round. Never empty until nothing is watched and never full until it is all watched. */
 const arc = (progress: number) => Math.min(0.97, Math.max(0.04, progress));
 /** The ring is drawn on a 100-unit square so it scales with the circle. */
-const R = 40;
+const R = 39;
 const STROKE = 18;
 const LENGTH = 2 * Math.PI * R;
 
@@ -39,15 +39,12 @@ export default function StatusBadge({ kind, size, progress, maxSize = 40, classN
     >
       <span className="relative flex h-full w-full items-center justify-center">
         {partly ? (
-          <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden="true">
-            {/* A darker grey track with a hairline white edge inside and out, so the ring reads on black, grey or light pictures. */}
-            <circle cx="50" cy="50" r={R} fill="none" stroke="rgba(55,55,60,0.75)" strokeWidth={STROKE} />
-            <circle cx="50" cy="50" r={R + STROKE / 2} fill="none" stroke="#ffffff" strokeWidth={1.4} />
-            <circle cx="50" cy="50" r={R - STROKE / 2} fill="none" stroke="#ffffff" strokeWidth={1.4} />
-            {/* A 1 px dark line on both edges (always 1 px, whatever the size) so the ring is not cut off on a white background. */}
+          <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90 overflow-visible" aria-hidden="true">
+            {/* A solid dark track with the white arc on top, and a 1 px dark line on each edge (always 1 px, whatever the size), all inside the drawing area so nothing is cut off. */}
+            <circle cx="50" cy="50" r={R} fill="none" stroke="#3a3a3f" strokeWidth={STROKE} />
+            <circle cx="50" cy="50" r={R} fill="none" stroke="#ffffff" strokeWidth={STROKE} strokeLinecap="butt" strokeDasharray={`${arc(progress) * LENGTH} ${LENGTH}`} />
             <circle cx="50" cy="50" r={R + STROKE / 2} fill="none" stroke="rgba(0,0,0,0.85)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
             <circle cx="50" cy="50" r={R - STROKE / 2} fill="none" stroke="rgba(0,0,0,0.85)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
-            <circle cx="50" cy="50" r={R} fill="none" stroke="#ffffff" strokeWidth={STROKE} strokeLinecap="butt" strokeDasharray={`${arc(progress) * LENGTH} ${LENGTH}`} />
           </svg>
         ) : (
           <span className="flex h-[58%] w-[58%] items-center justify-center [&>svg]:h-full [&>svg]:w-full">
