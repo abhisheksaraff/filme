@@ -1,5 +1,6 @@
 // lib/logCollection.ts
 // Logging a whole movie collection at once: one viewing for every film that is out, all with the same date.
+import { isOut } from "@/lib/collections";
 import { mediaFromCatalog } from "@/components/entryDraft";
 import { syncCredits } from "@/lib/credits";
 import { logEntrySchema } from "@/lib/domain/entry";
@@ -9,8 +10,7 @@ import { services } from "@/lib/services";
 
 /** Saves a viewing of each film already out; returns how many. Dated `date`, or undated (watched before) when null. */
 export async function logCollectionNow(detail: CollectionDetail, date: string | null): Promise<Result<number>> {
-  const today = new Date().toISOString().slice(0, 10);
-  const out = detail.parts.filter((p) => !p.releaseDate || p.releaseDate <= today);
+  const out = detail.parts.filter(isOut);
   let done = 0;
   for (const part of out) {
     const found = await services.catalog.details({ tmdbId: part.tmdbId, kind: "Movie" });

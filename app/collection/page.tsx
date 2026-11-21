@@ -13,7 +13,7 @@ import TitleHero from "@/components/TitleHero";
 import WatchedCard from "@/components/WatchedCard";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
-import { loadCollection, type CollectionData } from "@/lib/collections";
+import { isOut, loadCollection, type CollectionData } from "@/lib/collections";
 import { seenState } from "@/lib/domain/passes";
 import type { Completion } from "@/lib/ports/passes";
 import { services } from "@/lib/services";
@@ -162,7 +162,7 @@ function CollectionView() {
                           {mine && <StatusBadge kind="watched" maxSize={28} className="absolute right-[4%] top-[3%]" />}
                         </span>
                         <span className="font-serif text-sm leading-tight">{p.title}</span>
-                        <span className="text-xs text-neutral-500">{p.releaseDate?.slice(0, 4) ?? "Not out yet"}</span>
+                        <span className="text-xs text-neutral-500">{isOut(p) ? p.releaseDate?.slice(0, 4) : p.releaseDate ? `Out ${p.releaseDate}` : "Not out yet"}</span>
                       </Link>
                     </li>
                   );

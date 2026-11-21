@@ -15,7 +15,7 @@ import { checkNewEpisodes, continueCandidates } from "@/lib/shows";
 import { hasMoreAfter, isNewSince, placeIn } from "@/lib/domain/tv";
 import type { TrackedShow } from "@/lib/ports/follows";
 import { showKey } from "@/lib/ports/progress";
-import { loadCollection } from "@/lib/collections";
+import { isOut, loadCollection } from "@/lib/collections";
 import type { CollectionDetail } from "@/lib/ports/catalog";
 import { normalize } from "@/lib/domain/search";
 
@@ -323,7 +323,7 @@ interface CollectionPick {
 /** The collections picked for this visit to Home, kept so the three rows show three different ones. */
 const collectionPools = new Map<"mine" | "new", Promise<CollectionPick[]>>();
 
-const released = (p: CollectionDetail["parts"][number]) => !!p.releaseDate && p.releaseDate <= new Date().toISOString().slice(0, 10);
+const released = isOut;
 
 /** Words to search collection names with, so discovery turns up franchises from anywhere and any era. */
 const COLLECTION_WORDS = ["man", "night", "love", "war", "king", "dark", "story", "la", "der", "il", "no", "dragon", "black", "red", "city", "last", "return", "blood", "road", "girl", "ghost", "super", "mission", "day", "dead", "star", "toy", "kung", "ring"];
