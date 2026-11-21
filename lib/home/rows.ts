@@ -29,6 +29,8 @@ export interface RowItem {
   progress?: number;
   /** Set on a Continue watching poster: what taking it off Home needs. */
   removable?: { mediaId: string; addedAt: string; collectionId?: number };
+  /** An eye on the poster: finished (a collection you have seen all of). */
+  watched?: boolean;
   /** What makes this the same film as one in another row, when its key is not enough (a film inside a collection row). */
   claim?: string;
 }
@@ -534,7 +536,7 @@ async function wantPickRow(): Promise<Result<RowResult>> {
 }
 
 /** Titles related to the given seeds, leaving out anything already seen, hidden or saved. */
-async function relatedTo(seeds: CatalogMatch[], title: string, empty: string): Promise<Result<RowResult>> {
+async function relatedTo(seeds: CatalogMatch[], title: string, empty: string, exclude: ReadonlySet<string> = new Set()): Promise<Result<RowResult>> {
   if (seeds.length === 0) return ok({ title, items: [], empty });
   const [lists, seen, saved] = await Promise.all([
     Promise.all(seeds.map((match) => services.catalog.recommendations(match))),
@@ -546,7 +548,7 @@ async function relatedTo(seeds: CatalogMatch[], title: string, empty: string): P
     const bad = lists.find((list) => !list.ok);
     return bad && !bad.ok ? fail(bad.error) : ok({ title, items: [], empty });
   }
-  const skip = new Set([...seen, ...saved.map((s) => seenKey(s.kind, s.tmdbId))]);
+  const skip = new Set([...seen, ...saved.map((s) => seenKey(s.kind, s.tmdbId)), ...exclude]);
   const unique = new Map<string, CatalogHit>();
   for (const hit of shuffle(good.flat())) if (!skip.has(seenKey(hit.kind, hit.tmdbId))) unique.set(seenKey(hit.kind, hit.tmdbId), hit);
   return ok({ title, ...split([...unique.values()].map(hitItem), 18), empty });
@@ -554,10 +556,22 @@ async function relatedTo(seeds: CatalogMatch[], title: string, empty: string): P
 
 /** One title picked at random from the watchlist, and what TMDB says goes with it. */
 async function becauseSavedRow(): Promise<Result<RowResult>> {
-  const saved = await savedTitles();
-  const one = saved.length > 0 ? pick(saved) : null;
+  const [saved, collections] = await Promise.all([savedTitles(), services.wanted.collections()]);
+  const options: ({ title: CatalogMatch & { name: string } } | { collection: { collectionId: number; name: string } })[] = [
+    ...saved.map((s) => ({ title: { kind: s.kind, tmdbId: s.tmdbId, name: s.item.title } })),
+    ...(collections.ok ? collections.value.map((c) => ({ collection: c })) : []),
+  ];
+  const one = options.length > 0 ? pick(options) : null;
   if (!one) return ok({ title: "Similar to a saved title", items: [], empty: "Save a few titles to get related picks here." });
-  return relatedTo([{ kind: one.kind, tmdbId: one.tmdbId }], `Similar to ${one.item.title}`, "Nothing related right now.");
+  if ("title" in one) return relatedTo([{ kind: one.title.kind, tmdbId: one.title.tmdbId }], `Similar to ${one.title.name}`, "Nothing related right now.");
+
+  // A saved collection: what goes with a few of its films, leaving out the collection's own films.
+  const detail = await services.catalog.collection(one.collection.collectionId);
+  if (!detail.ok) return detail;
+  const films = detail.value.parts.filter(released);
+  const name = detail.value.name;
+  const title = `Similar to ${/collection/i.test(name) ? name : `${name} Collection`}`;
+  return relatedTo(shuffle(films).slice(0, 3).map((f) => ({ kind: "Movie" as const, tmdbId: f.tmdbId })), title, "Nothing related right now.", new Set(detail.value.parts.map((f) => seenKey("Movie", f.tmdbId))));
 }
 
 async function tvAcclaimedRow(): Promise<Result<RowResult>> {

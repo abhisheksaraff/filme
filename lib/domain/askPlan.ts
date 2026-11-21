@@ -15,6 +15,10 @@ export const askPlanSchema = z.object({
   countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(6),
   keywords: z.array(z.string().min(1).max(80)).max(6),
   like: z.array(z.string().min(1).max(80)).max(2),
+  /** Named film series or franchises (James Bond, Toy Story); each is looked up as a TMDB collection. */
+  collections: z.array(z.string().min(1).max(80)).max(4),
+  /** True when the question wants the collections themselves ("fun trilogies to start"), false when it wants their films ("Bond films"). */
+  asCollections: z.boolean(),
   sortBy: z.enum(["popular", "newest", "oldest", "rating"]).nullable(),
   seen: z.enum(["not-seen", "seen", "either"]),
   /** Minutes; movies only, since TMDB has no runtime filter for shows. */
@@ -26,7 +30,7 @@ export const askPlanSchema = z.object({
 });
 export type AskPlan = z.infer<typeof askPlanSchema>;
 
-export const EMPTY_PLAN: AskPlan = { people: [], titles: [], genres: [], languages: [], countries: [], keywords: [], like: [], sortBy: null, seen: "either", maxRuntime: null, minRuntime: null, providers: [], inTheatres: null };
+export const EMPTY_PLAN: AskPlan = { people: [], titles: [], genres: [], languages: [], countries: [], keywords: [], like: [], collections: [], asCollections: false, sortBy: null, seen: "either", maxRuntime: null, minRuntime: null, providers: [], inTheatres: null };
 
 /** Cleans the AI's reply into a plan; anything unexpected becomes "nothing planned". */
 export function normalizePlan(value: unknown): AskPlan {
@@ -36,7 +40,7 @@ export function normalizePlan(value: unknown): AskPlan {
 
 /** True when the plan asks to find things on TMDB (as opposed to only narrowing the user's own log). */
 export function hasPlan(plan: AskPlan): boolean {
-  return plan.people.length + plan.titles.length + plan.genres.length + plan.languages.length + plan.countries.length + plan.keywords.length + plan.like.length + plan.providers.length > 0
+  return plan.people.length + plan.titles.length + plan.genres.length + plan.languages.length + plan.countries.length + plan.keywords.length + plan.like.length + plan.collections.length + plan.providers.length > 0
     || plan.seen === "not-seen" || plan.maxRuntime !== null || plan.minRuntime !== null || plan.inTheatres !== null;
 }
 

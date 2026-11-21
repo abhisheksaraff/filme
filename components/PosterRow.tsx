@@ -17,8 +17,6 @@ import type { RowItem } from "@/lib/home/rows";
 const RING_MAX = 24;
 /** The ring's width as the badge sizes it (a quarter of the poster, within limits), so `left` can park it against the right edge. */
 const RING_WIDTH = `clamp(18px, 24%, ${RING_MAX}px)`;
-/** The small gap between the ring and the x when both show. */
-const RING_GAP = "4px";
 
 interface Props {
   items: RowItem[];
@@ -101,35 +99,39 @@ export default function PosterRow({ items, onRemove, grid }: Props) {
                   ) : (
                     <div className="aspect-[2/3] w-full rounded-lg bg-neutral-200 dark:bg-neutral-800" />
                   )}
-                  {/* The ring sits top right; on a lifted poster it slides left, just far enough to leave room for the x. */}
+                  {/* The ring sits top right. On a lifted poster it gives way to the x, which carries the same progress as a thin outline. */}
                   {partly && (
                     <StatusBadge
                       kind="watched"
                       progress={item.progress}
                       maxSize={RING_MAX}
-                      className={`absolute top-[3%] ${removable ? "transition-[left] duration-300 ease-out" : "right-[4%]"}`}
-                      style={removable ? { left: up ? `calc(96% - ${RING_WIDTH} - ${RING_WIDTH} - ${RING_GAP})` : `calc(96% - ${RING_WIDTH})` } : undefined}
+                      className={`absolute right-[4%] top-[3%] transition-opacity duration-300 ${up ? "opacity-0" : ""}`}
                     />
                   )}
+                  {!partly && item.watched && <StatusBadge kind="watched" maxSize={28} className="absolute right-[4%] top-[3%]" />}
                   {/* The ring wins when a show is both partly watched and on the watchlist. */}
-                  {!partly && wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" maxSize={28} className="absolute right-[4%] top-[3%]" />}
+                  {!partly && !item.watched && wanted.has(wantedKeyOf(item.href) ?? "") && <StatusBadge kind="watchlist" maxSize={28} className="absolute right-[4%] top-[3%]" />}
                   {removable && (
-                    <button
-                      type="button"
-                      aria-label={`Remove ${item.title} from Home`}
-                      tabIndex={up ? 0 : -1}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setAsking(item);
-                      }}
-                      style={{ width: RING_WIDTH }}
-                      className={`absolute right-[4%] top-[3%] flex aspect-square items-center justify-center rounded-full bg-black text-white shadow-md ring-1 ring-white transition-[opacity,transform] duration-300 ease-out before:absolute before:-inset-2 before:content-[''] dark:ring-neutral-950 ${
-                        up ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-3 opacity-0"
-                      }`}
-                    >
-                      <Icon name="close" size={12} />
-                    </button>
+                    <span style={{ width: RING_WIDTH }} className={`absolute right-[4%] top-[3%] aspect-square transition-opacity duration-300 ease-out ${up ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.title} from Home`}
+                        tabIndex={up ? 0 : -1}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setAsking(item);
+                        }}
+                        className="relative flex h-full w-full items-center justify-center rounded-full bg-black text-white shadow-md before:absolute before:-inset-2 before:content-['']"
+                      >
+                        <Icon name="close" size={12} />
+                      </button>
+                      {/* A thin outline round the x: a dark track with a white arc for how far through you are. */}
+                      <svg viewBox="0 0 100 100" aria-hidden="true" className="pointer-events-none absolute -inset-[3px] h-[calc(100%+6px)] w-[calc(100%+6px)] -rotate-90">
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,0,0,0.6)" strokeWidth="8" />
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="#ffffff" strokeWidth="8" pathLength={100} strokeDasharray={`${Math.min(0.97, Math.max(0.04, item.progress ?? 0)) * 100} 100`} />
+                      </svg>
+                    </span>
                   )}
                 </div>
                 {/* The year sits straight under the title, one line or two; the box keeps one fixed height so every row is the same height before and after its pictures load. */}

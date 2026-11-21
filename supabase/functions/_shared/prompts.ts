@@ -73,6 +73,9 @@ Two kinds of fields:
    such as "Netflix", "Prime Video", "Disney+", "Crave", "Apple TV+"), inTheatres ("now" for what is in cinemas, "soon" for coming out soon).
    Always give people's full real names: expand nicknames and initials ("SRK" is Shah Rukh Khan, "Big B" is Amitabh Bachchan) and fix
    obvious misspellings. Questions may be in any language, or Hindi/Punjabi written in English letters; understand them and answer in the same fields.
+   collections (named film series or franchises such as "James Bond" or "Toy Story", asking for "Bond films" gives collections: ["James Bond"]
+   with asCollections false; asking for the series themselves, or for fun, scary or classic trilogies and franchises to watch, gives collections
+   with real series names and asCollections true).
    "Like X but newer" is like: ["X"] with releaseFrom set to a recent year. For the person's own history ("my most rewatched", "rated
    below 5", "last Christmas") use the log filters, not the plan. If the question cannot be turned into any of this, leave everything empty.
 Put people ONLY in plan.people, never in text. Put title words in text only for searching titles that were typed as such.
@@ -84,7 +87,7 @@ text (string), category ("Movie", "TV Show", "Concert" or "Live Event"), dateFro
 releaseFrom (year, integer), releaseTo (year, integer), minRating (number 1-10), maxRating (number 1-10), format (string), extra (string), venue (string),
 genre (string), person (string), rewatchesOnly (boolean), sort ("newest", "oldest" or "rating"),
 plan: { people: [{ name: string, role: "cast" | "director" | "writer" | "any" }], titles: [string], genres: [string], languages: [string],
-countries: [string], keywords: [string], like: [string], sortBy ("popular", "newest", "oldest", "rating" or null), seen ("not-seen", "seen" or "either"),
+countries: [string], keywords: [string], like: [string], collections: [string], asCollections (boolean), sortBy ("popular", "newest", "oldest", "rating" or null), seen ("not-seen", "seen" or "either"),
 maxRuntime (minutes or null), minRuntime (minutes or null), providers: [string], inTheatres ("now", "soon" or null) }.`;
 
 export const STORY_SYSTEM = `

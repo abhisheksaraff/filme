@@ -7,7 +7,7 @@ const names = z.preprocess((v) => (typeof v === "string" ? (v.trim() ? [v.trim()
 
 export const logFilterSchema = z.object({
   text: z.string().nullable(),
-  category: z.enum(["Movie", "TV Show", "Concert", "Live Event"]).nullable(),
+  category: z.enum(["Movie", "TV Show", "Concert", "Live Event", "Collection"]).nullable(),
   dateFrom: z.string().nullable(),
   dateTo: z.string().nullable(),
   /** Release years (not the dates watched), such as 1950 to 1959 for "the 50s". */

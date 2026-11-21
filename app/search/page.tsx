@@ -29,6 +29,9 @@ import type { StatRow } from "@/lib/domain/stats";
 import { warmTitle } from "@/lib/handoff";
 import { loadStatRows, previewHref, seenKey } from "@/lib/home/rows";
 import { usePageState } from "@/lib/pageMemory";
+import { loadCollection } from "@/lib/collections";
+import { seenState, type SeenState } from "@/lib/domain/passes";
+import type { WantedCollection } from "@/lib/ports/wanted";
 import type { BrowseSpec, CatalogHit, CatalogKind } from "@/lib/ports/catalog";
 import type { WantedItem } from "@/lib/ports/wanted";
 import StatusBadge from "@/components/StatusBadge";
@@ -90,6 +93,8 @@ interface Item {
   rewatched?: boolean;
   /** Share of a show's episodes logged, from 0 to 1, when only part of it is; "pending" until that is known, so no eye shows too early. */
   progress?: number | "pending";
+  /** Where it sits among the results when it is not from TMDB's own list of titles (a collection); lower is better. */
+  rank?: number;
 }
 
 interface PersonItem {
@@ -105,6 +110,8 @@ interface Found {
   plan?: { people: { name: string; tmdbId: number; profilePath: string | null }[]; missing: string[]; notice: string | null };
   hits: CatalogHit[];
   groups?: Record<string, number>;
+  /** Collections (film series) that matched what was typed or asked for. */
+  collections?: { id: number; name: string; posterPath: string | null }[];
   people: PersonItem[];
   problem: string | null;
 }
@@ -171,6 +178,10 @@ function SearchView() {
   const [found, setFound] = useState<Found | null>(null);
   const [wanted, setWanted] = useState<WantedItem[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
+  // Collections you have started or saved, and how far through each one you are, for the results that are collections.
+  const [startedCollections, setStartedCollections] = useState<{ collectionId: number; name: string | null }[]>([]);
+  const [savedCollections, setSavedCollections] = useState<WantedCollection[]>([]);
+  const [collectionData, setCollectionData] = useState<Map<number, { name: string; posterPath: string | null; state: SeenState }>>(new Map());
   const [rows, setRows] = useState<StatRow[]>([]);
   // Searching inside one list only: what you have watched, or your Watchlist. Opened by the search button on those pages.
   const [scope, setScope] = usePageState<"watched" | "watchlist" | "both" | null>("search.scope", null);
@@ -275,14 +286,16 @@ function SearchView() {
   const needsLookup = scopeEff === null ? planOn : planLookup;
   // Venue, format, watch dates and rewatches exist only in your log, so TMDB has nothing to say about them.
   const logOnly = Boolean(asList(filter.venue).length > 0 || asList(filter.format).length > 0 || asList(filter.extra).length > 0 || filter.dateFrom || filter.dateTo || filter.maxRating !== null || filter.rewatchesOnly);
-  const kinds: CatalogKind[] = scopeEff !== null ? [] : (logOnly && !tmdbSide) || filter.category === "Concert" || filter.category === "Live Event" ? [] : filter.category ? [filter.category] : ["Movie", "TV Show"];
+  const kinds: CatalogKind[] = scopeEff !== null ? [] : (logOnly && !tmdbSide) || filter.category === "Concert" || filter.category === "Live Event" || filter.category === "Collection" ? [] : filter.category ? [filter.category] : ["Movie", "TV Show"];
   const searchKey = JSON.stringify([planOn ? plan : null, filter.sort, q, scopeEff, filter.category, filter.genre, filter.releaseFrom, filter.releaseTo, filter.minRating, filter.person, logOnly, personTmdb]);
 
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
-    Promise.all([services.wanted.list(), services.log.seen(), loadStatRows()]).then(([w, s, r]) => {
+    Promise.all([services.wanted.list(), services.log.seen(), loadStatRows(), services.passes.collectionsSeen(), services.wanted.collections()]).then(([w, s, r, started, saved]) => {
       if (cancelled) return;
+      if (started.ok) setStartedCollections(started.value);
+      if (saved.ok) setSavedCollections(saved.value);
       if (w.ok) setWanted(w.value);
       if (s.ok) setSeen(new Set(s.value));
       if (r.ok) setRows((prev) => keepIfSame(prev, r.value));
@@ -291,6 +304,32 @@ function SearchView() {
       cancelled = true;
     };
   }, [ready]);
+
+  // How far through each listed collection you are: asked only for the ones you have started and that are in the results.
+  const startedIds = useMemo(() => new Set(startedCollections.map((c) => c.collectionId)), [startedCollections]);
+  const needCollections = useMemo(() => {
+    const matching = (name: string | null) => q.length < 2 || (!!name && normalize(name).includes(normalize(q)));
+    const ids = inW
+      ? startedCollections.filter((c) => matching(c.name)).map((c) => c.collectionId)
+      : (found?.key === searchKey ? found.collections ?? [] : []).map((c) => c.id).filter((id) => startedIds.has(id));
+    return [...new Set(ids)].slice(0, 30);
+  }, [inW, startedCollections, startedIds, found, searchKey, q]);
+  useEffect(() => {
+    const missing = needCollections.filter((id) => !collectionData.has(id));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    Promise.all(missing.map((id) => loadCollection(id))).then((res) => {
+      if (cancelled) return;
+      setCollectionData((now) => {
+        const next = new Map(now);
+        for (const r of res) if (r.ok) next.set(r.value.detail.id, { name: r.value.detail.name, posterPath: r.value.detail.posterPath, state: seenState(r.value.passes) });
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [needCollections, collectionData]);
 
   // Titles and people from TMDB, and people already in your log.
   useEffect(() => {
@@ -347,9 +386,12 @@ function SearchView() {
           isSeen: (h) => seen.has(seenKey(h.kind, h.tmdbId)),
         });
         if (cancelled) return;
-        setFound({ key: searchKey, hits: out.hits, groups: out.groups, people: [], plan: { people: out.people, missing: out.missing, notice: out.notice }, problem: null });
+        setFound({ key: searchKey, hits: out.hits, groups: out.groups, collections: out.collections, people: [], plan: { people: out.people, missing: out.missing, notice: out.notice }, problem: null });
         return;
       }
+      // Film series (collections) that match the typed words, listed with the titles; TMDB cannot narrow them by genre, year, rating or person.
+      const withCollections = q.length >= 2 && !creditResult && (filter.category === null || filter.category === "Collection") && !filter.genre && filter.releaseFrom === null && filter.releaseTo === null && filter.minRating === null && !filter.person && !logOnly;
+      const collectionRes = withCollections ? await services.catalog.searchCollections(q) : null;
       const results = creditResult ? [creditResult] : await Promise.all(kinds.map(async (kind) => {
         if (q.length >= 2) {
           // Typed titles come from TMDB's search, which has no filters, so they are narrowed here.
@@ -382,6 +424,7 @@ function SearchView() {
         key: searchKey,
         // Movies and shows are mixed, best match of each first, rather than all movies and then all shows.
         hits: interleave(results.map((r) => (r.ok ? r.value : []))),
+        collections: collectionRes?.ok ? collectionRes.value.slice(0, 6) : undefined,
         people: people.slice(0, 12),
         problem: failed && !failed.ok ? failed.error : null,
       });
@@ -529,6 +572,40 @@ function SearchView() {
       }
     }
 
+    // Collections: those TMDB found for the typed words or the question, the ones you have started (when searching what you watched)
+    // and the ones you saved (when searching your Watchlist). A name that has the typed word in it ranks above the plain title matches.
+    const rankName = (name: string) => {
+      const n = normalize(name);
+      const t = normalize(q);
+      return t.length < 2 ? 5 : n.startsWith(t) || n.split(" ").includes(t) ? -1 : n.includes(t) ? 3 : 8;
+    };
+    const nameFits = (name: string | null) => q.length < 2 || (!!name && normalize(name).includes(normalize(q)));
+    const addCollection = (c: { id: number; name: string; posterPath: string | null }) => {
+      if (out.has(`collection:${c.id}`)) return;
+      const data = collectionData.get(c.id);
+      const started = startedIds.has(c.id);
+      out.set(`collection:${c.id}`, {
+        key: `collection:${c.id}`,
+        href: `/collection/?id=${c.id}`,
+        poster: tmdbImageUrl(c.posterPath ?? data?.posterPath ?? null, "w185"),
+        title: c.name,
+        year: null,
+        kind: "Collection",
+        watched: started,
+        wanted: savedCollections.some((s) => s.collectionId === c.id),
+        rating: null,
+        score: null,
+        scoreItem: null,
+        group: 0,
+        // The eye waits for how far through you are, so a collection you are partway through never shows as finished.
+        progress: data ? (data.state.kind === "ring" ? data.state.progress : undefined) : started ? "pending" : undefined,
+        rank: rankName(c.name),
+      });
+    };
+    if (scopeEff === null && found?.key === searchKey) for (const c of found.collections ?? []) addCollection(c);
+    if (inW && (filter.category === null || filter.category === "Collection") && !logOnly) for (const c of startedCollections) if (nameFits(c.name)) addCollection({ id: c.collectionId, name: c.name ?? collectionData.get(c.collectionId)?.name ?? "Collection", posterPath: collectionData.get(c.collectionId)?.posterPath ?? null });
+    if (inL && (filter.category === null || filter.category === "Collection")) for (const c of savedCollections) if (nameFits(c.name)) addCollection({ id: c.collectionId, name: c.name, posterPath: c.posterPath });
+
     // The IMDb score (the catalogue's until it arrives) replaces what each title came with.
     const list = [...out.values()].map((i) => ({ ...i, score: (i.scoreItem ? scores.get(scoreKey(i.scoreItem)) : undefined) ?? i.score }));
     // The chosen sort applies inside each group (titles matching the most typed countries, languages and genres first).
@@ -544,7 +621,7 @@ function SearchView() {
     // Otherwise they stay in order of how well they matched; whether you have seen one does not move it.
     // Where TMDB listed a title is where it ranks, whether or not you have watched or bookmarked it; titles it did not return go after.
     const tmdbRank = new Map((fromTmdb?.hits ?? []).map((h, i) => [identity(h.kind, h.title, h.year), i] as const));
-    const rankOf = (i: Item) => tmdbRank.get(identity(i.kind, i.title, i.year)) ?? Number.MAX_SAFE_INTEGER;
+    const rankOf = (i: Item) => i.rank ?? tmdbRank.get(identity(i.kind, i.title, i.year)) ?? Number.MAX_SAFE_INTEGER;
     // Not watched yet really means that, whichever list a title came from.
     const pool = plan.seen === "not-seen" ? list.filter((i) => !i.watched) : plan.seen === "seen" ? list.filter((i) => i.watched) : list;
     // Each pill that is on is a test. Titles passing every one are the results; only when there are none are the ones passing fewer shown, best first.
@@ -562,7 +639,7 @@ function SearchView() {
     const shown = pills.length === 0 ? scored : exact.length > 0 ? exact : scored.filter((x) => x.n > 0);
     const list2 = shown.map((x, index) => ({ ...x, index })).sort((a, b) => b.n - a.n || a.item.group - b.item.group || within(a.item, b.item) || rankOf(a.item) - rankOf(b.item) || a.index - b.index).map((x) => x.item);
     return { list: list2, fallback };
-  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn, askOn, progressOf, scope, scopeEff, inW, inL, tmdbSide, planLookup, plan, scores]);
+  }, [active, rows, filter, q, wanted, seen, found, searchKey, order, logOnly, planOn, askOn, progressOf, scope, scopeEff, inW, inL, tmdbSide, planLookup, plan, scores, collectionData, startedCollections, savedCollections, startedIds]);
   const items = built.list;
 
   // IMDb scores for what is listed: saved ones come back at once, and a few missing ones are looked up in the background.
@@ -715,7 +792,7 @@ function SearchView() {
               label="Type"
               value={filter.category ?? ""}
               onChange={(v) => set({ category: (v || null) as LogFilter["category"] })}
-              options={[{ value: "", label: "Any type" }, ...["Movie", "TV Show", "Concert", "Live Event"].map((c) => ({ value: c, label: c }))]}
+              options={[{ value: "", label: "Any type" }, ...["Movie", "TV Show", "Concert", "Live Event", "Collection"].map((c) => ({ value: c, label: c }))]}
             />
             <PickSelect label="Sort by" value={order} idle="default" onChange={(v) => setOrder(v as Order)} options={ORDERS.map((o) => ({ value: o.id, label: o.label }))} />
             {/* A minimum only offers ratings up to the maximum, and the maximum only ratings from the minimum, so the two can never disagree. */}

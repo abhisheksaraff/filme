@@ -19,8 +19,8 @@ interface Props {
   style?: React.CSSProperties;
 }
 
-/** Never shown as empty or as full until it truly is: at least a twelfth, at most just short of the whole ring. */
-const arc = (progress: number) => Math.min(0.97, Math.max(1 / 12, progress));
+/** Drawn as it is: a quarter of the ring is a quarter of the way round. Never empty until nothing is watched and never full until it is all watched. */
+const arc = (progress: number) => Math.min(0.97, Math.max(0.04, progress));
 /** The ring is drawn on a 100-unit square so it scales with the circle. */
 const R = 40;
 const STROKE = 18;
@@ -44,7 +44,7 @@ export default function StatusBadge({ kind, size, progress, maxSize = 40, classN
             <circle cx="50" cy="50" r={R} fill="none" stroke="rgba(55,55,60,0.75)" strokeWidth={STROKE} />
             <circle cx="50" cy="50" r={R + STROKE / 2} fill="none" stroke="#ffffff" strokeWidth={1.4} />
             <circle cx="50" cy="50" r={R - STROKE / 2} fill="none" stroke="#ffffff" strokeWidth={1.4} />
-            <circle cx="50" cy="50" r={R} fill="none" stroke="#ffffff" strokeWidth={STROKE} strokeLinecap="round" strokeDasharray={`${arc(progress) * LENGTH} ${LENGTH}`} />
+            <circle cx="50" cy="50" r={R} fill="none" stroke="#ffffff" strokeWidth={STROKE} strokeLinecap="butt" strokeDasharray={`${arc(progress) * LENGTH} ${LENGTH}`} />
           </svg>
         ) : (
           <span className="flex h-[58%] w-[58%] items-center justify-center [&>svg]:h-full [&>svg]:w-full">

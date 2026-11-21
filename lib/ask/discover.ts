@@ -4,6 +4,7 @@
 import type { LogFilter } from "@/lib/domain/askLog";
 import type { AskPlan } from "@/lib/domain/askPlan";
 import type { BrowseSpec, Catalog, CatalogHit, CatalogKind } from "@/lib/ports/catalog";
+import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 
 const PAGES = 3;
 /** The most TMDB lists asked for at once for one kind of title, however many countries, languages and genres were typed. */
@@ -30,6 +31,8 @@ export interface DiscoverOutcome {
    * them, then those that match the first one typed, then the next. Absent when only one of each was asked for.
    */
   groups: Record<string, number>;
+  /** Collections to list as themselves, when the question asked for series rather than their films. */
+  collections: { id: number; name: string; posterPath: string | null }[];
   /** Names, themes or titles that could not be found. */
   missing: string[];
   /** Set when the plan had to be loosened to find anything. */
@@ -81,6 +84,26 @@ export async function discover(input: DiscoverInput): Promise<DiscoverOutcome> {
       return { title, hit: res.ok ? (res.value[0] ?? null) : null };
     }))),
   ]);
+
+  // Named series: each is found as a collection, then listed as itself or as its films that are out.
+  const asCollections: DiscoverOutcome["collections"] = [];
+  const collectionFilms: CatalogHit[] = [];
+  const today = new Date().toISOString().slice(0, 10);
+  await Promise.all(plan.collections.map(async (name) => {
+    const found = await catalog.searchCollections(name);
+    const top = found.ok ? found.value[0] : undefined;
+    if (!top) return void missing.push(name);
+    if (plan.asCollections) return void asCollections.push(top);
+    const detail = await catalog.collection(top.id);
+    if (!detail.ok) return void missing.push(name);
+    for (const p of detail.value.parts) {
+      if (!p.releaseDate || p.releaseDate > today) continue;
+      collectionFilms.push({ kind: "Movie", tmdbId: p.tmdbId, title: p.title, year: p.releaseDate.slice(0, 4), releaseDate: p.releaseDate, posterUrl: tmdbImageUrl(p.posterPath) });
+    }
+  }));
+  // A question that only names series needs no general list beside them.
+  const onlySeries = plan.collections.length > 0 && plan.people.length + plan.genres.length + plan.languages.length + plan.countries.length + plan.keywords.length + plan.providers.length + plan.like.length === 0
+    && plan.maxRuntime === null && plan.minRuntime === null && plan.inTheatres === null;
 
   const providerIds = plan.providers.flatMap((name) => {
     const hit = PROVIDERS.find(([pattern]) => pattern.test(name));
@@ -188,17 +211,17 @@ export async function discover(input: DiscoverInput): Promise<DiscoverOutcome> {
 
   let notice: string | null = null;
   const asTagged = (list: CatalogHit[]): Tagged[] => list.map((hit) => ({ hit, countries: new Set(), languages: new Set(), genres: new Set() }));
-  let hits = cinema ? asTagged(cinema) : await run({ keywords: true, genres: true, everyone: false });
+  let hits = cinema ? asTagged(cinema) : onlySeries ? [] : await run({ keywords: true, genres: true, everyone: false });
   // Loosen one thing at a time: mood words first, then genre, then "all of them" to "any of them".
-  if (!cinema && hits.length === 0 && keywords.length > 0) {
+  if (!cinema && !onlySeries && hits.length === 0 && keywords.length > 0) {
     hits = await run({ keywords: false, genres: true, everyone: false });
     if (hits.length > 0) notice = "Nothing matched the mood words, so they were left out.";
   }
-  if (!cinema && hits.length === 0 && genreIds.length > 0) {
+  if (!cinema && !onlySeries && hits.length === 0 && genreIds.length > 0) {
     hits = await run({ keywords: false, genres: false, everyone: false });
     if (hits.length > 0) notice = "Nothing matched that genre, so it was left out.";
   }
-  if (!cinema && hits.length === 0 && found.length > 1) {
+  if (!cinema && !onlySeries && hits.length === 0 && found.length > 1) {
     hits = await run({ keywords: false, genres: false, everyone: true });
     if (hits.length > 0) notice = "No title has all of them, so these have any one of them.";
   }
@@ -240,8 +263,8 @@ export async function discover(input: DiscoverInput): Promise<DiscoverOutcome> {
   const groups: Record<string, number> = {};
   if (grouped) for (const t of ranked) groups[key(t.hit)] = groupOf(t);
 
-  let all = dedupe([...namedHits, ...likeLists.flat(), ...ranked.map((t) => t.hit)]);
+  let all = dedupe([...collectionFilms.sort((a, b) => (a.releaseDate ?? "").localeCompare(b.releaseDate ?? "")), ...namedHits, ...likeLists.flat(), ...ranked.map((t) => t.hit)]);
   if (plan.seen === "not-seen") all = all.filter((h) => !input.isSeen(h));
   if (plan.seen === "seen") all = all.filter((h) => input.isSeen(h));
-  return { hits: all, people: found, missing: [...new Set(missing)], notice, groups };
+  return { hits: all, people: found, collections: asCollections, missing: [...new Set(missing)], notice, groups };
 }

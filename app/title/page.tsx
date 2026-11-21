@@ -18,7 +18,6 @@ import TitleActions from "@/components/TitleActions";
 import PersonCircle from "@/components/PersonCircle";
 import PerformerInput from "@/components/PerformerInput";
 import WatchedCard from "@/components/WatchedCard";
-import CollectionCard from "@/components/CollectionCard";
 import StackCard, { cardOf, type ShowRef } from "@/components/StackCard";
 import { useShowPasses } from "@/hooks/useShowPasses";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -29,6 +28,7 @@ import { startEntryFrom } from "@/lib/logPrefill";
 import { logShowNow } from "@/lib/logShow";
 import WhenPopup from "@/components/WhenPopup";
 import ShowSection from "@/components/ShowSection";
+import { seenState } from "@/lib/domain/passes";
 import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
 import { useShowData } from "@/hooks/useShowData";
 import { scopeRank, type Cover } from "@/lib/domain/tv";
@@ -154,6 +154,8 @@ function TitleView() {
   ];
   if (isShow && rows.some((r) => "node" in r)) rows.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   const showRef = (d: NonNullable<typeof detail>): ShowRef => ({ mediaId: d.mediaId, title: d.title, category: d.category, posterPath: d.posterPath });
+  // A show shows a ring on the plus button while it is being watched (first time or rewatch), an eye once finished, nothing before.
+  const showState = isShow && sp.passes ? seenState(sp.passes.show) : null;
   const covers: Cover[] = (detail?.viewings ?? []).map((v) => ({ scope: v.scope, season: v.season, episode: v.episode, date: v.watchedOn }));
 
   return (
@@ -186,15 +188,14 @@ function TitleView() {
 
             <TitleActions
               wanted={wanted}
-              watched={(detail.viewings ?? []).length > 0}
+              watched={showState ? showState.kind === "eye" : (detail.viewings ?? []).length > 0}
+              progress={showState?.kind === "ring" ? showState.progress : undefined}
               canBookmark={detail.tmdbId !== null && (detail.category === "Movie" || detail.category === "TV Show")}
               watch={isLive ? null : { tmdbId: detail.tmdbId, kind: isShow ? "TV Show" : "Movie", title: detail.title, year: detail.releaseDate?.slice(0, 4) ?? null }}
               busy={busy}
               onToggleWanted={toggleWanted}
               onLog={isShow ? () => setMenu(true) : () => logAnother()}
             />
-
-            {detail.category === "Movie" && detail.tmdbId !== null && <CollectionCard tmdbId={detail.tmdbId} />}
 
             {isShow && detail.tmdbId !== null && <ShowSection mediaId={detail.mediaId} data={showData} covers={covers} passes={sp.passes} inContinue={sp.inContinue} onReset={sp.reset} />}
 

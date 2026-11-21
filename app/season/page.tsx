@@ -178,9 +178,6 @@ function SeasonView() {
   const lastLine = lastWatchedText(latestViewing((detail?.viewings ?? []).filter((v) => v.scope === "show" || v.season === n)), true);
   const mine = sp.passes?.seasons.get(n) ?? null;
   const state = mine ? seenState(mine) : null;
-  const badge =
-    state?.kind === "eye" ? <StatusBadge kind="watched" maxSize={36} className="absolute right-1.5 top-1.5" /> :
-    state?.kind === "ring" && sp.inContinue ? <StatusBadge kind="watched" progress={state.progress} maxSize={36} className="absolute right-1.5 top-1.5" /> : null;
   const showRef: ShowRef | null = detail?.mediaId ? { mediaId: detail.mediaId, title: detail.title, category: "TV Show", posterPath: detail.posterPath } : null;
   const byId = new Map((detail?.viewings ?? []).map((v) => [v.id, v] as const));
   // Season logs, series logs and the completion cards of this season or the series; single episodes live on their own pages.
@@ -203,7 +200,6 @@ function SeasonView() {
           </>
         ) : ""}
         loading={!detail && !problem}
-        posterBadge={badge}
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8">
@@ -218,6 +214,8 @@ function SeasonView() {
             ]} />
             <TitleActions
               wanted={wanted}
+              watched={state?.kind === "eye"}
+              progress={state?.kind === "ring" ? state.progress : undefined}
               canBookmark
               watch={{ tmdbId: detail.tmdbId, kind: "TV Show", title: detail.title, year: detail.releaseDate?.slice(0, 4) ?? null }}
               busy={busy}

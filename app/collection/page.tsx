@@ -126,7 +126,6 @@ function CollectionView() {
         title={data?.detail.name ?? ""}
         subtitle={data ? `${data.detail.parts.length} films` : ""}
         loading={!data && !problem}
-        posterBadge={state?.kind === "eye" ? <StatusBadge kind="watched" maxSize={36} className="absolute right-1.5 top-1.5" /> : state?.kind === "ring" ? <StatusBadge kind="watched" progress={state.progress} maxSize={36} className="absolute right-1.5 top-1.5" /> : null}
       />
       <div className="flex flex-col gap-5 px-5 pb-8">
         <ProblemPopup message={problem} onClose={() => setProblem(null)} />
@@ -140,7 +139,7 @@ function CollectionView() {
               { label: "Watched", value: timesText(data.passes.passes.length) },
             ]} />
             {data.detail.overview && <p className="text-sm text-neutral-600 dark:text-neutral-400">{data.detail.overview}</p>}
-            <TitleActions wanted={wanted} watched={data.viewings.length > 0} canBookmark watch={null} busy={busy} onToggleWanted={() => void toggleWanted()} onLog={() => setWhen("ask")} />
+            <TitleActions wanted={wanted} watched={state?.kind === "eye"} progress={state?.kind === "ring" ? state.progress : undefined} canBookmark watch={null} busy={busy} onToggleWanted={() => void toggleWanted()} onLog={() => setWhen("ask")} />
             <RewatchLine passes={data.passes} onReset={reset} noun="film" />
 
             <section className="flex flex-col gap-2">

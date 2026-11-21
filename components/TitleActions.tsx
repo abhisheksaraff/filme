@@ -11,6 +11,8 @@ interface Props {
   wanted: boolean;
   /** True once a viewing is logged; an eye then sits on the plus button. */
   watched?: boolean;
+  /** Partway through (first time or a rewatch), from 0 to 1: a ring sits on the plus button instead of the eye. */
+  progress?: number;
   /** False when the title was added by hand, so the watchlist has no catalogue entry to save. */
   canBookmark: boolean;
   /** What the Watch button needs to build its link; null hides the button (concerts and live events). */
@@ -20,7 +22,7 @@ interface Props {
   onLog: () => void;
 }
 
-export default function TitleActions({ wanted, watched = false, canBookmark, watch, busy, onToggleWanted, onLog }: Props) {
+export default function TitleActions({ wanted, watched = false, progress, canBookmark, watch, busy, onToggleWanted, onLog }: Props) {
   return (
     <div className="flex items-center gap-3">
       {watch && <WatchButton watch={watch} />}
@@ -35,7 +37,9 @@ export default function TitleActions({ wanted, watched = false, canBookmark, wat
       />
       <span className="relative">
         <RoundButton icon="plus" label="Log a viewing" tone="dark" size="lg" onClick={onLog} />
-        {watched && <StatusBadge kind="watched" size={22} className="absolute -right-1 -top-1" />}
+        {progress !== undefined && progress < 1
+          ? <StatusBadge kind="watched" progress={progress} size={22} className="absolute -right-1 -top-1" />
+          : watched && <StatusBadge kind="watched" size={22} className="absolute -right-1 -top-1" />}
       </span>
     </div>
   );
