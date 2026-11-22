@@ -81,7 +81,7 @@ export default function WantPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl wide:max-w-[min(94vw,88rem)] flex-col gap-5 px-5 pb-4 pt-6 wide:pt-0">
-      <PageHeader title="Watchlist" inset="wide:pl-[3.25rem]">
+      <PageHeader title="Watchlist">
         <ScopeSearchButton scope="watchlist" />
         <SortButton value={sort} options={LIST_SORTS} onChange={setSort} />
       </PageHeader>

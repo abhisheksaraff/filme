@@ -341,9 +341,9 @@ function ImageViewerInner({ images, start, onClose, onAdd, onSetDefault, onDelet
               {images.length > 1 && <RoundButton icon="right" label="Next" disabled={at === images.length - 1} onClick={() => go(1)} size="lg" className={CIRCLE} />}
             </div>
 
-            {/* Choices that change what is kept sit lower, with room above them so they are not hit by accident. */}
-            {((onSetDefault && (image.id || image.tmdbPath) && !image.isDefault) || (onDelete && (image.id || image.local))) && (
-              <div className="mt-6 flex items-center gap-3">
+            {/* Choices that change what is kept sit just under the arrows. The space is always kept when this viewer offers any, so the picture never moves between photos. */}
+            {(onSetDefault || onDelete) && (
+              <div className="flex h-11 items-center gap-3">
                 {onSetDefault && (image.id || image.tmdbPath) && !image.isDefault && (
                   <button type="button" onClick={() => onSetDefault(image)} className="rounded-full bg-white px-5 py-2.5 font-medium text-neutral-950">
                     Make default

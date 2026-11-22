@@ -10,7 +10,7 @@ import { getSupabase } from "./client";
 const PUBLIC = "covers";
 const EXTENSION: Record<string, string> = { "image/webp": "webp", "image/jpeg": "jpg", "image/png": "png" };
 
-const column = (owner: ImageOwner) => ("sessionId" in owner ? (["session_id", owner.sessionId] as const) : "completionId" in owner ? (["completion_id", owner.completionId] as const) : (["media_id", owner.mediaId] as const));
+const column = (owner: ImageOwner) => ("scope" in owner ? (["scope", owner.scope] as const) : "sessionId" in owner ? (["session_id", owner.sessionId] as const) : "completionId" in owner ? (["completion_id", owner.completionId] as const) : (["media_id", owner.mediaId] as const));
 const isCover = (kind: string) => kind === "poster" || kind === "backdrop";
 
 async function userId(): Promise<string | null> {
@@ -75,7 +75,7 @@ export const supabaseImageRepository: ImageRepository = {
 
     const [col, id] = column(owner);
     // A title keeps only its latest custom poster and cover, so older uploads are removed first.
-    const old = cover && "mediaId" in owner
+    const old = cover && ("mediaId" in owner || "scope" in owner)
       ? await db.from("images").select("id, path").eq(col, id).eq("kind", kind).eq("source", "upload")
       : null;
 
@@ -123,6 +123,13 @@ export const supabaseImageRepository: ImageRepository = {
       const update = await db.from("media_items").update({ [field]: value }).eq("id", owner.mediaId);
       if (update.error) return fail("Could not change the poster.");
     }
+    // A season's, episode's or collection's poster or cover is kept in its choices.
+    if ("scope" in owner && isCover(image.data.kind as string)) {
+      const value =
+        image.data.source === "tmdb" ? (image.data.path as string) : db.storage.from(PUBLIC).getPublicUrl(image.data.path as string).data.publicUrl;
+      const saved = await db.from("picture_choices").upsert({ scope: owner.scope, kind: image.data.kind, value }, { onConflict: "user_id,scope,kind" });
+      if (saved.error) return fail("Could not change the picture.");
+    }
     return ok(undefined);
   },
 
@@ -158,6 +165,27 @@ export const supabaseImageRepository: ImageRepository = {
     const field = kind === "poster" ? "poster_path" : "backdrop_path";
     const update = await db.from("media_items").update({ [field]: tmdbPath }).eq("id", mediaId);
     return update.error ? fail("Could not change the picture.") : ok(undefined);
+  },
+
+  async chosen(scope) {
+    const { data, error } = await getSupabase().from("picture_choices").select("kind, value").eq("scope", scope);
+    if (error) return fail("Could not load the pictures.");
+    const out: Partial<Record<"poster" | "backdrop", string>> = {};
+    for (const row of data) out[row.kind as "poster" | "backdrop"] = row.value as string;
+    return ok(out);
+  },
+
+  async useTmdbPicture(scope, kind, tmdbPath) {
+    const db = getSupabase();
+    const clear = await db.from("images").update({ is_default: false }).eq("scope", scope).eq("kind", kind);
+    if (clear.error) return fail("Could not change the picture.");
+    const saved = await db.from("picture_choices").upsert({ scope, kind, value: tmdbPath }, { onConflict: "user_id,scope,kind" });
+    return saved.error ? fail("Could not change the picture.") : ok(undefined);
+  },
+
+  async clearChoice(scope, kind) {
+    const { error } = await getSupabase().from("picture_choices").delete().eq("scope", scope).eq("kind", kind);
+    return error ? fail("Could not change the picture.") : ok(undefined);
   },
 
   async avatar() {

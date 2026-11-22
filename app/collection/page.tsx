@@ -9,6 +9,8 @@ import ProblemPopup from "@/components/ProblemPopup";
 import RewatchLine from "@/components/RewatchLine";
 import StackCard, { cardOf } from "@/components/StackCard";
 import StatusBadge from "@/components/StatusBadge";
+import ScopePicturesViewer from "@/components/ScopePicturesViewer";
+import { useScopePictures } from "@/hooks/useScopePictures";
 import TitleHero from "@/components/TitleHero";
 import WatchedCard from "@/components/WatchedCard";
 import { useRequireSession } from "@/hooks/useRequireSession";
@@ -50,6 +52,9 @@ function CollectionView() {
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<CollectionInfo | null>(null);
   const [wanted, setWanted] = useState(false);
+  // Tapping the cover or poster opens every picture TMDB has for the collection; one of yours can be uploaded or made the main one.
+  const [viewer, setViewer] = useState<"poster" | "backdrop" | null>(null);
+  const { chosen, reload: reloadPictures } = useScopePictures(data ? `collection:${data.detail.id}` : null);
 
   useEffect(() => {
     if (!ready || id === null) return;
@@ -121,8 +126,10 @@ function CollectionView() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
-        backdropUrl={tmdbImageUrl(data?.detail.backdropPath, "w780")}
-        posterUrl={tmdbImageUrl(data?.detail.posterPath, "w342")}
+        backdropUrl={tmdbImageUrl(chosen.backdrop ?? data?.detail.backdropPath, "w780")}
+        posterUrl={tmdbImageUrl(chosen.poster ?? data?.detail.posterPath, "w342")}
+        onCoverClick={data ? () => setViewer("backdrop") : undefined}
+        onPosterClick={data ? () => setViewer("poster") : undefined}
         title={data?.detail.name ?? ""}
         subtitle={data ? `${data.detail.parts.length} films` : ""}
         loading={!data && !problem}
@@ -211,6 +218,19 @@ function CollectionView() {
           }>
           <DateField value={day} max={today()} onChange={setDay} label="Date" className="h-11 bg-white/10 text-white" hintClass="text-white/50" />
         </Popup>
+      )}
+      {viewer && data && (
+        <ScopePicturesViewer
+          scope={`collection:${data.detail.id}`}
+          kind={viewer}
+          load={async () => {
+            const res = await services.catalog.pictures({ collectionId: data.detail.id });
+            return res.ok ? (viewer === "poster" ? res.value.posters : res.value.backdrops) : [];
+          }}
+          currentPath={viewer === "poster" ? (chosen.poster ?? data.detail.posterPath) : (chosen.backdrop ?? data.detail.backdropPath)}
+          onChanged={reloadPictures}
+          onClose={() => setViewer(null)}
+        />
       )}
     </main>
   );

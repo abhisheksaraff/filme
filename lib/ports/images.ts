@@ -11,7 +11,7 @@ export interface StoredImage {
 }
 
 /** Whose image it is: a viewing's own, or a title's. */
-export type ImageOwner = { sessionId: string } | { mediaId: string } | { completionId: string };
+export type ImageOwner = { sessionId: string } | { mediaId: string } | { completionId: string } | { scope: string };
 
 export type ImageKind = "ticket" | "photo" | "poster" | "backdrop";
 
@@ -25,6 +25,15 @@ export interface ImageRepository {
   remove(imageId: string): Promise<Result<void>>;
   /** Uses a TMDB poster or cover instead of an uploaded one. */
   useTmdbCover(mediaId: string, kind: "poster" | "backdrop", tmdbPath: string): Promise<Result<void>>;
+  /**
+   * The poster and cover chosen for a season, an episode or a collection (a "scope" such as "collection:10"): a TMDB picture path or
+   * the link of an upload. A kind that has not been chosen is left out, and the page keeps showing TMDB's own.
+   */
+  chosen(scope: string): Promise<Result<Partial<Record<"poster" | "backdrop", string>>>>;
+  /** Uses a TMDB picture for a scope; an upload of yours is kept but stops being the main one. */
+  useTmdbPicture(scope: string, kind: "poster" | "backdrop", tmdbPath: string): Promise<Result<void>>;
+  /** Goes back to TMDB's own picture for a scope. */
+  clearChoice(scope: string, kind: "poster" | "backdrop"): Promise<Result<void>>;
   avatar(): Promise<Result<string | null>>;
   setAvatar(blob: Blob): Promise<Result<string>>;
   /** Deletes the uploaded profile picture, so the default shows again. */

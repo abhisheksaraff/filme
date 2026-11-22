@@ -364,7 +364,7 @@ export default function ScanPage() {
 
         {images.length > 0 && <RescanButton shape="full" disabled={busy !== null} onClick={() => setConfirm("rescan")} />}
         <button type="submit" disabled={busy !== null}
-          className="rounded-full bg-neutral-950 px-5 py-4 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-950 wide:w-60 wide:self-center">
+          className="rounded-full bg-neutral-950 px-5 py-4 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-950 wide:w-[22.5rem] wide:self-center">
           Save
         </button>
         <CancelButton shape="full" disabled={busy !== null} onClick={() => setConfirm("cancel")} />

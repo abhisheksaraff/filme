@@ -334,6 +334,16 @@ const rawCatalog: Catalog = {
     });
   },
 
+  async pictures(of) {
+    const path = "collectionId" in of ? `/collection/${of.collectionId}/images` : of.episode !== undefined ? `/tv/${of.tmdbId}/season/${of.season}/episode/${of.episode}/images` : `/tv/${of.tmdbId}/season/${of.season}/images`;
+    const res = await callFunction<{ posters?: { file_path: string }[]; backdrops?: { file_path: string }[]; stills?: { file_path: string }[] }>("tmdb", { path, params: { include_image_language: "en,null" } });
+    if (!res.ok) return fail(res.error);
+    return ok({
+      posters: (res.value.posters ?? []).slice(0, 30).map((p) => p.file_path),
+      backdrops: (res.value.stills ?? res.value.backdrops ?? []).slice(0, 30).map((p) => p.file_path),
+    });
+  },
+
   async personImages(tmdbId) {
     const res = await callFunction<{ profiles?: { file_path: string }[] }>("tmdb", { path: `/person/${tmdbId}/images` });
     if (!res.ok) return fail(res.error);
@@ -481,6 +491,7 @@ export const edgeCatalog: Catalog = {
   details: (match) => remember(`details3:${match.kind}:${match.tmdbId}`, () => rawCatalog.details(match), DAY_MS, true),
   collection: (id) => remember(`collection:${id}`, () => rawCatalog.collection(id), 6 * 60 * MINUTE, true),
   images: (match) => remember(`images:${match.kind}:${match.tmdbId}`, () => rawCatalog.images(match), DAY_MS, true),
+  pictures: (of) => remember(`pictures:${JSON.stringify(of)}`, () => rawCatalog.pictures(of), DAY_MS, true),
   personImages: (id) => remember(`personImages:${id}`, () => rawCatalog.personImages(id), DAY_MS, true),
   person: (id) => remember(`person:${id}`, () => rawCatalog.person(id), DAY_MS, true),
   personCredits: (id) => remember(`personCredits:${id}`, () => rawCatalog.personCredits(id), DAY_MS, true),

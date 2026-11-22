@@ -21,7 +21,7 @@ import { services } from "@/lib/services";
 
 const small = "rounded-2xl bg-neutral-200 px-3 py-1.5 text-sm disabled:opacity-40 dark:bg-neutral-700";
 const primary =
-  "rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900 wide:w-60 wide:self-center";
+  "rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900 wide:w-[22.5rem] wide:self-center";
 
 /** Returns a copy of `list` with the item at `index` swapped with its neighbour. */
 function moved<T>(list: T[], index: number, by: -1 | 1): T[] | null {

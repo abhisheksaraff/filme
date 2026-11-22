@@ -231,13 +231,13 @@ export default function CalendarPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-4 px-4 pb-4 pt-6 wide:pt-0">
-      <PageHeader title="Calendar" inset="wide:pl-14" className="px-1">
+      <PageHeader title="Calendar" className="px-1 wide:px-0 wide:pl-[4.75rem] wide:pr-4">
         {/* On a big screen the filter button sits here, level with the title; the one beside the month is for phones. */}
         <span className="hidden wide:block"><RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} /></span>
       </PageHeader>
 
       {/* Big screen: the month on the left, the chosen day's details on the right. */}
-      <div className="flex flex-col gap-4 wide:grid wide:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] wide:items-start wide:gap-8">
+      <div className="flex flex-col gap-4 wide:grid wide:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] wide:items-start wide:gap-8 wide:pl-14">
       <div className="flex min-w-0 flex-col gap-4">
 
       <header className="relative z-30 mt-3 flex items-center justify-between px-1">

@@ -13,6 +13,8 @@ import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
 import Icon from "@/components/Icon";
 import PersonCircle from "@/components/PersonCircle";
 import TitleActions from "@/components/TitleActions";
+import ScopePicturesViewer from "@/components/ScopePicturesViewer";
+import { useScopePictures } from "@/hooks/useScopePictures";
 import TitleHero from "@/components/TitleHero";
 import InfoCards, { timesText } from "@/components/InfoCards";
 import { useGenres } from "@/hooks/useGenres";
@@ -56,6 +58,10 @@ function EpisodeView() {
   const [busy, setBusy] = useState(false);
   const [when, setWhen] = useState(false);
   const [reload, setReload] = useState(0);
+  // Tapping the cover (the episode's still) or the poster (the show's) opens every picture TMDB has; one of yours can be uploaded or made the main one.
+  const [viewer, setViewer] = useState<"poster" | "backdrop" | null>(null);
+  const scope = detail?.tmdbId ? `episode:${detail.tmdbId}:${s}:${e}` : null;
+  const { chosen, reload: reloadPictures } = useScopePictures(scope);
   const genres = useGenres("TV Show", detail?.tmdbId ?? null);
 
   useEffect(() => {
@@ -147,8 +153,10 @@ function EpisodeView() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
-        backdropUrl={tmdbImageUrl(episode?.stillPath, "w780") ?? tmdbImageUrl(detail?.backdropPath, "w780")}
-        posterUrl={tmdbImageUrl(detail?.posterPath, "w342")}
+        backdropUrl={tmdbImageUrl(chosen.backdrop ?? episode?.stillPath, "w780") ?? tmdbImageUrl(detail?.backdropPath, "w780")}
+        posterUrl={tmdbImageUrl(chosen.poster ?? detail?.posterPath, "w342")}
+        onCoverClick={scope ? () => setViewer("backdrop") : undefined}
+        onPosterClick={scope ? () => setViewer("poster") : undefined}
         title={episode?.name ?? `Episode ${e}`}
         subtitle={detail ? (
           <>
@@ -227,6 +235,24 @@ function EpisodeView() {
       </nav>
 
       {when && <WhenPopup what={`S${s} E${e}`} busy={busy} onToday={() => logNow()} onForm={logWithForm} onUndated={() => logNow(null)} onClose={() => setWhen(false)} />}
+      {viewer && scope && detail?.tmdbId && (
+        <ScopePicturesViewer
+          scope={scope}
+          kind={viewer}
+          load={async () => {
+            const tmdbId = detail.tmdbId as number;
+            if (viewer === "backdrop") {
+              const res = await services.catalog.pictures({ tmdbId, season: s, episode: e });
+              return res.ok ? res.value.backdrops : [];
+            }
+            const res = await services.catalog.images({ kind: "TV Show", tmdbId });
+            return res.ok ? res.value.posters : [];
+          }}
+          currentPath={viewer === "poster" ? (chosen.poster ?? detail.posterPath) : (chosen.backdrop ?? episode?.stillPath ?? detail.backdropPath)}
+          onChanged={reloadPictures}
+          onClose={() => setViewer(null)}
+        />
+      )}
     </main>
   );
 }

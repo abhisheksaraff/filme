@@ -203,6 +203,8 @@ export interface Catalog {
   episodePeople(tmdbId: number, season: number, episode: number): Promise<Result<EpisodePerson[]>>;
   /** Poster and cover paths available for a title. */
   images(match: CatalogMatch): Promise<Result<{ posters: string[]; backdrops: string[] }>>;
+  /** Posters and covers for a collection, a season or an episode (an episode's covers are its stills). */
+  pictures(of: { collectionId: number } | { tmdbId: number; season: number; episode?: number }): Promise<Result<{ posters: string[]; backdrops: string[] }>>;
   /** Every profile picture TMDB has for a person, best first, as TMDB image paths. */
   personImages(tmdbId: number): Promise<Result<string[]>>;
   /** Films in cinemas now, or opening soon, in a country. */

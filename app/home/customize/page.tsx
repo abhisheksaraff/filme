@@ -100,7 +100,7 @@ export default function CustomizeHomePage() {
           type="button"
           disabled={busy || !rows}
           onClick={save}
-          className="flex-1 rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900 wide:w-40 wide:flex-none"
+          className="flex-1 rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900 wide:w-60 wide:flex-none"
         >
           Save
         </button>

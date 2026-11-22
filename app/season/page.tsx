@@ -11,6 +11,8 @@ import WhenPopup from "@/components/WhenPopup";
 import { lastWatchedText, latestViewing } from "@/lib/domain/lastWatched";
 import { toast } from "@/components/Toast";
 import TitleActions from "@/components/TitleActions";
+import ScopePicturesViewer from "@/components/ScopePicturesViewer";
+import { useScopePictures } from "@/hooks/useScopePictures";
 import TitleHero from "@/components/TitleHero";
 import InfoCards, { timesText } from "@/components/InfoCards";
 import { useGenres } from "@/hooks/useGenres";
@@ -60,6 +62,10 @@ function SeasonView() {
   const [busy, setBusy] = useState(false);
   const [when, setWhen] = useState(false);
   const [reload, setReload] = useState(0);
+  // Tapping the cover (the show's) or the poster (the season's) opens every picture TMDB has; one of yours can be uploaded or made the main one.
+  const [viewer, setViewer] = useState<"poster" | "backdrop" | null>(null);
+  const scope = detail?.tmdbId ? `season:${detail.tmdbId}:${n}` : null;
+  const { chosen, reload: reloadPictures } = useScopePictures(scope);
   // Picking several episodes to log together.
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
@@ -189,8 +195,10 @@ function SeasonView() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5">
       <TitleHero
-        backdropUrl={tmdbImageUrl(detail?.backdropPath, "w780")}
-        posterUrl={tmdbImageUrl(season?.posterPath ?? detail?.posterPath, "w342")}
+        backdropUrl={tmdbImageUrl(chosen.backdrop ?? detail?.backdropPath, "w780")}
+        posterUrl={tmdbImageUrl(chosen.poster ?? season?.posterPath ?? detail?.posterPath, "w342")}
+        onCoverClick={scope ? () => setViewer("backdrop") : undefined}
+        onPosterClick={scope ? () => setViewer("poster") : undefined}
         title={season?.name ?? `Season ${n}`}
         subtitle={detail ? (
           <>
@@ -323,6 +331,24 @@ function SeasonView() {
           }>
           <DateField value={pickDate} max={today()} onChange={setPickDate} label="Date" className="h-11 bg-white/10 text-white" hintClass="text-white/50" />
         </Popup>
+      )}
+      {viewer && scope && detail?.tmdbId && (
+        <ScopePicturesViewer
+          scope={scope}
+          kind={viewer}
+          load={async () => {
+            const tmdbId = detail.tmdbId as number;
+            if (viewer === "poster") {
+              const res = await services.catalog.pictures({ tmdbId, season: n });
+              return res.ok ? res.value.posters : [];
+            }
+            const res = await services.catalog.images({ kind: "TV Show", tmdbId });
+            return res.ok ? res.value.backdrops : [];
+          }}
+          currentPath={viewer === "poster" ? (chosen.poster ?? season?.posterPath ?? detail.posterPath) : (chosen.backdrop ?? detail.backdropPath)}
+          onChanged={reloadPictures}
+          onClose={() => setViewer(null)}
+        />
       )}
     </main>
   );

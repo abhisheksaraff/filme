@@ -200,11 +200,11 @@ function StackEditView() {
           <p className="text-sm text-neutral-500">This card copies the date, time and place of the last viewing. Anything you change here stays as you set it.</p>
           <EntryForm draft={draft} onChange={setDraft} disabled={busy} lockTitle hideScope />
           {comp && <SessionPicturesEditor sessionId={node.last.viewingId} completion={{ id: comp.id, own: true }} />}
-          <button type="submit" disabled={busy} className="rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900 wide:w-60 wide:self-center">
+          <button type="submit" disabled={busy} className="rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900 wide:w-[22.5rem] wide:self-center">
             Save changes
           </button>
           <button type="button" disabled={busy} onClick={() => setAsk("reset")}
-            className="rounded-2xl bg-neutral-100 px-5 py-3 text-base font-medium text-neutral-700 disabled:opacity-50 dark:bg-neutral-800 dark:text-neutral-200 wide:w-60 wide:self-center">
+            className="rounded-2xl bg-neutral-100 px-5 py-3 text-base font-medium text-neutral-700 disabled:opacity-50 dark:bg-neutral-800 dark:text-neutral-200 wide:w-[22.5rem] wide:self-center">
             Reset to automatic
           </button>
           <CancelButton shape="box" disabled={busy} onClick={() => setAsk("cancel")} />
