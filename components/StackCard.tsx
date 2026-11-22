@@ -125,8 +125,7 @@ export default function StackCard({ node, viewings, edits, show, completions = [
        
         notes={mine.notes}
         entry={{ ...mine.card, id: `stack:${node.id}`, mediaId: show.mediaId, title: show.title, category: show.category, posterPath: show.posterPath, season: collectionId !== undefined ? null : node.season, episode: null }}
-        pictureId={base.id}
-        completionId={stored?.ownPictures ? stored.id : undefined}
+        completionId={stored?.id}
         editHref={collectionId !== undefined ? `/stack/?c=${collectionId}&k=${node.passKey}` : `/stack/?id=${show.mediaId}&s=${node.season ?? "show"}&k=${node.passKey}`}
         onStack={() => setOpen(true)}
       />

@@ -197,7 +197,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
     watcher.observe(el);
     return () => watcher.disconnect();
   }, []);
-  const images = useViewingPictures(pictureId ?? entry.id, near, completionId);
+  const images = useViewingPictures(pictureId ?? entry.id, near && !(onStack && !completionId), completionId);
   // IMDb's rating sits on the title line: a film's own, a show's own, or the episode's. Seasons and collections have none.
   const isShow = entry.category === "TV Show";
   const whole = !noRating && showTitle && !hideTitle && (!isShow || (entry.episode === null && entry.season === null));

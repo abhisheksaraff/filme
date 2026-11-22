@@ -260,11 +260,15 @@ async function continueRow(): Promise<Result<RowResult>> {
   const candidates = continueCandidates(res.value).filter((s) => !hidden.has(seenKey("TV Show", s.tmdbId)));
   const counts = await services.progress.airedSeasons(candidates.map((s) => ({ title: s.title, year: null, tmdbId: s.tmdbId })));
   const items: RowItem[] = [];
+  /** Shows with an episode that aired after the last one you watched, with the day it aired. They lead the row until you watch more. */
+  const fresh = new Map<string, string>();
+  const recentCut = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
   for (const show of candidates) {
     const latest = show.latest;
     const place = placeIn(latest, counts.get(showKey(show.title, null, normalize)) ?? []);
     if (!latest || !hasMoreAfter(place)) continue;
     const last = show.aired ? `S${show.aired.season} E${show.aired.episode}` : null;
+    if (show.aired && isNewSince(show.aired.airDate, show.covers) && show.aired.airDate !== null && show.aired.airDate >= recentCut) fresh.set(`show:${show.mediaId}`, show.aired.airDate);
     items.push({
       key: `show:${show.mediaId}`,
       title: show.title,
@@ -278,7 +282,10 @@ async function continueRow(): Promise<Result<RowResult>> {
   items.push(...(await collectionItems()));
   // The four you watched last come first, newest first; the rest are shuffled so each visit shows others you could pick up.
   const byRecent = [...items].sort((a, b) => Date.parse(b.removable?.addedAt ?? "") - Date.parse(a.removable?.addedAt ?? ""));
-  const ordered = [...byRecent.slice(0, 4), ...shuffle(byRecent.slice(4))];
+  // A show with a new episode comes first, newest episode first, until another episode of it is watched; then it takes its usual place.
+  const news = byRecent.filter((i) => fresh.has(i.key)).sort((a, b) => (fresh.get(b.key) ?? "").localeCompare(fresh.get(a.key) ?? ""));
+  const others = byRecent.filter((i) => !fresh.has(i.key));
+  const ordered = [...news, ...others.slice(0, 4), ...shuffle(others.slice(4))];
   return ok({ title: "Continue watching", ...split(ordered, 20), empty: "You are caught up on everything you started." });
 }
 
@@ -399,7 +406,7 @@ async function collectionRow(kind: "mine" | "new", n: number): Promise<Result<Ro
 }
 
 async function favouritesRow(): Promise<Result<RowResult>> {
-  const title = "New from your favourites";
+  const title = "Fresh picks for you";
   const favourites = await services.log.favourites(3);
   if (!favourites.ok) return favourites;
   if (favourites.value.length === 0) return ok({ title, items: [], empty: "Log and rate a few titles to get picks here." });

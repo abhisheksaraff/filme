@@ -12,6 +12,7 @@ import { supabaseBrowseRepository } from "@/lib/adapters/supabase/SupabaseBrowse
 import { supabaseDataRepository } from "@/lib/adapters/supabase/SupabaseDataRepository";
 import { supabaseImageRepository } from "@/lib/adapters/supabase/SupabaseImageRepository";
 import { supabaseNotificationRepository } from "@/lib/adapters/supabase/SupabaseNotificationRepository";
+import { supabaseStoryViewRepository } from "@/lib/adapters/supabase/SupabaseStoryViewRepository";
 import { supabaseFollowRepository } from "@/lib/adapters/supabase/SupabaseFollowRepository";
 import { supabaseHiddenRepository } from "@/lib/adapters/supabase/SupabaseHiddenRepository";
 import { supabasePassRepository } from "@/lib/adapters/supabase/SupabasePassRepository";
@@ -28,6 +29,7 @@ import type { BrowseRepository } from "@/lib/ports/browse";
 import type { DataRepository } from "@/lib/ports/data";
 import type { ImageRepository } from "@/lib/ports/images";
 import type { NotificationRepository } from "@/lib/ports/notifications";
+import type { StoryViewRepository } from "@/lib/ports/storyViews";
 import type { Catalog } from "@/lib/ports/catalog";
 import type { Geocoder } from "@/lib/ports/geo";
 import type { MediaSearch } from "@/lib/ports/media";
@@ -88,6 +90,7 @@ export const services: {
   data: DataRepository;
   images: ImageRepository;
   notifications: NotificationRepository;
+  storyViews: StoryViewRepository;
   geo: Geocoder;
   media: MediaSearch;
   catalog: Catalog;
@@ -109,6 +112,7 @@ export const services: {
   data: supabaseDataRepository,
   images: supabaseImageRepository,
   notifications: supabaseNotificationRepository,
+  storyViews: supabaseStoryViewRepository,
   geo: nominatimGeocoder,
   media: openverseSearch,
   catalog: edgeCatalog,

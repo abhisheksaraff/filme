@@ -27,6 +27,8 @@ export default function BottomNav() {
               <Link
                 href={tab.href}
                 aria-label={tab.label}
+                // Already on Home: the Home button only takes you back to the top.
+                onClick={tab.href === "/home/" && path.replace(/\/?$/, "/") === "/home/" ? (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); } : undefined}
                 aria-current={active ? "page" : undefined}
                 className={`flex h-12 w-12 max-[380px]:h-11 max-[380px]:w-11 items-center justify-center rounded-full transition-colors ${active ? "bg-neutral-600 text-white" : "text-white"}`}
               >

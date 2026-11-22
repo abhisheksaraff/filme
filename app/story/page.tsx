@@ -25,6 +25,8 @@ import { tmdbImageUrl } from "@/lib/adapters/tmdb/images";
 import { buildStory, storyTitle, validPeriod, type Slide, type StoryKind } from "@/lib/domain/stories";
 import { loadStatRows } from "@/lib/home/rows";
 import { clearStored } from "@/lib/persistentCache";
+import { homeSnapshot } from "@/lib/home/session";
+import { services } from "@/lib/services";
 
 /** How long a slide stays before the next one. */
 const SLIDE_MS = 6000;
@@ -66,7 +68,7 @@ function StoryView() {
   const [revealed, setRevealed] = useState(false);
   const [pulling, setPulling] = useState(false);
   /** False until the first tap on the "Tap to play" screen, which also lets the phone start the sound. */
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(() => params.get("go") === "1");
   /** Each poster's main colour as a gradient, filled in as the pictures are read. */
   const [grads, setGrads] = useState<Record<string, Gradient>>({});
   const [animate] = useState(() => readCachedAppearance().animationsEnabled);
@@ -121,6 +123,9 @@ function StoryView() {
   const slideNow = slides?.[index];
   const memories = useStoryMemories(slideNow?.sessionIds?.length ? slideNow.sessionIds : slides?.[0]?.sessionIds, slideNow?.heading ?? "story");
 
+  /** The stories still to play in a replay, as "kind:period" pairs. */
+  const queue = (params.get("q") ?? "").split(",").filter(Boolean);
+
   function close() {
     if (window.history.length > 1) router.back();
     else router.push("/home/");
@@ -136,10 +141,26 @@ function StoryView() {
     return () => clearTimeout(timer);
   }, [slides, started, index, lastIndex, taps]);
 
+  // Reaching the last slide counts as watching it to the end: it leaves the row under the search and joins the replay circle.
+  const finishedMark = useRef<string | null>(null);
+  useEffect(() => {
+    if (!slides || !started || !isKind(kind) || index < lastIndex || finishedMark.current === `${kind}:${period}`) return;
+    finishedMark.current = `${kind}:${period}`;
+    const at = new Date().toISOString();
+    homeSnapshot.stories = homeSnapshot.stories.map((s) => (s.kind === kind && s.period === period && !s.seen ? { ...s, seen: true, finishedAt: at } : s));
+    void services.storyViews.markFinished(kind, period);
+  }, [slides, started, kind, period, index, lastIndex]);
+
   function step(by: 1 | -1) {
     if (!slides) return;
     const next = index + by;
-    if (next >= slides.length) return close();
+    if (next >= slides.length) {
+      // A replay goes straight on to the next story; the tap that began it already allows sound.
+      const [following, ...rest] = queue;
+      const [k, p] = (following ?? "").split(":");
+      if (following && isKind(k ?? null) && p && validPeriod(k as StoryKind, p)) return router.replace(`/story/?kind=${k}&period=${p}&go=1${rest.length ? `&q=${rest.join(",")}` : ""}`);
+      return close();
+    }
     setIndex(Math.max(0, next));
   }
 
@@ -405,10 +426,16 @@ function StoryView() {
   );
 }
 
+/** Each story in a replay starts fresh, so the page is keyed by which story it is. */
+function KeyedStory() {
+  const params = useSearchParams();
+  return <StoryView key={`${params.get("kind")}:${params.get("period")}`} />;
+}
+
 export default function StoryPage() {
   return (
     <Suspense>
-      <StoryView />
+      <KeyedStory />
     </Suspense>
   );
 }

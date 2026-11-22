@@ -199,7 +199,7 @@ function StackEditView() {
         <form onSubmit={onSubmit} className="flex flex-col gap-5">
           <p className="text-sm text-neutral-500">This card copies the last episode you watched. Anything you change here stays as you set it.</p>
           <EntryForm draft={draft} onChange={setDraft} disabled={busy} lockTitle hideScope />
-          {comp && <SessionPicturesEditor sessionId={node.last.viewingId} completion={{ id: comp.id, own: comp.ownPictures }} />}
+          {comp && <SessionPicturesEditor sessionId={node.last.viewingId} completion={{ id: comp.id, own: true }} />}
           <button type="submit" disabled={busy} className="rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
             Save changes
           </button>

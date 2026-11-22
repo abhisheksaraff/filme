@@ -51,7 +51,7 @@ export const HOME_ROWS: readonly HomeRowDef[] = [
   { id: "because-saved", label: "Similar to a saved title" },
   { id: "tv-acclaimed", label: "Acclaimed TV" },
   ...TV_GENRES.map((g) => ({ id: `tv-${g.id}`, label: g.label })),
-  { id: "favourites", label: "New from your favourites" },
+  { id: "favourites", label: "Fresh picks for you" },
   { id: "theatres", label: "In theatres near you" },
   { id: "soon", label: "Opening soon" },
   { id: "arriving", label: "Arriving from your list" },

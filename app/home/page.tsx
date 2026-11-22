@@ -11,13 +11,13 @@ import Wordmark from "@/components/Wordmark";
 import HomeShortcuts from "@/components/HomeShortcuts";
 import HomeRowSection from "@/components/HomeRowSection";
 import Icon from "@/components/Icon";
-import RoundButton from "@/components/RoundButton";
 import { searchFocus } from "@/lib/searchFocus";
 import { useRequireSession } from "@/hooks/useRequireSession";
 import { baseRowId, expandRows, resolveHomeRows } from "@/lib/domain/home";
 import { clearHomeCache } from "@/lib/home/rows";
 import { homeSnapshot } from "@/lib/home/session";
 import { keepIfSame } from "@/lib/same";
+import { useStoryShortcuts } from "@/hooks/useStoryShortcuts";
 import { runMaintenance } from "@/lib/maintenance";
 import { services } from "@/lib/services";
 import { currentTheme, readCachedAppearance } from "@/lib/theme";
@@ -32,6 +32,13 @@ export default function HomePage() {
   const [reach, setReach] = useState(2);
   const [problem, setProblem] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
+  // Bumped by a tap on the logo: the rows are put in order again (a new random order when shuffle is on).
+  const [order, setOrder] = useState(0);
+  // Stories not watched to the end show under the search; watched ones wait behind the grey circle at the top, latest first.
+  const stories = useStoryShortcuts(nonce);
+  const fresh = useMemo(() => stories.filter((s) => !s.seen), [stories]);
+  const replay = useMemo(() => stories.filter((s) => s.seen).sort((a, b) => (b.finishedAt ?? "").localeCompare(a.finishedAt ?? "")), [stories]);
+  const replayHref = replay.length === 0 ? null : `${replay[0].href}${replay.length > 1 ? `&q=${replay.slice(1).map((s) => `${s.kind}:${s.period}`).join(",")}` : ""}`;
 
   useEffect(() => {
     if (!ready) return;
@@ -62,7 +69,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [ready]);
+  }, [ready, order]);
 
   const onSettled = useCallback((id: string, keys: string[]) => {
     setClaims((now) => {
@@ -89,15 +96,33 @@ export default function HomePage() {
     return out;
   }, [rows, claims]);
 
+  /** Like the logo on YouTube: back to the top, with every row picking fresh titles. */
+  function refreshHome() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    clearHomeCache();
+    homeSnapshot.claims = {};
+    homeSnapshot.rows = null;
+    setClaims({});
+    setOrder((n) => n + 1);
+    setNonce((n) => n + 1);
+  }
+
   if (!ready) return null;
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
       <header className="flex items-center justify-between">
-        <Wordmark className="text-3xl" />
-        {/* Refresh sits just left of the picture, level with it. */}
+        {/* Tapping the logo refreshes Home; a grey wash shows the tap, and a lighter one the pointer. */}
+        <button type="button" aria-label="Refresh Home" onClick={refreshHome} className="-mx-2 rounded-xl px-2 py-0.5 transition-colors hover:bg-neutral-100 active:bg-neutral-200 dark:hover:bg-neutral-800 dark:active:bg-neutral-700">
+          <Wordmark className="text-3xl" />
+        </button>
         <div className="flex translate-y-1 items-center gap-3">
-          <RoundButton icon="refresh" label="Refresh" onClick={() => { clearHomeCache(); homeSnapshot.claims = {}; setClaims({}); setNonce((n) => n + 1); }} />
+          {/* The stories you have watched, one after another; gone once they have all expired. */}
+          {replayHref && (
+            <Link href={replayHref} aria-label="Watch your stories again" className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+              <Icon name="calendar" size={20} />
+            </Link>
+          )}
           <Link href="/profile/" aria-label="Profile"><Avatar /></Link>
         </div>
       </header>
@@ -113,7 +138,7 @@ export default function HomePage() {
       </div>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
-      <HomeShortcuts nonce={nonce} />
+      <HomeShortcuts stories={fresh} />
       {rows?.map((id, i) => (
         <HomeRowSection key={id} rowId={id} nonce={nonce} load={i <= reach} index={i} onNear={onNear} blocked={blockedFor[i] ?? null} onSettled={onSettled} />
       ))}

@@ -1,6 +1,6 @@
 // lib/shows.ts
-// The once-a-day look at shows you follow: finds each one's latest aired episode, saves it, and raises a notification
-// when something new has aired since you last watched.
+// The once-a-day look at shows you follow: finds each one's latest aired episode and saves it, so Continue watching can put
+// a show with a new episode first.
 import { isCovered, isFollowing, isNewSince } from "@/lib/domain/tv";
 import type { TrackedShow } from "@/lib/ports/follows";
 import { services } from "@/lib/services";
@@ -8,8 +8,6 @@ import { services } from "@/lib/services";
 const CHECKED_KEY = "filme_shows_checked";
 /** Shows looked up per run, so a long watch history cannot use up the day's TMDB calls. */
 const MAX_SHOWS = 30;
-/** A new episode only raises a notification while it is this recent. */
-const NEWS_DAYS = 14;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -62,12 +60,6 @@ export function checkNewEpisodes(): Promise<void> {
         );
       }
 
-      const cutoff = new Date(Date.now() - NEWS_DAYS * 86_400_000).toISOString().slice(0, 10);
-      for (const show of withNewEpisodes(tracked.value)) {
-        if (!show.aired?.airDate || show.aired.airDate < cutoff) continue;
-        // "|" separates the parts, so the show's own name goes last.
-        await services.notifications.ensure("new-episode", `${show.mediaId}|S${show.aired.season}E${show.aired.episode}|${show.title}`);
-      }
       localStorage.setItem(CHECKED_KEY, today());
     } catch {
       // Nothing here is worth interrupting the user; the next open tries again.
