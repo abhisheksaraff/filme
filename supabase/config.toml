@@ -21,3 +21,6 @@ verify_jwt = false
 
 [functions.omdb]
 verify_jwt = false
+
+[functions.imdb-daily]
+verify_jwt = false

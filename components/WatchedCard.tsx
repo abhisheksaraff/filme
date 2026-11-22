@@ -284,7 +284,7 @@ export default function WatchedCard({ entry, index = 0, showTitle = true, label,
             {/* About as long as "Spider-Man: Brand New Day" fits on a line; longer names go to a second line, then "…". */}
             <Link href={titleHref} className="relative z-10 line-clamp-2 min-w-0 max-w-[15.5rem] font-serif text-xl font-medium leading-tight">{entry.title}</Link>
             {imdb && imdb.rating !== null && (
-              <a href={`https://www.imdb.com/title/${imdb.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label={`IMDb rating ${formatScore(imdb.rating)}`} className="relative z-10 shrink-0 pt-1 text-sm text-neutral-500">★ {formatScore(imdb.rating)}</a>
+              <a href={`https://www.imdb.com/title/${imdb.imdbId}/`} target="_blank" rel="noopener noreferrer" aria-label={`IMDb rating ${formatScore(imdb.rating)}`} className="relative z-10 shrink-0 pt-1 text-xs text-neutral-400">★ {formatScore(imdb.rating)}</a>
             )}
           </div>
         )}

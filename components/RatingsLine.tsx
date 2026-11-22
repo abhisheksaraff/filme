@@ -26,7 +26,7 @@ export default function RatingsLine({ links }: Props) {
           IMDb<Icon name="open" size={14} />
         </span>
       )}
-      {shown !== null && <span className="text-neutral-500">★ {num(shown)}</span>}
+      {shown !== null && <span className="text-xs text-neutral-400">★ {num(shown)}</span>}
     </p>
   );
 }

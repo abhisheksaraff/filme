@@ -237,7 +237,7 @@ export default function CalendarPage() {
       </PageHeader>
 
       {/* Big screen: the month on the left, the chosen day's details on the right. */}
-      <div className="flex flex-col gap-4 wide:grid wide:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] wide:items-start wide:gap-8 wide:pl-14">
+      <div className="flex flex-col gap-4 wide:grid wide:grid-cols-[minmax(0,1.35fr)_minmax(0,1.1fr)] wide:items-start wide:gap-8 wide:pl-24">
       <div className="flex min-w-0 flex-col gap-4">
 
       <header className="relative z-30 mt-3 flex items-center justify-between px-1">
@@ -320,7 +320,10 @@ export default function CalendarPage() {
                           {parts.map((part, i) => <span key={i}>{part}</span>)}
                         </span>
                       )}
-                      <span className="text-neutral-500">{[row.venue, row.format, group.length === 1 && (scores.get(row.mediaId) ?? row.score) ? `★ ${formatScore((scores.get(row.mediaId) ?? row.score) as number)}` : null].filter(Boolean).join(" · ")}</span>
+                      <span className="text-neutral-500">
+                        {[row.venue, row.format].filter(Boolean).join(" · ")}
+                        {group.length === 1 && (scores.get(row.mediaId) ?? row.score) ? <span className="text-xs text-neutral-400">{row.venue || row.format ? " · " : ""}★ {formatScore((scores.get(row.mediaId) ?? row.score) as number)}</span> : null}
+                      </span>
                     </span>
                   </Link>
                 </li>
