@@ -4,7 +4,8 @@
 
 import Icon from "@/components/Icon";
 
-const SHAPE = { full: "rounded-full py-4", box: "rounded-2xl py-3" } as const;
+/** On a big landscape screen the buttons are a comfortable width, centred, instead of stretching across the page. */
+const SHAPE = { full: "rounded-full py-4 wide:w-60 wide:self-center", box: "rounded-2xl py-3 wide:w-60 wide:self-center" } as const;
 
 /** Light grey, with the recycle arrows to the left of the words, at the same size as Save and Cancel. */
 export function RescanButton({ onClick, disabled, shape }: { onClick: () => void; disabled?: boolean; shape: keyof typeof SHAPE }) {

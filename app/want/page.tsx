@@ -2,6 +2,7 @@
 // Your watchlist, with theatre alerts and release reminders for the titles you added yourself.
 "use client";
 
+import PageHeader from "@/components/PageHeader";
 import ProblemPopup from "@/components/ProblemPopup";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -79,14 +80,11 @@ export default function WantPage() {
   const card = "flex flex-col gap-2 rounded-2xl bg-neutral-100 p-4 text-sm dark:bg-neutral-900";
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-serif text-3xl tracking-tight">Watchlist</h1>
-        <span className="flex items-center gap-2">
-          <ScopeSearchButton scope="watchlist" />
-          <SortButton value={sort} options={LIST_SORTS} onChange={setSort} />
-        </span>
-      </div>
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl wide:max-w-[min(94vw,88rem)] flex-col gap-5 px-5 pb-4 pt-6 wide:pt-0">
+      <PageHeader title="Watchlist" inset="wide:pl-[3.25rem]">
+        <ScopeSearchButton scope="watchlist" />
+        <SortButton value={sort} options={LIST_SORTS} onChange={setSort} />
+      </PageHeader>
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
       {inTheatres.length > 0 && (

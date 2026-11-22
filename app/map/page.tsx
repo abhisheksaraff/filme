@@ -111,8 +111,8 @@ function MapView() {
     <main className="fixed inset-0 z-10">
       <FlatMap points={points} onPick={pick} fullScreen focus={focus} initialView={view} onViewChange={setView} className="h-full" />
       {/* Same spot and size as the other pages' titles, just under the back button; no panel, only a shadow so it reads over the map. */}
-      <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+4.75rem)] z-20">
-        <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-6 md:max-w-3xl lg:max-w-5xl">
+      <div className="pointer-events-none absolute inset-x-0 top-[calc(max(0.75rem,env(safe-area-inset-top))+4.75rem)] z-20 wide:top-[max(0.75rem,env(safe-area-inset-top))] wide:flex wide:h-10 wide:items-center">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-1 px-6 md:max-w-3xl lg:max-w-5xl wide:flex-row wide:items-center wide:gap-3 wide:pl-[4.5rem]">
           <h1 className="font-serif text-3xl tracking-tight text-neutral-950 [text-shadow:0_1px_6px_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.25)] dark:text-white dark:[text-shadow:0_1px_6px_rgba(0,0,0,0.8)]">Map</h1>
           {finding && <span className="px-1 text-xs text-neutral-800 [text-shadow:0_1px_4px_rgba(255,255,255,0.9)] dark:text-neutral-200 dark:[text-shadow:0_1px_4px_rgba(0,0,0,0.8)]">Finding venues…</span>}
         </div>
@@ -124,7 +124,7 @@ function MapView() {
 
       {open && (
         // Tall, lifted clear of the bottom bar, with a soft shadow so it reads as the thing in front.
-        <div className="fixed inset-x-3 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex h-[60vh] w-auto max-w-md flex-col gap-3 overflow-y-auto rounded-[2.25rem] bg-white px-5 pb-6 pt-5 text-neutral-950 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5),0_6px_16px_rgba(0,0,0,0.25)] md:max-w-xl dark:bg-neutral-900 dark:text-white">
+        <div className="fixed inset-x-3 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex h-[60vh] w-auto max-w-md flex-col wide:h-[72vh] wide:max-w-3xl gap-3 overflow-y-auto rounded-[2.25rem] bg-white px-5 pb-6 pt-5 text-neutral-950 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5),0_6px_16px_rgba(0,0,0,0.25)] md:max-w-xl dark:bg-neutral-900 dark:text-white">
           <div className="flex items-start gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <h2 className="font-serif text-2xl leading-tight tracking-tight">{open.point.name}</h2>
@@ -157,7 +157,7 @@ function MapView() {
             </select>
           </div>
           {!open.detail && <div className="skeleton h-40 rounded-2xl" />}
-          <ul className="grid grid-cols-3 gap-3">
+          <ul className="grid grid-cols-3 gap-3 wide:grid-cols-4">
             {shown.map((v) => (
               <li key={v.sessionId}>
                 <Link href={`/title/?id=${v.mediaId}`} className="flex flex-col gap-1">

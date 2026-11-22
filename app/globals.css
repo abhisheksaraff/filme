@@ -2,6 +2,8 @@
 
 /* Dark mode follows a .dark class on <html>, set from the saved setting or the phone's own. */
 @custom-variant dark (&:where(.dark, .dark *));
+/* A big landscape screen (tablet or computer): wide and tall enough that a phone, upright or sideways, never matches. */
+@custom-variant wide (@media (min-width: 900px) and (min-height: 600px) and (orientation: landscape));
 
 :root {
   --background: #ffffff;

@@ -205,7 +205,7 @@ function EditView() {
           {id && <SessionPicturesEditor sessionId={id} onTickets={setTicketUrls} />}
           {ticketUrls.length > 0 && <RescanButton shape="box" disabled={busy} onClick={() => setConfirm("rescan")} />}
           <button type="submit" disabled={busy}
-            className="rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900">
+            className="rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900 wide:w-60 wide:self-center">
             Save changes
           </button>
           <CancelButton shape="box" disabled={busy} onClick={() => setConfirm("cancel")} />

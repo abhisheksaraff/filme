@@ -26,6 +26,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const showBack = !NO_BACK.includes(path);
   const overCover = OVER_COVER.includes(path);
   const fullScreen = FULL_SCREEN.includes(path);
+  // The back button sits in the same column as the page, so a page that grows wider on a big screen moves it too.
+  const column = path === "/want/" ? "wide:max-w-[min(94vw,88rem)]" : path === "/watchlist/" ? "min-[1800px]:max-w-[1760px]" : "";
 
   // Keeps each page's scroll position, and returns to it when the page is reached with Back.
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <>
           {/* Sits inside the same centred column as the pages, so it is in one place on phone and desktop. */}
           <div className="pointer-events-none fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-30">
-            <div className="mx-auto w-full max-w-md md:max-w-3xl lg:max-w-5xl px-4">
+            <div className={`mx-auto w-full max-w-md md:max-w-3xl lg:max-w-5xl px-4 ${column}`}>
               <RoundButton
                 icon="back"
                 label="Back"

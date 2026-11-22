@@ -3,6 +3,7 @@
 
 "use client";
 
+import PageHeader from "@/components/PageHeader";
 import ProblemPopup from "@/components/ProblemPopup";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -279,16 +280,15 @@ export default function ScanPage() {
   const suggestions = <TitleHits hits={hits} onPick={pick} />;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-6">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-6 wide:pt-0">
       <LoadingOverlay active={busy !== null} hiddenAtStart />
 
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-serif text-3xl tracking-tight">New entry</h1>
-      <button type="button" onClick={() => setConfirm("clear")}
-        className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-colors duration-150 ${clearFlash ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
-        Clear all
-      </button>
-      </div>
+      <PageHeader title="New entry">
+        <button type="button" onClick={() => setConfirm("clear")}
+          className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-colors duration-150 ${clearFlash ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`}>
+          Clear all
+        </button>
+      </PageHeader>
       <UploadToImages
         id="stub-upload"
         onUpload={(imgs, errs) => {
@@ -364,7 +364,7 @@ export default function ScanPage() {
 
         {images.length > 0 && <RescanButton shape="full" disabled={busy !== null} onClick={() => setConfirm("rescan")} />}
         <button type="submit" disabled={busy !== null}
-          className="rounded-full bg-neutral-950 px-5 py-4 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-950">
+          className="rounded-full bg-neutral-950 px-5 py-4 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-950 wide:w-60 wide:self-center">
           Save
         </button>
         <CancelButton shape="full" disabled={busy !== null} onClick={() => setConfirm("cancel")} />

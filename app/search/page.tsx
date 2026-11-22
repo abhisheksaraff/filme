@@ -3,6 +3,7 @@
 // results: people first as round photos, then titles as one list.
 "use client";
 
+import PageHeader from "@/components/PageHeader";
 import { keepIfSame } from "@/lib/same";
 import ProblemPopup from "@/components/ProblemPopup";
 import { FIELD_SM as FIELD } from "@/components/ui/fields";
@@ -743,12 +744,12 @@ function SearchView() {
   const pill = (on: boolean) => `flex items-center gap-1.5 rounded-full px-3.5 py-1.5 ${on ? "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950" : "bg-neutral-100 dark:bg-neutral-800"}`;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
-      <h1 className="font-serif text-3xl tracking-tight">Search</h1>
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8 wide:pt-0">
+      <PageHeader title="Search" />
 
       {/* The same bar in both modes: Ask AI only changes what Return does. Ask AI and Filters are round buttons beside it, black while on. */}
-      <div className="flex items-center gap-2">
-        <form onSubmit={(e) => { e.preventDefault(); if (askOn) void ask(); else inputRef.current?.blur(); }} className="relative min-w-0 flex-1">
+      <div className="flex items-center gap-2 wide:justify-center">
+        <form onSubmit={(e) => { e.preventDefault(); if (askOn) void ask(); else inputRef.current?.blur(); }} className="relative min-w-0 flex-1 wide:max-w-xl">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color-mix(in_srgb,var(--foreground)_50%,transparent)]"><Icon name="search" size={24} /></span>
           <input
             ref={inputRef}

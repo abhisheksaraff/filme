@@ -4,6 +4,7 @@
 // viewings listed underneath.
 "use client";
 
+import PageHeader from "@/components/PageHeader";
 import { keepIfSame } from "@/lib/same";
 import RatingSlider from "@/components/ui/RatingSlider";
 import ProblemPopup from "@/components/ProblemPopup";
@@ -229,8 +230,15 @@ export default function CalendarPage() {
   const visible = current - first;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-4 px-4 pb-4 pt-6">
-      <h1 className="px-1 font-serif text-3xl tracking-tight">Calendar</h1>
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-4 px-4 pb-4 pt-6 wide:pt-0">
+      <PageHeader title="Calendar" inset="wide:pl-14" className="px-1">
+        {/* On a big screen the filter button sits here, level with the title; the one beside the month is for phones. */}
+        <span className="hidden wide:block"><RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} /></span>
+      </PageHeader>
+
+      {/* Big screen: the month on the left, the chosen day's details on the right. */}
+      <div className="flex flex-col gap-4 wide:grid wide:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] wide:items-start wide:gap-8">
+      <div className="flex min-w-0 flex-col gap-4">
 
       <header className="relative z-30 mt-3 flex items-center justify-between px-1">
         <div className="flex items-center gap-1">
@@ -240,7 +248,7 @@ export default function CalendarPage() {
           </button>
           <RoundButton icon="right" label="Next month" size="sm" onClick={() => goTo(current + 1)} />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 wide:hidden">
           <RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} />
         </div>
         {/* A tap anywhere outside the panel closes it; this sits behind the header's own buttons. */}
@@ -285,8 +293,10 @@ export default function CalendarPage() {
         </div>
       )}
 
+      </div>
+
       {pickedRows.length > 0 && picked && (
-        <section id="picked-day" className="flex scroll-mt-4 flex-col gap-3">
+        <section id="picked-day" className="flex scroll-mt-4 flex-col gap-3 wide:sticky wide:top-4">
           <h2 className="px-1 font-serif text-xl">{dayLabel(picked)}</h2>
           <ul className="flex flex-col gap-3">
             {pickedRows.map((group) => {
@@ -319,6 +329,7 @@ export default function CalendarPage() {
           </ul>
         </section>
       )}
+      </div>
 
       {pickerOpen && (
         <MonthPicker

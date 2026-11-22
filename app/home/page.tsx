@@ -110,13 +110,14 @@ export default function HomePage() {
   if (!ready) return null;
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-5 pb-4 pt-6">
-      <header className="flex items-center justify-between">
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl wide:max-w-[min(94vw,88rem)] flex-col gap-5 px-5 pb-4 pt-6 wide:pt-4">
+      {/* Upright phone: logo and picture on one line, then the search. Big landscape screen: logo, search and picture all on one line. */}
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-5 wide:grid-cols-[1fr_minmax(0,36rem)_1fr]">
         {/* Tapping the logo refreshes Home; a grey wash shows the tap, and a lighter one the pointer. */}
-        <button type="button" aria-label="Refresh Home" onClick={refreshHome} className="-mx-2 rounded-xl px-2 py-0.5 transition-colors hover:bg-neutral-100 active:bg-neutral-200 dark:hover:bg-neutral-800 dark:active:bg-neutral-700">
+        <button type="button" aria-label="Refresh Home" onClick={refreshHome} className="col-start-1 row-start-1 -mx-2 justify-self-start rounded-xl px-2 py-0.5 transition-colors hover:bg-neutral-100 active:bg-neutral-200 dark:hover:bg-neutral-800 dark:active:bg-neutral-700">
           <Wordmark className="text-3xl" />
         </button>
-        <div className="flex translate-y-1 items-center gap-3">
+        <div className="col-start-2 row-start-1 flex translate-y-1 items-center gap-3 justify-self-end wide:col-start-3 wide:translate-y-0">
           {/* The stories you have watched, one after another; gone once they have all expired. */}
           {replayHref && (
             <Link href={replayHref} aria-label="Watch your stories again" className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
@@ -125,16 +126,16 @@ export default function HomePage() {
           )}
           <Link href="/profile/" aria-label="Profile"><Avatar /></Link>
         </div>
-      </header>
 
-      <LogoLights />
+        <div className="col-span-full row-start-2 empty:hidden"><LogoLights /></div>
 
-      {/* Full width on an upright phone; centred with room either side on a sideways phone, tablet and laptop. */}
-      <div className="mx-auto flex w-full items-center md:max-w-xl landscape:max-w-xl">
-        <Link href="/search/" onClick={() => searchFocus.prime()} className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-neutral-100 px-4 text-base text-[color-mix(in_srgb,var(--foreground)_50%,transparent)] dark:bg-neutral-800">
-          <span className="shrink-0"><Icon name="search" size={24} /></span>
-          <span className="truncate text-sm">Search movies, shows, concerts…</span>
-        </Link>
+        {/* Full width on an upright phone; centred with room either side on a sideways phone, tablet and laptop. */}
+        <div className="col-span-2 row-start-3 mx-auto flex w-full items-center md:max-w-xl landscape:max-w-xl wide:col-span-1 wide:col-start-2 wide:row-start-1">
+          <Link href="/search/" onClick={() => searchFocus.prime()} className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-neutral-100 px-4 text-base text-[color-mix(in_srgb,var(--foreground)_50%,transparent)] dark:bg-neutral-800">
+            <span className="shrink-0"><Icon name="search" size={24} /></span>
+            <span className="truncate text-sm">Search movies, shows, concerts…</span>
+          </Link>
+        </div>
       </div>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />

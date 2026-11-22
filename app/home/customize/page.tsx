@@ -95,12 +95,12 @@ export default function CustomizeHomePage() {
         ))}
       </ul>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 wide:justify-center">
         <button
           type="button"
           disabled={busy || !rows}
           onClick={save}
-          className="flex-1 rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900"
+          className="flex-1 rounded-2xl bg-neutral-900 px-5 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-neutral-900 wide:w-40 wide:flex-none"
         >
           Save
         </button>

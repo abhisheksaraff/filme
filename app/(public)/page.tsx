@@ -1,9 +1,11 @@
 // app/(public)/page.tsx
 import Wordmark from "@/components/Wordmark";
 import Link from "next/link";
+import SignedInRedirect from "@/components/SignedInRedirect";
 
 export default function WelcomePage() {
   return (
+    <SignedInRedirect>
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-6">
       <h1><Wordmark className="text-5xl" /></h1>
       <p className="text-base leading-relaxed text-neutral-600 dark:text-neutral-400">
@@ -17,5 +19,6 @@ export default function WelcomePage() {
         Log in
       </Link>
     </main>
+    </SignedInRedirect>
   );
 }

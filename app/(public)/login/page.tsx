@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { services } from "@/lib/services";
 import RoundButton from "@/components/RoundButton";
+import SignedInRedirect from "@/components/SignedInRedirect";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,6 +34,7 @@ export default function LoginPage() {
   const field = FIELD_FULL;
 
   return (
+    <SignedInRedirect>
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-6">
       <RoundButton icon="back" label="Back" href="/" />
       <h1 className="font-serif text-4xl tracking-tight">Log in</h1>
@@ -49,5 +51,6 @@ export default function LoginPage() {
         </button>
       </form>
     </main>
+    </SignedInRedirect>
   );
 }

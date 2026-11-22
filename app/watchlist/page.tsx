@@ -2,6 +2,7 @@
 // Entry point for logging a viewing, with the most recent ones listed below.
 "use client";
 
+import PageHeader from "@/components/PageHeader";
 import ProblemPopup from "@/components/ProblemPopup";
 import { toast } from "@/components/Toast";
 import { useEffect, useState } from "react";
@@ -147,18 +148,15 @@ export default function WatchlistPage() {
   }
 
   return (
-    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-5 px-6 pb-4 pt-8">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="font-serif text-3xl tracking-tight">Watched</h1>
-        <span className="flex items-center gap-2">
-          <ScopeSearchButton scope="watched" />
-          <SortButton value={sort} options={LIST_SORTS} onChange={setSort} />
-        </span>
-      </div>
+    <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl min-[1800px]:max-w-[1760px] flex-col gap-5 px-6 pb-4 pt-8 wide:pt-0">
+      <PageHeader title="Watched">
+        <ScopeSearchButton scope="watched" />
+        <SortButton value={sort} options={LIST_SORTS} onChange={setSort} />
+      </PageHeader>
 
       <ProblemPopup message={problem} onClose={() => setProblem(null)} />
 
-      <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3">
+      <ul className="flex flex-col gap-5 md:grid md:grid-cols-2 md:items-start lg:grid-cols-3 min-[1800px]:grid-cols-5">
         {merged.map((item, i) => "card" in item ? (
           <StackCard key={item.card.node.id} node={item.card.node} viewings={item.card.viewings} edits={item.card.edits} showTitle index={i}
             completions={[item.card.completion]} collectionId={item.card.completion.collectionId ?? undefined}
