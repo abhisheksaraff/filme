@@ -10,7 +10,7 @@ import type { ShortcutStory } from "@/lib/home/session";
 export default function HomeShortcuts({ stories }: { stories: ShortcutStory[] }) {
   if (stories.length === 0) return null;
   return (
-    <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 wide:mx-auto wide:max-w-[62rem] wide:px-0">
+    <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 wide:mx-auto wide:w-full wide:max-w-[62rem] wide:px-12">
       {stories.map((story) => (
         <li key={story.key} className="w-16 shrink-0">
           <Link href={story.href} className="flex flex-col items-center gap-1.5">

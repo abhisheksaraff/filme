@@ -309,7 +309,7 @@ export default function FlatMap({ points, onPick, className = "h-[60vh]", fullSc
         </button>
       ))}
 
-      {!still && <div className={`absolute right-3 flex flex-col gap-2 ${fullScreen ? "top-[calc(max(0.25rem,env(safe-area-inset-top))+1.75rem)]" : "top-3"}`}>
+      {!still && <div className={`absolute right-3 flex flex-col gap-2 ${fullScreen ? "wide:right-[max(1rem,calc(50vw_-_31rem))]" : ""} ${fullScreen ? "top-[calc(max(0.25rem,env(safe-area-inset-top))+1.75rem)]" : "top-3"}`}>
         <RoundButton icon="plus" label="Zoom in" onClick={() => zoomBy(1)} />
         <RoundButton icon="minus" label="Zoom out" onClick={() => zoomBy(-1)} />
       </div>}

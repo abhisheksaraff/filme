@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 export default function PageHeader({ title, children, className = "" }: { title: string; children?: ReactNode; className?: string }) {
   return (
-    <div className={`flex items-center justify-between gap-3 wide:relative wide:left-1/2 wide:-mt-[3.25rem] wide:h-10 wide:w-[min(100vw,64rem)] wide:-translate-x-1/2 wide:pl-[4.75rem] wide:pr-4 ${className}`}>
+    <div className={`flex items-center justify-between gap-3 wide:relative wide:left-1/2 wide:-mt-[3.25rem] wide:h-10 wide:w-[min(100vw,64rem)] wide:-translate-x-1/2 wide:pl-[5.75rem] wide:pr-4 ${className}`}>
       <h1 className="font-serif text-3xl tracking-tight">{title}</h1>
       {children && <span className="flex items-center gap-2">{children}</span>}
     </div>

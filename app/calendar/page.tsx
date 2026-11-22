@@ -231,7 +231,7 @@ export default function CalendarPage() {
 
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl flex-col gap-4 px-4 pb-4 pt-6 wide:pt-0">
-      <PageHeader title="Calendar" className="px-1 wide:px-0 wide:pl-[4.75rem] wide:pr-4">
+      <PageHeader title="Calendar" className="px-1 wide:px-0 wide:pl-[5.75rem] wide:pr-4">
         {/* On a big screen the filter button sits here, level with the title; the one beside the month is for phones. */}
         <span className="hidden wide:block"><RoundButton icon="filter" label="Filter" pressed={filterOpen} onClick={() => setFilterOpen((o) => !o)} /></span>
       </PageHeader>

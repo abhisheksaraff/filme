@@ -112,7 +112,7 @@ export default function HomePage() {
   return (
     <main className="relative z-10 mx-auto flex w-full max-w-md md:max-w-3xl lg:max-w-5xl wide:max-w-[min(94vw,88rem)] flex-col gap-5 px-5 pb-4 pt-6 wide:pt-4">
       {/* Upright phone: logo and picture on one line, then the search. Big landscape screen: logo, search and picture all on one line. */}
-      <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-5 wide:mx-auto wide:w-full wide:max-w-[62rem] wide:grid-cols-[1fr_minmax(0,36rem)_1fr]">
+      <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-5 wide:mx-auto wide:w-full wide:max-w-[62rem] wide:px-12 wide:grid-cols-[1fr_minmax(0,36rem)_1fr]">
         {/* Tapping the logo refreshes Home; a grey wash shows the tap, and a lighter one the pointer. */}
         <button type="button" aria-label="Refresh Home" onClick={refreshHome} className="col-start-1 row-start-1 -mx-2 justify-self-start rounded-xl px-2 py-0.5 transition-colors hover:bg-neutral-100 active:bg-neutral-200 dark:hover:bg-neutral-800 dark:active:bg-neutral-700">
           <Wordmark className="text-3xl" />
