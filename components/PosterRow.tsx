@@ -25,11 +25,11 @@ export default function PosterRow({ items, grid, home }: Props) {
   const corner = home ? "right-[3.4%] top-[2.5%]" : "right-[4%] top-[3%]";
 
   return (
-    <ul className={grid ? "grid grid-cols-3 gap-x-1.5 gap-y-4 md:grid-cols-5 lg:grid-cols-6" : `-mx-5 flex ${home ? "gap-1.5 [--n:6] min-[1400px]:[--n:7]" : "gap-3"} overflow-x-auto px-5 pb-2`}>
+    <ul className={grid ? "grid grid-cols-3 gap-x-1.5 gap-y-4 md:grid-cols-5 lg:grid-cols-6" : `-mx-5 flex ${home ? "gap-1.5 [--n:6] min-[1400px]:[--n:7] wide:mx-0 wide:px-0" : "gap-3"} overflow-x-auto px-5 pb-2`}>
       {items.map((item) => {
         const partly = item.progress !== undefined;
         return (
-          <li key={item.key} className={grid ? "min-w-0" : home ? "w-[134px] shrink-0 md:w-[173px] lg:w-[192px] wide:w-[calc((min(94vw,88rem)_-_2.5rem_-_(var(--n)_-_1)*6px)/var(--n))]" : "w-28 shrink-0 md:w-36 lg:w-40"}>
+          <li key={item.key} className={grid ? "min-w-0" : home ? "w-[134px] shrink-0 md:w-[173px] lg:w-[192px] wide:w-[calc((100%_-_(var(--n)_-_1)*6px)/var(--n))]" : "w-28 shrink-0 md:w-36 lg:w-40"}>
             <Link
               href={item.href}
               onClick={() => warmTitle(item.href, { title: item.title, posterUrl: item.posterUrl, subtitle: item.subtitle })}

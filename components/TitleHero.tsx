@@ -27,7 +27,7 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
   return (
     <header>
       <div
-        className="relative h-56 w-full overflow-hidden md:h-72 lg:h-80 bg-neutral-300 dark:bg-neutral-800"
+        className="relative h-56 w-full overflow-hidden md:h-72 lg:h-80 bg-neutral-300 dark:bg-neutral-800 wide:left-1/2 wide:h-[min(62vh,34rem)] wide:w-screen wide:-translate-x-1/2"
         {...(onCoverClick ? { role: "button", tabIndex: 0, "aria-label": "See all covers", onClick: onCoverClick, onKeyDown: (e: React.KeyboardEvent) => e.key === "Enter" && onCoverClick() } : {})}
       >
         {backdropUrl && (
@@ -38,7 +38,7 @@ export default function TitleHero({ backdropUrl, posterUrl, title, subtitle, loa
           </div>
         )}
         {/* Fades the cover into the page colour so the poster sits on a soft edge. */}
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[var(--background)] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-32 wide:h-56 bg-gradient-to-t from-[var(--background)] to-transparent" />
         {loading && <div className="skeleton absolute inset-0" />}
       </div>
 

@@ -31,9 +31,9 @@ interface Props {
 /** The same shapes as a real row, so nothing moves when the pictures arrive. */
 function Placeholder() {
   return (
-    <ul className="-mx-5 flex gap-1.5 overflow-hidden px-5 pb-2 [--n:6] min-[1400px]:[--n:7]" aria-label="Loading">
+    <ul className="-mx-5 flex gap-1.5 overflow-hidden px-5 pb-2 [--n:6] min-[1400px]:[--n:7] wide:mx-0 wide:px-0" aria-label="Loading">
       {Array.from({ length: 4 }, (_, i) => (
-        <li key={i} className="flex w-[134px] shrink-0 flex-col gap-1 md:w-[173px] lg:w-[192px] wide:w-[calc((min(94vw,88rem)_-_2.5rem_-_(var(--n)_-_1)*6px)/var(--n))]">
+        <li key={i} className="flex w-[134px] shrink-0 flex-col gap-1 md:w-[173px] lg:w-[192px] wide:w-[calc((100%_-_(var(--n)_-_1)*6px)/var(--n))]">
           <div className="skeleton aspect-[2/3] w-full rounded-lg" />
           <div className="skeleton h-8 w-full rounded" />
           <div className="skeleton h-4 w-1/2 rounded" />
